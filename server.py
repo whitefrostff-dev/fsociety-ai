@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Form, File, UploadFile, Request
+from fastapi import FastAPI, Form, File, UploadFile, Request,Response,Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
+import uuid
 import os
 from io import BytesIO
 from pypdf import PdfReader
@@ -37,6 +38,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_email TEXT,
+            guest_id TEXT,
             title TEXT
         )
     ''')
