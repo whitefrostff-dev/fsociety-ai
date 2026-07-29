@@ -34,23 +34,17 @@
     <!-- MAIN CHAT AREA -->
     <div class="flex-1 flex flex-col h-full relative">
         <div class="h-14 border-b border-gray-800 bg-gray-900/50 backdrop-blur flex items-center justify-between px-6">
-    <div class="flex items-center gap-3">
-        <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-300 focus:outline-none">
-            <i class="fa-solid fa-bars text-xl"></i>
-        </button>
-        <span class="text-sm font-semibold text-gray-300">Llama 3.2 Vision & PDF Workspace</span>
-    </div>
-    <div class="flex items-center gap-2 text-xs text-gray-400">
-        <label for="textColorPicker">Text Color:</label>
-        <input type="color" id="textColorPicker" value="#f3f4f6" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
-    </div>
-</div>
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-300 focus:outline-none">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
             <span class="text-sm font-semibold text-gray-300">Llama 3.2 Vision & PDF Workspace</span>
-            <div class="flex items-center gap-2 text-xs text-gray-400">
-                <label for="textColorPicker">Text Color:</label>
-                <input type="color" id="textColorPicker" value="#f3f4f6" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
-            </div>
         </div>
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+            <label for="textColorPicker">Text Color:</label>
+            <input type="color" id="textColorPicker" value="#f3f4f6" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
+        </div>
+    </div>
 
         <div id="chat-container" class="flex-1 overflow-y-auto p-6 space-y-6">
             <div class="text-center text-gray-500 mt-20">
