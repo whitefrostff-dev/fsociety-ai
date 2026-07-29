@@ -1,8 +1,8 @@
 fastapi
 uvicorn
-sqlite3
-os
-io
+pypdf
+groq
+authlib
 pypdf
 groq
 authlib
