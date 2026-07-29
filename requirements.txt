@@ -5,4 +5,4 @@ pydantic
 python-dotenv
 python-multipart
 pypdf
-
+authlib
