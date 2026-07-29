@@ -98,15 +98,13 @@ async def serve_frontend():
         with open(html_path, "r", encoding="utf-8") as f:
             return f.read()
     return "<h3>index.html not found. Check your file paths.</h3>"
-
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     user = request.session.get('user')
     email = user['email'] if user else 'guest@local'
-    
     conn = sqlite3.connect("fsociety_history.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title FROM sessions WHERE user_email = ? ORDER BY id DESC", (email,))
+    cursor.execute("SELECT id, title FROM sessions WHERE user_email = ? ", (email,))
     rows = cursor.fetchall()
     conn.close()
     return [{"id": r[0], "title": r[1]} for r in rows]
