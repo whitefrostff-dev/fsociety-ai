@@ -10,7 +10,7 @@
 <body class="bg-gray-950 text-gray-100 flex h-screen overflow-hidden">
 
     <!-- SIDEBAR -->
-    <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+    <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
         <div class="p-4 flex flex-col h-full">
             <h1 class="text-xl font-bold tracking-wider text-red-500 mb-6 flex items-center gap-2">
                 <i class="fa-solid fa-terminal"></i> Fsociety AI
@@ -33,18 +33,18 @@
 
     <!-- MAIN CHAT AREA -->
     <div class="flex-1 flex flex-col h-full relative">
-        <div class="h-14 border-b border-gray-800 bg-gray-900/50 backdrop-blur flex items-center justify-between px-6">
+       <div class="h-14 border-b border-gray-800 bg-gray-900/50 backdrop-blur flex items-center justify-between px-4 shrink-0">
         <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-300 focus:outline-none">
+            <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-300 focus:outline-none hover:text-white">
                 <i class="fa-solid fa-bars text-xl"></i>
             </button>
-            <span class="text-sm font-semibold text-gray-300">Llama 3.2 Vision & PDF Workspace</span>
+            <span class="text-xs sm:text-sm font-semibold text-gray-300 truncate">Llama 3.2 Vision & PDF Workspace</span>
         </div>
         <div class="flex items-center gap-2 text-xs text-gray-400">
             <label for="textColorPicker">Text Color:</label>
             <input type="color" id="textColorPicker" value="#f3f4f6" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
         </div>
-    </div>
+    </div> 
 
         <div id="chat-container" class="flex-1 overflow-y-auto p-6 space-y-6">
             <div class="text-center text-gray-500 mt-20">
