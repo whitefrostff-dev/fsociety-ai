@@ -1,12 +1,10 @@
 fastapi
 uvicorn
-pypdf
 groq
-authlib
 pypdf
-groq
-authlib
-starlette
-itsdangerous
-python-dotenv
 python-multipart
+authlib
+itsdangerous
+httpx
+google-genai
+
