@@ -57,8 +57,8 @@
                 <i class="fa-solid fa-plus"></i> New chat
             </button>
 
-            <!-- Categorized Sections -->
-            <div class="space-y-4 flex-1 overflow-y-auto pr-2 pb-20">
+            <!-- Categorized Sections & Chat History -->
+            <div class="space-y-4 flex-1 overflow-y-auto pr-2 pb-24">
                 <div>
                     <div class="text-xs uppercase text-gray-500 font-bold mb-2 flex justify-between items-center px-1">
                         My stuff <i class="fa-solid fa-chevron-right text-[10px]"></i>
@@ -76,8 +76,14 @@
             </div>
         </div>
         
-        <!-- Google Auth Section -->
-        <div class="absolute bottom-0 w-full p-4 bg-[#0a0a0a] border-t border-gray-900">
+        <!-- Sidebar Footer: Contact & Auth -->
+        <div class="absolute bottom-0 w-full p-4 bg-[#0a0a0a] border-t border-gray-900 space-y-3">
+            <div class="px-2 flex items-center justify-between text-xs text-gray-400">
+                <span>Created by Frost</span>
+                <a href="mailto:whitefrostff@gmail.com" class="hover:text-white transition flex items-center gap-1">
+                    <i class="fa-regular fa-envelope"></i> Contact
+                </a>
+            </div>
             <div id="user-auth-section" class="text-sm px-2"></div>
         </div>
     </div>
@@ -98,17 +104,13 @@
         <!-- INPUT BOX -->
         <div class="absolute bottom-0 w-full p-4 bg-gradient-to-t from-black via-black to-transparent">
             <form id="chat-form" class="max-w-3xl mx-auto glass-panel rounded-3xl flex items-center p-2 pr-3">
-                <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-white p-3 transition">
-                    <i class="fa-solid fa-image text-lg"></i>
-                </button>
-                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleFileSelection(event)">
+                <input type="file" id="general-file-input" accept="image/*,application/pdf" class="hidden" onchange="handleFileSelection(event)">
 
-                <button type="button" onclick="document.getElementById('pdf-input').click()" class="text-gray-400 hover:text-white p-3 transition">
-                    <i class="fa-solid fa-file-pdf text-lg"></i>
+                <button type="button" onclick="document.getElementById('general-file-input').click()" class="text-gray-400 hover:text-white p-3 transition" title="Attach Image or PDF">
+                    <i class="fa-solid fa-paperclip text-lg"></i>
                 </button>
-                <input type="file" id="pdf-input" accept="application/pdf" class="hidden" onchange="handleFileSelection(event)">
 
-                <input type="text" id="message-input" placeholder="Ask Fsociety..." class="flex-1 bg-transparent border-0 focus:ring-0 text-white placeholder-gray-500 px-2 text-[15px] outline-none">
+                <input type="text" id="message-input" placeholder="Ask Fsociety or type 'generate an image of...'" class="flex-1 bg-transparent border-0 focus:ring-0 text-white placeholder-gray-500 px-2 text-[15px] outline-none">
                 
                 <button type="submit" class="bg-white text-black hover:bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center transition ml-2">
                     <i class="fa-solid fa-arrow-up"></i>
@@ -132,7 +134,6 @@
         
         let currentSessionId = null;
         let selectedFile = null;
-        let isImageMode = false;
         let userName = "Guest";
 
         function handleFileSelection(event) {
@@ -161,7 +162,7 @@
                             <a href="/auth/logout" class="text-xs text-gray-500 hover:text-white"><i class="fa-solid fa-right-from-bracket"></i></a>
                         </div>`;
                 } else {
-                    authSection.innerHTML = `<a href="/auth/login" class="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white py-2 px-4 rounded-xl flex items-center justify-center gap-2 border border-gray-800 transition"><i class="fa-brands fa-google"></i> Sign in</a>`;
+                    authSection.innerHTML = `<a href="/auth/login" class="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white py-2 px-4 rounded-xl flex items-center justify-center gap-2 border border-gray-800 transition text-xs"><i class="fa-brands fa-google"></i> Sign in with Google</a>`;
                 }
             } catch (e) {}
             await loadSessions();
@@ -197,8 +198,7 @@
 
         function triggerChip(type) {
             if(type === 'image') {
-                isImageMode = true;
-                messageInput.placeholder = "Describe the image you want to create...";
+                messageInput.value = "Generate an image of ";
                 messageInput.focus();
             } else if(type === 'write') {
                 messageInput.value = "Write a creative story about...";
@@ -233,16 +233,16 @@
             const res = await fetch('/api/new-session', { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
-            isImageMode = false;
             messageInput.placeholder = "Ask Fsociety...";
+            fileIndicator.classList.add('hidden');
             renderWelcomeScreen();
             loadSessions();
         }
 
         async function switchSession(sessionId) {
             currentSessionId = sessionId;
-            isImageMode = false;
             messageInput.placeholder = "Ask Fsociety...";
+            fileIndicator.classList.add('hidden');
             const res = await fetch(`/api/history/${sessionId}`);
             const history = await res.json();
             
@@ -272,11 +272,7 @@
             fd.append('session_id', currentSessionId);
             fd.append('message', text);
             
-            const endpoint = isImageMode ? '/api/generate-image' : '/api/chat';
-            isImageMode = false; 
-            messageInput.placeholder = "Ask Fsociety...";
-            
-            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            const res = await fetch('/api/chat', { method: 'POST', body: fd });
             const data = await res.json();
             appendMessage('assistant', data.response);
             loadSessions();
@@ -299,12 +295,8 @@
 
             selectedFile = null;
             fileIndicator.classList.add('hidden');
-            
-            const endpoint = isImageMode ? '/api/generate-image' : '/api/chat';
-            isImageMode = false;
-            messageInput.placeholder = "Ask Fsociety...";
 
-            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            const res = await fetch('/api/chat', { method: 'POST', body: fd });
             const data = await res.json();
             appendMessage('assistant', data.response);
             loadSessions();
