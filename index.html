@@ -3,182 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fsociety AI Workspace</title>
+    <title>Fsociety AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Fixes the cut-off bottom bar issue on mobile browsers */
         html, body {
             height: 100%;
             height: 100dvh;
             margin: 0;
             padding: 0;
             overflow: hidden;
+            background-color: #000000;
+        }
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .shiny-text {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        .chip {
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.3s ease;
+        }
+        .chip:hover {
+            background: #222;
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 flex h-full w-full overflow-hidden font-sans">
+<body class="text-white flex h-full w-full font-sans">
 
-    <!-- MOBILE OVERLAY BACKDROP (Closes sidebar when tapping outside) -->
-    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden transition-opacity"></div>
+    <!-- MOBILE OVERLAY -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/80 z-40 hidden md:hidden transition-opacity"></div>
 
-    <!-- SIDEBAR (Now responsive and toggleable on mobile) -->
-    <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 flex flex-col justify-between transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0 h-full">
+    <!-- SIDEBAR -->
+    <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-[#0a0a0a] border-r border-gray-800 flex flex-col transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0 h-full">
         
-        <!-- Sidebar Top Area -->
-        <div class="p-4 flex flex-col h-full min-h-0 overflow-hidden">
-            <div class="flex items-center justify-between mb-6">
-                <h1 class="text-xl font-bold tracking-wider text-red-500 flex items-center gap-2">
-                    <i class="fa-solid fa-terminal"></i> Fsociety AI
+        <div class="p-4 flex flex-col h-full overflow-hidden">
+            <div class="flex items-center justify-between mb-6 mt-2">
+                <h1 class="text-xl font-bold tracking-wider text-white shiny-text flex items-center gap-2">
+                    <i class="fa-solid fa-terminal text-gray-300"></i> Fsociety
                 </h1>
-                <!-- Mobile close button inside sidebar -->
-                <button onclick="toggleSidebar()" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
+                <button onclick="toggleSidebar()" class="md:hidden text-gray-400 hover:text-white">
                     <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
 
-            <button onclick="createNewChatSession()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 mb-4 shrink-0 focus:outline-none">
-                <i class="fa-solid fa-plus"></i> New Chat
+            <button onclick="createNewChatSession()" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-2xl font-bold transition flex items-center justify-center gap-2 mb-6">
+                <i class="fa-solid fa-plus"></i> New chat
             </button>
 
-            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2 shrink-0">Recent Sessions</div>
-            <div id="sidebar-chat-list" class="flex-1 overflow-y-auto space-y-1 pr-1"></div>
+            <!-- Categorized Sections -->
+            <div class="space-y-4 flex-1 overflow-y-auto pr-2 pb-20">
+                <div>
+                    <div class="text-xs uppercase text-gray-500 font-bold mb-2 flex justify-between items-center px-1">
+                        My stuff <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-500 font-bold mb-2 flex justify-between items-center px-1">
+                        Gems <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-500 font-bold mb-2 px-1">Chats</div>
+                    <div id="sidebar-chat-list" class="space-y-1"></div>
+                </div>
+            </div>
         </div>
         
-        <!-- Sidebar Bottom Area (Contact & Google Auth) -->
-        <div class="p-4 border-t border-gray-800 space-y-2 shrink-0 bg-gray-900">
-            <button onclick="openContactModal()" class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition flex items-center gap-2 focus:outline-none">
-                <i class="fa-solid fa-headset"></i> Contact Us
-            </button>
-            <div id="user-auth-section" class="text-sm text-gray-400 px-3 py-2">
-                <!-- Google Login loads dynamically here -->
-            </div>
+        <!-- Google Auth Section -->
+        <div class="absolute bottom-0 w-full p-4 bg-[#0a0a0a] border-t border-gray-900">
+            <div id="user-auth-section" class="text-sm px-2"></div>
         </div>
     </div>
 
     <!-- MAIN CHAT AREA -->
-    <div class="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+    <div class="flex-1 flex flex-col h-full min-w-0 relative bg-black">
         
-        <!-- Header Bar -->
-        <div class="h-14 border-b border-gray-800 bg-gray-900/80 backdrop-blur flex items-center justify-between px-4 sm:px-6 shrink-0 z-10">
-            <div class="flex items-center gap-3 min-w-0">
-                <!-- Mobile Sidebar Hamburger Button -->
-                <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-300 hover:text-white focus:outline-none">
-                    <i class="fa-solid fa-bars text-lg"></i>
-                </button>
-                <span class="text-xs sm:text-sm font-semibold text-gray-300 truncate">Llama 3.2 Vision & PDF Workspace</span>
-            </div>
-            <div class="flex items-center gap-2 text-xs text-gray-400 shrink-0">
-                <label for="textColorPicker" class="hidden sm:inline">Text Color:</label>
-                <input type="color" id="textColorPicker" value="#f3f4f6" class="w-6 h-6 bg-transparent border-0 cursor-pointer">
-            </div>
-        </div>
-
-        <!-- Chat Output Container -->
-        <div id="chat-container" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-            <div class="text-center text-gray-500 mt-20">
-                <i class="fa-solid fa-terminal text-4xl mb-2 text-red-500"></i>
-                <p>Select a chat or start a new session to begin.</p>
-            </div>
-        </div>
-
-        <!-- INPUT BOX WITH CAMERA, PDF & MIC -->
-        <div class="p-3 bg-gray-900 border-t border-gray-800 shrink-0">
-            <form id="chat-form" class="max-w-4xl mx-auto flex gap-2 items-center">
-                
-                <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <!-- Image / Camera Input -->
-                    <input type="file" id="image-input" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelection(event)">
-                    <button type="button" onclick="document.getElementById('image-input').click()" title="Snap Photo or Upload Image" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-3 rounded-xl transition flex items-center justify-center focus:outline-none">
-                        <i class="fa-solid fa-camera"></i>
-                    </button>
-
-                    <!-- PDF File Input -->
-                    <input type="file" id="pdf-input" accept="application/pdf" class="hidden" onchange="handleFileSelection(event)">
-                    <button type="button" onclick="document.getElementById('pdf-input').click()" title="Upload PDF Document" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-3 rounded-xl transition flex items-center justify-center focus:outline-none">
-                        <i class="fa-solid fa-file-pdf"></i>
-                    </button>
-
-                    <!-- Voice Mic Button -->
-                    <button type="button" id="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Input" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-3 rounded-xl transition flex items-center justify-center focus:outline-none">
-                        <i id="mic-icon" class="fa-solid fa-microphone"></i>
-                    </button>
-                </div>
-
-                <div class="flex-1 flex gap-2">
-                    <input type="text" id="message-input" placeholder="Ask Fsociety AI..." 
-                        class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 text-gray-100 placeholder-gray-500 text-sm">
-                    
-                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 sm:px-6 py-3 rounded-xl font-medium transition flex items-center justify-center shrink-0 focus:outline-none">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
-                </div>
-            </form>
-            <div id="file-indicator" class="max-w-4xl mx-auto text-xs text-red-400 mt-2 px-2 hidden"></div>
-        </div>
-    </div>
-
-    <!-- CONTACT US MODAL -->
-    <div id="contactModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-[60]">
-        <div class="bg-gray-900 border border-gray-800 w-[90%] max-w-md p-6 rounded-2xl shadow-2xl relative">
-            <button onclick="closeContactModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white focus:outline-none">
-                <i class="fa-solid fa-xmark text-lg"></i>
+        <div class="absolute top-4 left-4 z-10 md:hidden">
+            <button onclick="toggleSidebar()" class="p-2 text-gray-300 hover:text-white">
+                <i class="fa-solid fa-bars text-xl"></i>
             </button>
-            <h2 class="text-lg font-bold text-red-500 mb-2 flex items-center gap-2">
-                <i class="fa-solid fa-headset"></i> Customer Support & Contact
-            </h2>
-            <p class="text-sm text-gray-400 mb-4">Reach out directly:</p>
-            <div class="space-y-3 text-sm text-gray-300">
-                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex items-center gap-3">
-                    <i class="fa-solid fa-envelope text-red-500"></i>
-                    <span class="truncate">nwodiliyaemerie@gmail.com</span>
-                </div>
-                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex items-center gap-3">
-                    <i class="fa-solid fa-phone text-red-500"></i>
-                    <span>+2347077187114</span>
-                </div>
-            </div>
-            <button onclick="closeContactModal()" class="w-full mt-6 bg-gray-800 hover:bg-gray-700 text-white py-2 rounded-xl transition font-medium focus:outline-none">Close</button>
+        </div>
+
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 sm:p-6 pb-32">
+            <!-- Dynamic Content -->
+        </div>
+
+        <!-- INPUT BOX -->
+        <div class="absolute bottom-0 w-full p-4 bg-gradient-to-t from-black via-black to-transparent">
+            <form id="chat-form" class="max-w-3xl mx-auto glass-panel rounded-3xl flex items-center p-2 pr-3">
+                <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-white p-3 transition">
+                    <i class="fa-solid fa-image text-lg"></i>
+                </button>
+                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleFileSelection(event)">
+
+                <button type="button" onclick="document.getElementById('pdf-input').click()" class="text-gray-400 hover:text-white p-3 transition">
+                    <i class="fa-solid fa-file-pdf text-lg"></i>
+                </button>
+                <input type="file" id="pdf-input" accept="application/pdf" class="hidden" onchange="handleFileSelection(event)">
+
+                <input type="text" id="message-input" placeholder="Ask Fsociety..." class="flex-1 bg-transparent border-0 focus:ring-0 text-white placeholder-gray-500 px-2 text-[15px] outline-none">
+                
+                <button type="submit" class="bg-white text-black hover:bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center transition ml-2">
+                    <i class="fa-solid fa-arrow-up"></i>
+                </button>
+            </form>
+            <div id="file-indicator" class="max-w-3xl mx-auto text-xs text-gray-400 mt-2 px-4 hidden"></div>
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // MOBILE SIDEBAR TOGGLE LOGIC
         function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar) sidebar.classList.toggle('-translate-x-full');
-            if (overlay) overlay.classList.toggle('hidden');
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.toggle('hidden');
         }
 
-        // ORIGINAL LOGIC BELOW
         const chatContainer = document.getElementById('chat-container');
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
-        const imageInput = document.getElementById('image-input');
-        const pdfInput = document.getElementById('pdf-input');
-        const fileIndicator = document.getElementById('file-indicator');
-        const textColorPicker = document.getElementById('textColorPicker');
-        const micBtn = document.getElementById('mic-btn');
-        const micIcon = document.getElementById('mic-icon');
         const sidebarChatList = document.getElementById('sidebar-chat-list');
-
+        const fileIndicator = document.getElementById('file-indicator');
+        
         let currentSessionId = null;
         let selectedFile = null;
-
-        textColorPicker.addEventListener('input', (e) => {
-            chatContainer.style.color = e.target.value;
-        });
-
-        function openContactModal() {
-            document.getElementById('contactModal').classList.remove('hidden');
-            document.getElementById('contactModal').classList.add('flex');
-        }
-        function closeContactModal() {
-            document.getElementById('contactModal').classList.remove('flex');
-            document.getElementById('contactModal').classList.add('hidden');
-        }
+        let isImageMode = false;
+        let userName = "Guest";
 
         function handleFileSelection(event) {
             const file = event.target.files[0];
@@ -186,167 +141,177 @@
                 selectedFile = file;
                 fileIndicator.textContent = `Attached: ${file.name}`;
                 fileIndicator.classList.remove('hidden');
-                // Reset other file input
-                if (event.target.id === 'image-input') pdfInput.value = '';
-                if (event.target.id === 'pdf-input') imageInput.value = '';
             }
-        }
-
-        let recognition;
-        let isListening = false;
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                isListening = true;
-                micBtn.classList.add('bg-red-600', 'text-white');
-                micBtn.classList.remove('bg-gray-800', 'text-gray-300');
-                micIcon.className = "fa-solid fa-microphone-lines animate-pulse";
-                messageInput.placeholder = "Listening... Speak now...";
-            };
-            recognition.onresult = (event) => {
-                messageInput.value = event.results[0][0].transcript;
-            };
-            recognition.onerror = () => stopSpeechUI();
-            recognition.onend = () => stopSpeechUI();
-        }
-
-        function toggleSpeechRecognition() {
-            if (!recognition) {
-                alert("Speech recognition is not supported in this browser.");
-                return;
-            }
-            if (isListening) recognition.stop();
-            else recognition.start();
-        }
-
-        function stopSpeechUI() {
-            isListening = false;
-            micBtn.classList.remove('bg-red-600', 'text-white');
-            micBtn.classList.add('bg-gray-800', 'text-gray-300');
-            micIcon.className = "fa-solid fa-microphone";
-            messageInput.placeholder = "Ask Fsociety AI...";
         }
 
         async function initApp() {
             try {
-                const authRes = await fetch('/api/current-user');
-                const authData = await authRes.json();
+                const res = await fetch('/api/current-user');
+                const data = await res.json();
                 const authSection = document.getElementById('user-auth-section');
-                if (authData.logged_in) {
+                
+                if (data.logged_in) {
+                    userName = data.user.name.split(' ')[0];
                     authSection.innerHTML = `
-                        <div class="flex items-center gap-2 mb-2">
-                            <img src="${authData.user.picture}" class="w-7 h-7 rounded-full">
-                            <span class="truncate text-xs">${authData.user.name}</span>
-                        </div>
-                        <a href="/auth/logout" class="text-xs text-red-400 hover:underline">Sign Out</a>
-                    `;
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <img src="${data.user.picture}" class="w-8 h-8 rounded-full border border-gray-700">
+                                <span class="font-medium">${userName}</span>
+                            </div>
+                            <a href="/auth/logout" class="text-xs text-gray-500 hover:text-white"><i class="fa-solid fa-right-from-bracket"></i></a>
+                        </div>`;
                 } else {
-                    authSection.innerHTML = `<a href="/auth/login" class="text-xs text-red-400 hover:underline flex items-center gap-1"><i class="fa-brands fa-google"></i> Sign in with Google</a>`;
+                    authSection.innerHTML = `<a href="/auth/login" class="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white py-2 px-4 rounded-xl flex items-center justify-center gap-2 border border-gray-800 transition"><i class="fa-brands fa-google"></i> Sign in</a>`;
                 }
             } catch (e) {}
-
             await loadSessions();
         }
 
-        async function loadSessions() {
-            try {
-                const res = await fetch('/api/sessions');
-                const sessions = await res.json();
-                sidebarChatList.innerHTML = '';
-                
-                if (sessions.length > 0) {
-                    sessions.forEach(s => {
-                        const div = document.createElement('div');
-                        div.className = `text-sm p-2 rounded-lg cursor-pointer truncate transition ${s.id === currentSessionId ? 'bg-red-600/20 text-red-400 font-medium border border-red-600/30' : 'text-gray-300 hover:bg-gray-800'}`;
-                        div.textContent = s.title;
-                        div.onclick = () => switchSession(s.id);
-                        sidebarChatList.appendChild(div);
-                    });
+        function renderWelcomeScreen() {
+            chatContainer.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center max-w-2xl mx-auto mt-10 md:mt-0 fade-in">
+                    <h1 class="text-3xl md:text-5xl font-semibold mb-2">Hi ${userName}</h1>
+                    <h2 class="text-3xl md:text-5xl font-semibold text-gray-500 mb-10">Where should we start?</h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full px-4">
+                        <button onclick="triggerChip('image')" class="chip rounded-2xl p-4 text-left flex items-center gap-3">
+                            <span class="text-xl">🖼️</span>
+                            <span class="font-medium">Create image</span>
+                        </button>
+                        <button onclick="triggerChip('write')" class="chip rounded-2xl p-4 text-left flex items-center gap-3">
+                            <span class="text-xl">📄</span>
+                            <span class="font-medium">Write anything</span>
+                        </button>
+                        <button onclick="triggerChip('boost')" class="chip rounded-2xl p-4 text-left flex items-center gap-3">
+                            <span class="text-xl">✨</span>
+                            <span class="font-medium">Boost my day</span>
+                        </button>
+                        <button onclick="triggerChip('music')" class="chip rounded-2xl p-4 text-left flex items-center gap-3">
+                            <span class="text-xl">🎸</span>
+                            <span class="font-medium">Create music</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
 
-                    if (!currentSessionId) {
-                        switchSession(sessions[0].id);
-                    }
-                } else {
-                    createNewChatSession();
-                }
-            } catch (e) {}
+        function triggerChip(type) {
+            if(type === 'image') {
+                isImageMode = true;
+                messageInput.placeholder = "Describe the image you want to create...";
+                messageInput.focus();
+            } else if(type === 'write') {
+                messageInput.value = "Write a creative story about...";
+                messageInput.focus();
+            } else if(type === 'boost') {
+                submitDirectMessage("Give me a motivational quote to boost my day.");
+            } else if(type === 'music') {
+                submitDirectMessage("Write a catchy chorus for a rock song.");
+            }
+        }
+
+        async function loadSessions() {
+            const res = await fetch('/api/sessions');
+            const sessions = await res.json();
+            sidebarChatList.innerHTML = '';
+            
+            if (sessions.length > 0) {
+                sessions.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = `p-3 rounded-xl cursor-pointer truncate transition text-sm ${s.id === currentSessionId ? 'bg-[#1a1a1a] text-white font-medium border border-gray-800' : 'text-gray-400 hover:bg-[#111] hover:text-gray-200'}`;
+                    div.textContent = s.title;
+                    div.onclick = () => switchSession(s.id);
+                    sidebarChatList.appendChild(div);
+                });
+                if (!currentSessionId) switchSession(sessions[0].id);
+            } else {
+                createNewChatSession();
+            }
         }
 
         async function createNewChatSession() {
             const res = await fetch('/api/new-session', { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
-            chatContainer.innerHTML = '';
-            await loadSessions();
+            isImageMode = false;
+            messageInput.placeholder = "Ask Fsociety...";
+            renderWelcomeScreen();
+            loadSessions();
         }
 
         async function switchSession(sessionId) {
             currentSessionId = sessionId;
-            chatContainer.innerHTML = '';
+            isImageMode = false;
+            messageInput.placeholder = "Ask Fsociety...";
+            const res = await fetch(`/api/history/${sessionId}`);
+            const history = await res.json();
             
-            try {
-                const res = await fetch(`/api/history/${sessionId}`);
-                const history = await res.json();
-                if (history.length > 0) {
-                    history.forEach(msg => appendMessage(msg.role, msg.content));
-                } else {
-                    chatContainer.innerHTML = `<div class="text-center text-gray-500 mt-20"><i class="fa-solid fa-terminal text-4xl mb-2 text-red-500"></i><p>New session ready. Type a message below.</p></div>`;
-                }
-                loadSessions();
-            } catch (e) {}
+            chatContainer.innerHTML = '';
+            if (history.length > 0) {
+                history.forEach(msg => appendMessage(msg.role, msg.content));
+            } else {
+                renderWelcomeScreen();
+            }
+            loadSessions();
         }
 
         function appendMessage(role, content) {
-            if (chatContainer.querySelector('.text-center')) {
-                chatContainer.innerHTML = '';
-            }
+            if (chatContainer.querySelector('.fade-in')) chatContainer.innerHTML = '';
             const isUser = role === 'user';
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
-            messageDiv.innerHTML = `<div class="max-w-2xl px-4 py-3 rounded-2xl text-sm sm:text-base ${isUser ? 'bg-red-600 text-white rounded-br-none' : 'bg-gray-900 border border-gray-800 text-gray-200 rounded-bl-none'}">${content}</div>`;
-            chatContainer.appendChild(messageDiv);
+            const div = document.createElement('div');
+            div.className = `flex mb-6 ${isUser ? 'justify-end' : 'justify-start'}`;
+            div.innerHTML = `<div class="max-w-[85%] sm:max-w-2xl px-5 py-3.5 text-[15px] leading-relaxed ${isUser ? 'bg-[#2a2a2a] text-white rounded-3xl rounded-br-sm' : 'text-gray-200'}">${content}</div>`;
+            chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function submitDirectMessage(text) {
+            if (!currentSessionId) return;
+            appendMessage('user', text);
+            const fd = new FormData();
+            fd.append('session_id', currentSessionId);
+            fd.append('message', text);
+            
+            const endpoint = isImageMode ? '/api/generate-image' : '/api/chat';
+            isImageMode = false; 
+            messageInput.placeholder = "Ask Fsociety...";
+            
+            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            const data = await res.json();
+            appendMessage('assistant', data.response);
+            loadSessions();
         }
 
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
             if ((!text && !selectedFile) || !currentSessionId) return;
-
-            let displayTxt = text;
-            if (selectedFile) displayTxt += ` [File: ${selectedFile.name}]`;
-
-            appendMessage('user', displayTxt);
+            
             messageInput.value = '';
+            let displayTxt = text;
+            if (selectedFile) displayTxt += ` [Attached: ${selectedFile.name}]`;
+            appendMessage('user', displayTxt);
 
-            const formData = new FormData();
-            formData.append('session_id', currentSessionId);
-            formData.append('message', text);
-            if (selectedFile) {
-                formData.append('file', selectedFile);
-            }
+            const fd = new FormData();
+            fd.append('session_id', currentSessionId);
+            fd.append('message', text);
+            if (selectedFile) fd.append('file', selectedFile);
 
             selectedFile = null;
             fileIndicator.classList.add('hidden');
-            imageInput.value = '';
-            pdfInput.value = '';
+            
+            const endpoint = isImageMode ? '/api/generate-image' : '/api/chat';
+            isImageMode = false;
+            messageInput.placeholder = "Ask Fsociety...";
 
-            try {
-                const res = await fetch('/api/chat', { method: 'POST', body: formData });
-                const data = await res.json();
-                appendMessage('assistant', data.response);
-                loadSessions();
-            } catch (err) {
-                appendMessage('assistant', '[ERROR] Failed to reach backend server.');
-            }
+            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            const data = await res.json();
+            appendMessage('assistant', data.response);
+            loadSessions();
         });
 
         initApp();
     </script>
 </body>
-</html>
+    </html>
+    
