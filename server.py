@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 import sqlite3
 import uuid
 import os
 import base64
 import urllib.parse
 from groq import Groq
-from starlette.middleware.sessions import SessionMiddleware
 from google import genai
 from google.genai import types
 from openai import AsyncOpenAI
@@ -14,15 +15,22 @@ from authlib.integrations.starlette_client import OAuth
 
 app = FastAPI()
 
+# --- RAILWAY PROXY & SECURE SESSION FIX ---
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key="fsociety_super_secret_session_string",
+    https_only=True,
+    same_site="lax"
+)
+
 # --- ENVIRONMENT VARIABLES ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") 
-
-app.add_middleware(SessionMiddleware, secret_key="fsociety_super_secret_session_string")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Init API Clients
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
@@ -47,7 +55,6 @@ oauth.register(
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
-
 
 def init_db():
     conn = sqlite3.connect("fsociety_history.db")
@@ -95,8 +102,8 @@ async def serve_frontend(request: Request, response: Response):
 # --- AUTH ROUTES ---
 @app.get('/auth/login')
 async def login(request: Request):
-    # THE FIX: Force the redirect URL to be secure HTTPS so Google doesn't block Railway
-    redirect_uri = str(request.url_for('auth')).replace('http://', 'https://')
+    # Hardcode explicit production Railway HTTPS callback
+    redirect_uri = "https://fsociety-ai-production.up.railway.app/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get('/auth/callback')
@@ -111,13 +118,13 @@ async def auth(request: Request):
             }
     except Exception as e:
         print(f"Auth error: {e}")
-    return HTMLResponse("<script>window.location.href='/'</script>")
+    # Perform full top-level browser redirect to home
+    return HTMLResponse("<script>window.top.location.href='/'</script>")
 
 @app.get('/auth/logout')
 async def logout(request: Request):
     request.session.clear()
     return HTMLResponse("<script>window.location.href='/'</script>")
-
 
 def get_identifier(request: Request):
     user = request.session.get('user')
@@ -190,10 +197,8 @@ async def chat_with_assistant(
         is_image = mime_type.startswith("image/")
         display_message += f" [Attached File: {file.filename}]"
 
-    # Save user message to database
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
     
-    # Auto Title update
     cursor.execute("SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,))
     if cursor.fetchone()[0] == 1:
         short_title = (message[:25] + '...') if len(message) > 25 else (message or "File Analysis")
@@ -201,12 +206,10 @@ async def chat_with_assistant(
 
     conn.commit()
 
-    # AI MEMORY: Retrieve last 12 messages for past conversation context
     cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
     past_messages = cursor.fetchall()
     recent_history = past_messages[-12:]
 
-    # FEATURE: IMAGE GENERATION DETECTOR
     lower_prompt = message.lower()
     if any(keyword in lower_prompt for keyword in ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a"]):
         clean_prompt = message.replace("generate image of", "").replace("draw an image of", "").replace("create image of", "").strip()
@@ -229,7 +232,6 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     try:
-        # 1. OPENROUTER PROVIDER
         if provider == "openrouter":
             if not openrouter_client:
                 ai_response = "**Error:** `OPENROUTER_API_KEY` is missing from environment variables."
@@ -238,7 +240,6 @@ async def chat_with_assistant(
                 for r, c in recent_history[:-1]:
                     messages_payload.append({"role": r, "content": c})
 
-                # If an image was attached
                 if is_image and file_bytes:
                     b64_img = base64.b64encode(file_bytes).decode('utf-8')
                     messages_payload.append({
@@ -258,7 +259,6 @@ async def chat_with_assistant(
                 )
                 ai_response = res.choices[0].message.content
 
-        # 2. GOOGLE GEMINI PROVIDER (VISION READY)
         elif provider == "google":
             if not genai_client:
                 ai_response = "**Error:** `GOOGLE_API_KEY` is missing."
@@ -279,7 +279,6 @@ async def chat_with_assistant(
                 )
                 ai_response = resp.text
 
-        # 3. SILICONFLOW PROVIDER
         elif provider == "silicon":
             if not silicon_client:
                 ai_response = "**Error:** `SILICONFLOW_API_KEY` is missing."
@@ -295,7 +294,6 @@ async def chat_with_assistant(
                 )
                 ai_response = response.choices[0].message.content
 
-        # 4. GROQ PROVIDER (DEFAULT)
         else:
             messages_payload = [{"role": "system", "content": system_prompt}]
             for r, c in recent_history:
