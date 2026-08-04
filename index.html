@@ -37,9 +37,10 @@
             <div id="session-list" class="space-y-2 overflow-y-auto max-h-[70vh]"></div>
         </div>
 
+        <!-- USER PROFILE AREA -->
         <div id="user-profile" class="border-t border-gray-800 pt-4 flex items-center justify-between">
-            <span class="text-sm text-gray-400">Guest User</span>
-            <a href="/auth/login" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-3 py-1.5 rounded-lg">Login</a>
+            <span id="user-display-name" class="text-sm text-gray-400 truncate max-w-[120px]">Guest User</span>
+            <a id="auth-btn" href="/auth/login" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-3 py-1.5 rounded-lg">Login</a>
         </div>
     </aside>
 
@@ -79,7 +80,7 @@
         </div>
     </main>
 
-    <!-- MODEL SELECTION MODAL (BLACK & WHITE DESIGN) -->
+    <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
         <div class="bg-[#161b22] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-800 flex flex-col gap-5">
             <div class="flex items-center gap-4">
@@ -90,7 +91,6 @@
             </div>
 
             <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                <!-- OpenRouter Free Llama 3.3 -->
                 <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-openrouter-llama">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">Llama 3.3 70B</span>
@@ -99,7 +99,6 @@
                     <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
                 </div>
 
-                <!-- OpenRouter DeepSeek R1 -->
                 <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-openrouter-deepseek">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">DeepSeek R1</span>
@@ -108,7 +107,6 @@
                     <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
                 </div>
 
-                <!-- Groq Llama 3.3 -->
                 <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-groq-llama">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">Llama 3.3 70B</span>
@@ -117,7 +115,6 @@
                     <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
                 </div>
 
-                <!-- Google Gemini 2.5 Flash -->
                 <div onclick="selectModel('google:gemini-2.5-flash', 'Gemini 2.5 Flash (Vision)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-google-flash">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">Gemini 2.5 Flash</span>
@@ -126,7 +123,6 @@
                     <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
                 </div>
 
-                <!-- SiliconFlow Qwen 2.5 -->
                 <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-silicon-qwen">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">Qwen 2.5 7B</span>
@@ -144,8 +140,24 @@
         let activeModelValue = "groq:llama-3.3-70b-versatile";
 
         async function init() {
+            await checkUserStatus();
             await fetchSessions();
             highlightActiveModelCard();
+        }
+
+        async function checkUserStatus() {
+            try {
+                const res = await fetch('/api/user');
+                const user = await res.json();
+                if (user && user.email) {
+                    document.getElementById('user-display-name').innerText = user.name || user.email;
+                    const authBtn = document.getElementById('auth-btn');
+                    authBtn.innerText = 'Logout';
+                    authBtn.href = '/auth/logout';
+                }
+            } catch (e) {
+                console.log("Not logged in");
+            }
         }
 
         function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); }
@@ -189,7 +201,7 @@
             if (sessions.length > 0) {
                 sessions.forEach(s => {
                     list.innerHTML += `
-                        <div class="flex items-center justify-between p-2 hover:bg-gray-800 rounded-lg cursor-pointer text-sm ${currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title}')">
+                        <div class="flex items-center justify-between p-2 hover:bg-gray-800 rounded-lg cursor-pointer text-sm ${currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
                             <span class="truncate w-40">${s.title}</span>
                             <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
                         </div>
@@ -201,7 +213,6 @@
             }
         }
 
-        // WELCOME SCREEN RESTORATION
         function renderEmptyState() {
             const container = document.getElementById('messages-container');
             container.innerHTML = `
