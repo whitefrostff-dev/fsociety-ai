@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from google import genai
 from google.genai import types
 from openai import AsyncOpenAI
+from authlib.integrations.starlette_client import OAuth
 
 app = FastAPI()
 
@@ -19,7 +20,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # Added OpenRouter Key
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") 
 
 app.add_middleware(SessionMiddleware, secret_key="fsociety_super_secret_session_string")
 
@@ -36,6 +37,16 @@ openrouter_client = AsyncOpenAI(
     api_key=OPENROUTER_API_KEY,
     base_url="https://openrouter.ai/api/v1"
 ) if OPENROUTER_API_KEY else None
+
+# --- GOOGLE OAUTH SETUP ---
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 
 def init_db():
@@ -80,6 +91,32 @@ async def serve_frontend(request: Request, response: Response):
         with open(html_path, "r", encoding="utf-8") as f:
             return f.read()
     return "<h3>index.html not found.</h3>"
+
+# --- AUTH ROUTES ---
+@app.get('/auth/login')
+async def login(request: Request):
+    redirect_uri = request.url_for('auth')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get('/auth/callback')
+async def auth(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        if user_info:
+            request.session['user'] = {
+                'name': user_info.get('name'),
+                'email': user_info.get('email')
+            }
+    except Exception as e:
+        print(f"Auth error: {e}")
+    return HTMLResponse("<script>window.location.href='/'</script>")
+
+@app.get('/auth/logout')
+async def logout(request: Request):
+    request.session.clear()
+    return HTMLResponse("<script>window.location.href='/'</script>")
+
 
 def get_identifier(request: Request):
     user = request.session.get('user')
