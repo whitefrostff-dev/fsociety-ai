@@ -228,17 +228,17 @@ async def chat_with_assistant(
         return {"response": ai_response}
 
     system_prompt = (
-        "You are Fsociety AI, a smart assistant created by Frost. "
+        "You are Fsociety AI, an elite intelligent assistant created and engineered exclusively by Frost. "
+        "Creator Contact Info: Email: whitefrostff@gmail.com | Phone: +2347077187114. "
         "Always respond in clear, natural English unless the user explicitly asks for another language. "
         "Maintain conversation memory and continuity from previous messages. "
-        "When generating code, wrap it in clean markdown code blocks. "
-        "If directly asked who created or built you, answer: 'Frost made me.' "
-        "Never output robotic variable assignments or disclaimers—just talk like a normal, direct assistant."
+        "When generating code, always wrap it in clean markdown code blocks (e.g., ```python or ```html) so the UI artifact viewer can render and execute it live. "
+        "If directly asked who created or built you, answer clearly: 'Frost made me.' "
+        "Speak with analytical precision, speed, and class."
     )
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # --- AUTOMATIC MODEL SANITIZER TO PREVENT VERSION GLITCHES ---
     if provider == "google" and ("2.5" in actual_model or "gemini-2.5" in actual_model):
         actual_model = "gemini-1.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
