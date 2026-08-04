@@ -99,7 +99,6 @@ async def serve_frontend(request: Request, response: Response):
             return f.read()
     return "<h3>index.html not found.</h3>"
 
-# --- THE FIX: NEW ENDPOINT FOR FRONTEND TO CHECK LOGIN ---
 @app.get("/api/user")
 async def get_current_user(request: Request):
     user = request.session.get('user')
@@ -110,7 +109,6 @@ async def get_current_user(request: Request):
 # --- AUTH ROUTES ---
 @app.get('/auth/login')
 async def login(request: Request):
-    # Railway HTTPS callback
     redirect_uri = "https://fsociety-ai-production.up.railway.app/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -126,7 +124,6 @@ async def auth(request: Request):
             }
     except Exception as e:
         print(f"Auth error: {e}")
-    # THE FIX: Using RedirectResponse stops the black screen bug on mobile
     return RedirectResponse(url="/")
 
 @app.get('/auth/logout')
@@ -232,12 +229,20 @@ async def chat_with_assistant(
 
     system_prompt = (
         "You are Fsociety AI, a smart assistant created by Frost. "
+        "Always respond in clear, natural English unless the user explicitly asks for another language. "
         "Maintain conversation memory and continuity from previous messages. "
         "When generating code, wrap it in clean markdown code blocks. "
-        "If directly asked who created or built you, answer: 'Frost made me.'"
+        "If directly asked who created or built you, answer: 'Frost made me.' "
+        "Never output robotic variable assignments or disclaimers—just talk like a normal, direct assistant."
     )
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
+
+    # --- AUTOMATIC MODEL SANITIZER TO PREVENT VERSION GLITCHES ---
+    if provider == "google" and ("2.5" in actual_model or "gemini-2.5" in actual_model):
+        actual_model = "gemini-1.5-flash"
+    elif provider == "openrouter" and actual_model.endswith(":free"):
+        actual_model = actual_model.replace(":free", "")
 
     try:
         if provider == "openrouter":
