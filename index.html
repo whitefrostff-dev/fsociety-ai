@@ -3,76 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fsociety AI</title>
+    <title>Fsociety AI - Shinny Black & White Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .sidebar { background-color: #161b22; }
-        .input-box { background-color: #21262d; border: 1px solid #30363d; }
-        .user-msg { background-color: #ffffff; color: #000000; border: 1px solid #e5e7eb; }
-        .assistant-msg { background-color: transparent; color: #c9d1d9; border: none; padding-left: 0; }
+        body { background-color: #000000; color: #ededed; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .sidebar { background-color: #050505; border-right: 1px solid #1a1a1a; }
+        .artifact-panel { background-color: #050505; border-left: 1px solid #1a1a1a; }
+        .input-box { background-color: #0a0a0a; border: 1px solid #262626; }
+        .user-msg { background-color: #ffffff; color: #000000; }
+        .assistant-msg { background-color: #0d0d0d; border: 1px solid #1a1a1a; color: #ededed; }
         
-        /* MONOCHROME MODAL CARD STYLING */
-        .model-card { background-color: #21262d; border: 1px solid #30363d; transition: all 0.2s ease-in-out; }
-        .model-card:hover { border-color: #8b949e; background-color: #282e37; }
-        .model-card.active { border-color: #ffffff; background-color: #1c2128; }
-        .badge-tag { background-color: #30363d; color: #c9d1d9; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+        /* SHINY WHITE 3D ANIMATION */
+        @keyframes float3D {
+            0% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
+            50% { transform: translateY(-6px) rotateX(4deg) rotateY(-3deg); text-shadow: 0 15px 30px rgba(255,255,255,0.3); }
+            100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
+        }
+        .welcome-3d {
+            display: inline-block;
+            animation: float3D 4s ease-in-out infinite;
+            perspective: 1000px;
+            background: linear-gradient(135deg, #ffffff 0%, #a3a3a3 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .model-card { background-color: #0a0a0a; border: 1px solid #262626; transition: all 0.2s ease-in-out; }
+        .model-card:hover { border-color: #737373; background-color: #121212; }
+        .model-card.active { border-color: #ffffff; background-color: #171717; }
+        .badge-tag { background-color: #262626; color: #d4d4d4; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
     </style>
 </head>
 <body class="h-screen flex overflow-hidden">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar w-64 flex-shrink-0 flex flex-col justify-between p-4 border-r border-gray-800">
+    <!-- LEFT SIDEBAR: CHAT HISTORY -->
+    <aside class="sidebar w-64 flex-shrink-0 flex flex-col justify-between p-4">
         <div>
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-xl font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-terminal text-gray-400"></i> Fsociety AI
                 </h1>
-                <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg" title="New Chat">
+                <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg transition-colors" title="New Chat">
                     <i class="fa-solid fa-plus"></i>
                 </button>
             </div>
-            <div id="session-list" class="space-y-2 overflow-y-auto max-h-[70vh]"></div>
+            <div id="session-list" class="space-y-1.5 overflow-y-auto max-h-[50vh] pr-1"></div>
         </div>
 
-        <!-- USER PROFILE AREA -->
-        <div id="user-profile" class="border-t border-gray-800 pt-4 flex items-center justify-between">
-            <span id="user-display-name" class="text-sm text-gray-400 truncate max-w-[120px]">Guest User</span>
-            <a id="auth-btn" href="/auth/login" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-3 py-1.5 rounded-lg">Login</a>
+        <!-- CREATOR & CONTACT INFO BOX -->
+        <div class="space-y-3">
+            <div class="p-3 bg-[#0a0a0a] rounded-xl border border-[#262626] text-xs text-gray-400 space-y-1">
+                <p class="text-white font-bold mb-1"><i class="fa-solid fa-bolt text-white"></i> Frost Made Me</p>
+                <p><i class="fa-solid fa-envelope w-4"></i> whitefrostff@gmail.com</p>
+                <p><i class="fa-solid fa-phone w-4"></i> +234 707 718 7114</p>
+            </div>
+
+            <!-- USER PROFILE AREA -->
+            <div id="user-profile" class="border-t border-[#1a1a1a] pt-3 flex items-center justify-between">
+                <span id="user-display-name" class="text-xs text-gray-300 truncate max-w-[110px]">Guest User</span>
+                <a id="auth-btn" href="/auth/login" class="text-xs bg-white hover:bg-gray-200 text-black px-3 py-1.5 rounded-lg font-semibold transition-colors">Login</a>
+            </div>
         </div>
     </aside>
 
-    <!-- MAIN CHAT INTERFACE -->
-    <main class="flex-1 flex flex-col h-full relative">
-        <header class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-[#0d1117]">
+    <!-- CENTER CHAT INTERFACE -->
+    <main class="flex-1 flex flex-col h-full relative bg-black">
+        <header class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-6 bg-black">
             <div class="flex items-center gap-3">
-                <h2 id="current-chat-title" class="font-semibold text-gray-200">New Chat</h2>
+                <h2 id="current-chat-title" class="font-semibold text-gray-200 text-sm">New Chat</h2>
                 
                 <!-- MODEL SWITCHER TRIGGER BUTTON -->
-                <button onclick="openModelModal()" class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-200 px-3 py-1.5 rounded-lg border border-gray-700">
+                <button onclick="openModelModal()" class="flex items-center gap-2 bg-[#0a0a0a] hover:bg-[#171717] text-xs text-gray-200 px-3 py-1.5 rounded-lg border border-[#262626] transition-colors">
                     <span id="current-model-label">Llama 3.3 70B</span>
                     <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
                 </button>
             </div>
+            <button onclick="toggleArtifactPanel()" class="text-xs bg-[#0a0a0a] hover:bg-[#171717] text-white px-3 py-1.5 rounded-lg border border-[#262626] flex items-center gap-2">
+                <i class="fa-solid fa-code"></i> Artifacts / Code
+            </button>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-4 max-w-4xl mx-auto w-full"></div>
+        <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl mx-auto w-full"></div>
 
         <!-- INPUT BOX -->
-        <div class="p-4 max-w-4xl mx-auto w-full">
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-xl p-3 flex flex-col gap-2 shadow-lg">
-                <textarea id="user-input" rows="2" placeholder="Ask Fsociety AI or type 'generate image of...' " class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2"></textarea>
-                <div class="flex items-center justify-between pt-2 border-t border-gray-800">
+        <div class="p-4 max-w-3xl mx-auto w-full">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl">
+                <textarea id="user-input" rows="2" placeholder="Ask Fsociety AI or type 'generate image of...' " class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2 placeholder-gray-600"></textarea>
+                <div class="flex items-center justify-between pt-2 border-t border-[#1a1a1a]">
                     <div class="flex items-center gap-2">
-                        <label for="file-upload" class="cursor-pointer text-gray-400 hover:text-white px-2 py-1 rounded text-sm" title="Upload Image / File">
+                        <label for="file-upload" class="cursor-pointer text-gray-400 hover:text-white px-2 py-1 rounded text-sm transition-colors" title="Upload Image / File">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
                         <span id="file-name-display" class="text-xs text-gray-400"></span>
                     </div>
-                    <button type="submit" class="bg-white text-black hover:bg-gray-200 font-semibold px-4 py-1.5 rounded-lg text-sm flex items-center gap-2">
+                    <button type="submit" class="bg-white text-black hover:bg-gray-200 font-bold px-4 py-1.5 rounded-xl text-sm flex items-center gap-2 transition-colors">
                         Send <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </div>
@@ -80,14 +108,32 @@
         </div>
     </main>
 
+    <!-- RIGHT ARTIFACTS & CODE EXECUTION PANEL -->
+    <aside id="artifact-sidebar" class="artifact-panel w-96 flex-shrink-0 flex flex-col h-full">
+        <div class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-4 bg-black">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                <i class="fa-solid fa-laptop-code text-white"></i> Artifacts / Code Sandbox
+            </span>
+            <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
+                <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
+                <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-hidden flex flex-col p-4 bg-black">
+            <div id="artifact-code-view" class="flex-1 overflow-auto bg-[#050505] p-3 rounded-xl border border-[#1a1a1a] font-mono text-xs text-gray-300 whitespace-pre-wrap">No code artifacts generated yet. Ask Fsociety AI to write code or build an app to inspect it here.</div>
+            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[#1a1a1a] hidden"></iframe>
+        </div>
+    </aside>
+
     <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#161b22] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-800 flex flex-col gap-5">
+        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5">
             <div class="flex items-center gap-4">
                 <button onclick="closeModelModal()" class="text-gray-400 hover:text-white text-lg">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
-                <h3 class="text-xl font-bold text-white">More models</h3>
+                <h3 class="text-xl font-bold text-white">Select Model Engine</h3>
             </div>
 
             <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
@@ -138,6 +184,7 @@
         let currentSessionId = null;
         let selectedFile = null;
         let activeModelValue = "groq:llama-3.3-70b-versatile";
+        let latestExtractedCode = "";
 
         async function init() {
             await checkUserStatus();
@@ -204,8 +251,8 @@
                 if (sessions.length > 0) {
                     sessions.forEach(s => {
                         list.innerHTML += `
-                            <div class="flex items-center justify-between p-2 hover:bg-gray-800 rounded-lg cursor-pointer text-sm ${currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
-                                <span class="truncate w-40">${s.title}</span>
+                            <div class="flex items-center justify-between p-2 hover:bg-[#121212] rounded-lg cursor-pointer text-xs ${currentSessionId === s.id ? 'bg-[#171717] text-white font-medium border border-[#262626]' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
+                                <span class="truncate w-36">${s.title}</span>
                                 <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         `;
@@ -223,11 +270,10 @@
             const container = document.getElementById('messages-container');
             container.innerHTML = `
                 <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
-                    <div class="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center text-3xl shadow-lg">
-                        <i class="fa-solid fa-terminal"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-white">Fsociety AI</h2>
-                    <p class="text-gray-400 text-sm">How can I help you today?</p>
+                    <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
+                        Hi Whitefrostff, Where should we start?
+                    </h1>
+                    <p class="text-gray-500 text-xs">Engineered by Frost with maximum class and humanoid precision.</p>
                 </div>
             `;
         }
@@ -252,7 +298,7 @@
             if (messages.length === 0) {
                 renderEmptyState();
             } else {
-                messages.forEach(m => renderMessage(m.role, m.content));
+                messages.forEach(m => renderMessage(m.role, m.content, false));
             }
             fetchSessions();
         }
@@ -277,7 +323,7 @@
             const text = input.value.trim();
             if (!text && !selectedFile) return;
 
-            renderMessage('user', text + (selectedFile ? ` [File: ${selectedFile.name}]` : ''));
+            renderMessage('user', text + (selectedFile ? ` [File: ${selectedFile.name}]` : ''), true);
             
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
@@ -292,28 +338,85 @@
 
             const res = await fetch('/api/chat', { method: 'POST', body: formData });
             const data = await res.json();
-            renderMessage('assistant', data.response);
+            renderMessage('assistant', data.response, true);
         }
 
-        function renderMessage(role, content) {
+        function renderMessage(role, content, shouldScroll = true) {
             const container = document.getElementById('messages-container');
             const welcomeScreen = document.getElementById('welcome-screen');
             if (welcomeScreen) welcomeScreen.remove();
 
             const isUser = role === 'user';
             const formattedContent = marked.parse(content);
+            
+            // Extract code blocks for Artifacts Panel if assistant responds with code
+            if (!isUser) {
+                extractCodeForArtifacts(content);
+            }
+
             const msgHtml = `
-                <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
-                    <div class="max-w-2xl rounded-2xl p-4 ${isUser ? 'user-msg' : 'assistant-msg'}">
-                        <div class="text-sm prose prose-invert">${formattedContent}</div>
+                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} w-full my-2">
+                    <div class="max-w-xl rounded-2xl p-4 text-sm ${isUser ? 'user-msg font-medium' : 'assistant-msg w-full'}">
+                        <div class="prose prose-invert text-xs md:text-sm leading-relaxed">${formattedContent}</div>
                     </div>
                 </div>
             `;
             container.innerHTML += msgHtml;
-            container.scrollTop = container.scrollHeight;
+            if (shouldScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
 
-        // Initialize when DOM is completely loaded
+        function extractCodeForArtifacts(markdownText) {
+            const codeBlockRegex = /```[\w]*\n([\s\S]*?)```/g;
+            let match;
+            let extracted = "";
+            while ((match = codeBlockRegex.exec(markdownText)) !== null) {
+                extracted += match[1] + "\n\n";
+            }
+            if (extracted.trim()) {
+                latestExtractedCode = extracted.trim();
+                document.getElementById('artifact-code-view').innerText = latestExtractedCode;
+                
+                // If it looks like HTML, load it into preview iframe automatically
+                if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
+                    const iframe = document.getElementById('artifact-preview-view');
+                    iframe.srcdoc = latestExtractedCode;
+                }
+            }
+        }
+
+        function switchArtifactTab(tab) {
+            const codeBtn = document.getElementById('tab-code-btn');
+            const previewBtn = document.getElementById('tab-preview-btn');
+            const codeView = document.getElementById('artifact-code-view');
+            const previewView = document.getElementById('artifact-preview-view');
+
+            if (tab === 'code') {
+                codeBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                previewBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+                codeView.classList.remove('hidden');
+                previewView.classList.add('hidden');
+            } else {
+                previewBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                codeBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+                previewView.classList.remove('hidden');
+                codeView.classList.add('hidden');
+                
+                // Render iframe preview
+                if (latestExtractedCode) {
+                    previewView.srcdoc = latestExtractedCode;
+                } else {
+                    previewView.srcdoc = "<html><body style='font-family:sans-serif;padding:20px;text-align:center;color:#666;'><h3>No HTML/UI code found to preview yet.</h3></body></html>";
+                }
+            }
+        }
+
+        function toggleArtifactPanel() {
+            const panel = document.getElementById('artifact-sidebar');
+            panel.classList.toggle('hidden');
+        }
+
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
