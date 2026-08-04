@@ -1,10 +1,11 @@
 fastapi
 uvicorn
+python-multipart
 groq
 pypdf
-python-multipart
 authlib
 itsdangerous
 httpx
 google-genai
-
+openai
+duckduckgo-search
