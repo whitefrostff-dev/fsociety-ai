@@ -13,8 +13,11 @@
         .chat-container { background-color: #0d1117; }
         .artifact-panel { background-color: #161b22; border-left: 1px solid #30363d; }
         .input-box { background-color: #21262d; border: 1px solid #30363d; }
-        .user-msg { background-color: #1f6feb; color: #ffffff; }
-        .assistant-msg { background-color: #161b22; border: 1px solid #30363d; }
+        
+        /* FIXED COLORS: User is dark gray, AI is transparent/no border for a clean look */
+        .user-msg { background-color: #21262d; color: #ffffff; border: 1px solid #30363d; }
+        .assistant-msg { background-color: transparent; color: #c9d1d9; border: none; padding-left: 0; }
+        
         .artifact-card { background-color: #21262d; border: 1px solid #30363d; transition: all 0.2s; }
         .artifact-card:hover { border-color: #58a6ff; }
         pre code { display: block; padding: 1rem; overflow-x: auto; background: #0d1117; color: #e6edf3; border-radius: 0.5rem; }
@@ -27,7 +30,7 @@
         <div>
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-xl font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-terminal text-blue-500"></i> Fsociety AI
+                    <i class="fa-solid fa-terminal text-gray-400"></i> Fsociety AI
                 </h1>
                 <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg">
                     <i class="fa-solid fa-plus"></i>
@@ -40,13 +43,13 @@
 
         <div id="user-profile" class="border-t border-gray-800 pt-4 flex items-center justify-between">
             <span class="text-sm text-gray-400">Guest User</span>
-            <a href="/auth/login" class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg">Login</a>
+            <a href="/auth/login" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg">Login</a>
         </div>
     </aside>
 
     <!-- MAIN CHAT AREA -->
     <main class="flex-1 flex flex-col h-full relative">
-        <header class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-slate-900/50">
+        <header class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-[#0d1117]">
             <h2 id="current-chat-title" class="font-semibold text-gray-200">New Chat</h2>
             <div class="flex items-center gap-3">
                 <button id="toggle-artifact-btn" onclick="toggleArtifactPanel()" class="hidden text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 flex items-center gap-2">
@@ -62,16 +65,16 @@
         <!-- INPUT BOX -->
         <div class="p-4 max-w-4xl mx-auto w-full">
             <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-xl p-3 flex flex-col gap-2 shadow-lg">
-                <textarea id="user-input" rows="2" placeholder="Ask Fsociety AI or paste code..." class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2"></textarea>
+                <textarea id="user-input" rows="2" placeholder="Ask Fsociety AI..." class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2"></textarea>
                 <div class="flex items-center justify-between pt-2 border-t border-gray-800">
                     <div class="flex items-center gap-2">
                         <label for="file-upload" class="cursor-pointer text-gray-400 hover:text-white px-2 py-1 rounded text-sm">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
-                        <span id="file-name-display" class="text-xs text-blue-400"></span>
+                        <span id="file-name-display" class="text-xs text-gray-400"></span>
                     </div>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm flex items-center gap-2">
+                    <button type="submit" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1.5 rounded-lg text-sm flex items-center gap-2">
                         Send <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </div>
@@ -79,12 +82,12 @@
         </div>
     </main>
 
-    <!-- CLAUDE-STYLE ARTIFACT PANEL -->
+    <!-- ARTIFACT PANEL -->
     <aside id="artifact-panel" class="artifact-panel w-1/2 h-full hidden flex-col">
-        <header class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-slate-900/80">
+        <header class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-[#161b22]">
             <div class="flex items-center gap-4">
-                <button onclick="switchArtifactTab('code')" id="tab-code" class="text-sm font-semibold text-blue-400 border-b-2 border-blue-500 pb-1">Code</button>
-                <button onclick="switchArtifactTab('preview')" id="tab-preview" class="text-sm font-semibold text-gray-400 hover:text-white pb-1">Preview</button>
+                <button onclick="switchArtifactTab('code')" id="tab-code" class="text-sm font-semibold text-gray-200 border-b-2 border-gray-400 pb-1">Code</button>
+                <button onclick="switchArtifactTab('preview')" id="tab-preview" class="text-sm font-semibold text-gray-500 hover:text-gray-300 pb-1">Preview</button>
             </div>
             <button onclick="toggleArtifactPanel()" class="text-gray-400 hover:text-white">
                 <i class="fa-solid fa-xmark"></i>
@@ -150,7 +153,13 @@
             const res = await fetch('/api/new-session', { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
-            document.getElementById('messages-container').innerHTML = '';
+            
+            const container = document.getElementById('messages-container');
+            container.innerHTML = '';
+            
+            // FIXED: Re-added the Welcome Message
+            renderMessage('assistant', "Welcome to Fsociety AI. How can I help you today?");
+            
             document.getElementById('current-chat-title').innerText = 'New Chat';
             fetchSessions();
         }
@@ -160,9 +169,17 @@
             document.getElementById('current-chat-title').innerText = title;
             const res = await fetch(`/api/history/${id}`);
             const messages = await res.json();
+            
             const container = document.getElementById('messages-container');
             container.innerHTML = '';
-            messages.forEach(m => renderMessage(m.role, m.content));
+            
+            // FIXED: Shows welcome message if chat history is empty
+            if (messages.length === 0) {
+                renderMessage('assistant', "Welcome to Fsociety AI. How can I help you today?");
+            } else {
+                messages.forEach(m => renderMessage(m.role, m.content));
+            }
+            
             fetchSessions();
         }
 
@@ -206,7 +223,6 @@
             const container = document.getElementById('messages-container');
             const isUser = role === 'user';
             
-            // Extract Code Blocks for Claude-style Artifact rendering
             const codeBlockRegex = /```(?:html|css|javascript|js|python)?\n([\s\S]*?)```/g;
             let match = codeBlockRegex.exec(content);
             
@@ -216,7 +232,7 @@
                 artifactBtnHtml = `
                     <div class="artifact-card p-3 rounded-lg mt-3 flex items-center justify-between cursor-pointer" onclick="openArtifact()">
                         <div class="flex items-center gap-3">
-                            <i class="fa-solid fa-code text-blue-400"></i>
+                            <i class="fa-solid fa-code text-gray-400"></i>
                             <div>
                                 <div class="text-xs font-semibold text-white">Generated Code Artifact</div>
                                 <div class="text-[10px] text-gray-400">Click to view split screen & preview</div>
@@ -246,8 +262,6 @@
             panel.classList.remove('hidden');
             panel.classList.add('flex');
             document.getElementById('artifact-code-content').innerText = activeCodeContent;
-            
-            // Set up preview iframe
             const iframe = document.getElementById('artifact-preview-frame');
             iframe.srcdoc = activeCodeContent;
         }
@@ -267,13 +281,13 @@
             if (tab === 'code') {
                 codeView.classList.remove('hidden');
                 previewView.classList.add('hidden');
-                codeTab.className = "text-sm font-semibold text-blue-400 border-b-2 border-blue-500 pb-1";
-                previewTab.className = "text-sm font-semibold text-gray-400 hover:text-white pb-1";
+                codeTab.className = "text-sm font-semibold text-gray-200 border-b-2 border-gray-400 pb-1";
+                previewTab.className = "text-sm font-semibold text-gray-500 hover:text-gray-300 pb-1";
             } else {
                 codeView.classList.add('hidden');
                 previewView.classList.remove('hidden');
-                previewTab.className = "text-sm font-semibold text-blue-400 border-b-2 border-blue-500 pb-1";
-                codeTab.className = "text-sm font-semibold text-gray-400 hover:text-white pb-1";
+                previewTab.className = "text-sm font-semibold text-gray-200 border-b-2 border-gray-400 pb-1";
+                codeTab.className = "text-sm font-semibold text-gray-500 hover:text-gray-300 pb-1";
             }
         }
 
