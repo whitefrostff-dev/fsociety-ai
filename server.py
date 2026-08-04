@@ -11,6 +11,8 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from google import genai
 from google.genai import types
+from openai import AsyncOpenAI
+from duckduckgo_search import DDGS
 
 app = FastAPI()
 
@@ -19,6 +21,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 
 # --- ADMIN CONFIGURATION ---
 ADMIN_EMAIL = "whitefrostff@gmail.com"
@@ -26,8 +29,13 @@ ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "fsociety_admin_2026")
 
 app.add_middleware(SessionMiddleware, secret_key="fsociety_super_secret_session_string")
 
-groq_client = Groq(api_key=GROQ_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
+
+silicon_client = AsyncOpenAI(
+    api_key=SILICONFLOW_API_KEY,
+    base_url="https://api.siliconflow.cn/v1"
+) if SILICONFLOW_API_KEY else None
 
 oauth = OAuth()
 oauth.register(
@@ -46,16 +54,22 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_email TEXT,
             guest_id TEXT,
-            title TEXT
+            title TEXT,
+            is_pinned INTEGER DEFAULT 0
         )
     ''')
+    try:
+        cursor.execute("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id INTEGER,
             role TEXT,
             content TEXT,
-            FOREIGN KEY(session_id) REFERENCES sessions(id)
+            FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
         )
     ''')
     conn.commit()
@@ -98,7 +112,7 @@ async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url='/')
 
-# --- FRONTEND ROUTE WITH GUEST COOKIE ---
+# --- FRONTEND ROUTE ---
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request, response: Response):
     if not request.session.get('user') and not request.cookies.get("guest_id"):
@@ -125,10 +139,10 @@ async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
     conn = sqlite3.connect("fsociety_history.db")
     cursor = conn.cursor()
-    cursor.execute(f"SELECT id, title FROM sessions WHERE {col} = ?", (val,))
+    cursor.execute(f"SELECT id, title, is_pinned FROM sessions WHERE {col} = ? ORDER BY id DESC", (val,))
     rows = cursor.fetchall()
     conn.close()
-    return [{"id": r[0], "title": r[1]} for r in rows]
+    return [{"id": r[0], "title": r[1], "is_pinned": r[2]} for r in rows]
 
 @app.get("/api/history/{session_id}")
 async def get_session_history(session_id: int):
@@ -154,6 +168,25 @@ async def create_new_session(request: Request):
     conn.commit()
     conn.close()
     return {"session_id": session_id}
+
+@app.post("/api/rename-session")
+async def rename_session(session_id: int = Form(...), title: str = Form(...)):
+    conn = sqlite3.connect("fsociety_history.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE sessions SET title = ? WHERE id = ?", (title, session_id))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.delete("/api/delete-session/{session_id}")
+async def delete_session(session_id: int):
+    conn = sqlite3.connect("fsociety_history.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+    cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
 
 @app.get("/api/admin/stats")
 async def get_app_stats(request: Request, key: str = None):
@@ -183,38 +216,26 @@ async def get_app_stats(request: Request, key: str = None):
         "total_messages_sent": total_messages
     }
 
-# --- DEDICATED IMAGE GENERATION FUNCTION ---
-def trigger_imagen(prompt_text: str):
-    if not genai_client:
-        return "[ERROR] Google API key missing on server."
+# --- WEB IMAGE SEARCH ---
+def fetch_web_image(query: str):
     try:
-        result = genai_client.models.generate_images(
-            model='imagen-3.0-generate-002',
-            prompt=prompt_text,
-            config=types.GenerateImagesConfig(number_of_images=1, aspect_ratio="1:1")
-        )
-        for generated_image in result.generated_images:
-            image_bytes = generated_image.image.image_bytes
-            b64 = base64.b64encode(image_bytes).decode('utf-8')
-            return f'<img src="data:image/png;base64,{b64}" class="rounded-xl shadow-lg mt-2 max-w-full h-auto" alt="Generated Image">'
-        return "[ERROR] Image generation returned no output."
+        with DDGS() as ddgs:
+            results = list(ddgs.images(
+                query,
+                region='wt-wt',
+                safesearch='moderate',
+                max_results=1
+            ))
+            
+        if results and len(results) > 0:
+            image_url = results[0]['image']
+            title = results[0]['title']
+            return f'<img src="{image_url}" class="rounded-xl shadow-lg mt-2 max-w-full h-auto" alt="{title}">'
+        return "I couldn't find any matching images on the web."
     except Exception as e:
-        return f"[ERROR] Image generation failed: {str(e)}"
+        return f"[ERROR] Image search failed: {str(e)}"
 
-@app.post("/api/generate-image")
-async def generate_image_route(session_id: int = Form(...), message: str = Form(...)):
-    conn = sqlite3.connect("fsociety_history.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", f"Generate Image: {message}"))
-    
-    ai_response = trigger_imagen(message)
-
-    cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "assistant", ai_response))
-    conn.commit()
-    conn.close()
-    return {"response": ai_response}
-
-# --- UNIFIED SMART CHAT ENDPOINT (HANDLES TEXT, PDFs, IMAGES & AUTO-IMAGE GEN) ---
+# --- CHAT ENDPOINT ---
 @app.post("/api/chat")
 async def chat_with_assistant(session_id: int = Form(...), message: str = Form(""), file: UploadFile = File(None)):
     conn = sqlite3.connect("fsociety_history.db")
@@ -229,7 +250,6 @@ async def chat_with_assistant(session_id: int = Form(...), message: str = Form("
         file_extension = file.filename.split('.')[-1].lower()
         display_message += f" [Attached: {file.filename}]"
 
-    # Save user message to database
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
     
     cursor.execute("SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,))
@@ -240,43 +260,39 @@ async def chat_with_assistant(session_id: int = Form(...), message: str = Form("
 
     conn.commit()
 
-    # --- CHECK IF USER WANTS TO GENERATE AN IMAGE IN NORMAL CHAT ---
     lower_msg = message.lower().strip()
-    image_triggers = ["generate an image", "create an image", "draw a", "draw me", "generate a picture", "make an image of", "paint a"]
-    if any(lower_msg.startswith(trigger) or f"please {trigger}" in lower_msg for trigger in image_triggers):
-        # Extract the prompt
-        prompt_to_gen = message
-        for trig in image_triggers:
-            if trig in prompt_to_gen.lower():
-                # Clean up prompt text slightly
-                prompt_to_gen = prompt_to_gen.replace(trig, "").strip()
-        if not prompt_to_gen: 
-            prompt_to_gen = message
-            
-        ai_response = trigger_imagen(prompt_to_gen)
+    image_search_triggers = ["find a picture", "find an image", "get a picture", "show me a picture", "search image", "look up a picture"]
+    
+    if any(lower_msg.startswith(trigger) or f"please {trigger}" in lower_msg for trigger in image_search_triggers):
+        query_text = message
+        for trig in image_search_triggers:
+            query_text = query_text.lower().replace(trig, "").strip()
+        
+        ai_response = fetch_web_image(query_text or message)
         cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "assistant", ai_response))
         conn.commit()
         conn.close()
         return {"response": ai_response}
 
-    # --- PROCESS STANDARD CHAT, PDF, OR IMAGE UPLOAD VIA GROQ ---
+    cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
+    past_messages = cursor.fetchall()
+    recent_history = past_messages[-10:]
+
+    system_prompt = (
+        "You are Fsociety AI, a smart, insightful, and highly human-like assistant created by Frost. "
+        "Your responses are clear, natural, and conversational. "
+        "When generating code snippets or structural web components (HTML/CSS/JS), wrap the code cleanly in markdown code blocks. "
+        "Avoid mechanical phrasing.\n"
+        "CRITICAL RULE: If directly asked who created or built you, answer: 'Frost made me.'"
+    )
+
     try:
-        system_prompt = (
-            "You are Fsociety AI, a sharp, tech-savvy, casual, and human-like companion. "
-            "You were created by Frost. "
-            "CRITICAL RULES:\n"
-            "1. If anyone asks who made you, who created you, or who built you, always answer directly and casually: 'Frost made me.'\n"
-            "2. Never talk like a stiff, boring textbook or robotic corporate assistant. Speak like a real, cool human friend.\n"
-            "3. Keep sentences conversational and engaging."
-        )
-
-        messages_payload = [{"role": "system", "content": system_prompt}]
-
-        # Handle Image Upload (Vision)
+        # Vision via Groq
         if file_bytes and file_extension in ["jpg", "jpeg", "png", "webp", "gif"]:
             base64_image = base64.b64encode(file_bytes).decode('utf-8')
             data_url = f"data:image/{file_extension};base64,{base64_image}"
             
+            messages_payload = [{"role": "system", "content": system_prompt}]
             messages_payload.append({
                 "role": "user",
                 "content": [
@@ -293,7 +309,7 @@ async def chat_with_assistant(session_id: int = Form(...), message: str = Form("
             )
             ai_response = chat_completion.choices[0].message.content
 
-        # Handle PDF Upload
+        # PDF via SiliconFlow / Groq
         elif file_bytes and file_extension == "pdf":
             file_text_content = ""
             try:
@@ -305,30 +321,49 @@ async def chat_with_assistant(session_id: int = Form(...), message: str = Form("
             except Exception as e:
                 file_text_content = f"[Error reading PDF: {str(e)}]"
 
-            full_prompt_content = f"{message}\n\nHere is the content extracted from the uploaded PDF:\n{file_text_content[:10000]}"
-            messages_payload.append({"role": "user", "content": full_prompt_content})
+            full_prompt_content = f"{message}\n\n[PDF Text Content]:\n{file_text_content[:10000]}"
+            messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": full_prompt_content}]
 
-            chat_completion = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages_payload,
-                temperature=0.85,
-                max_tokens=2048
-            )
-            ai_response = chat_completion.choices[0].message.content
+            if silicon_client:
+                response = await silicon_client.chat.completions.create(
+                    model="deepseek-ai/DeepSeek-V3",
+                    messages=messages_payload,
+                    max_tokens=2048
+                )
+                ai_response = response.choices[0].message.content
+            else:
+                chat_completion = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages_payload,
+                    temperature=0.7,
+                    max_tokens=2048
+                )
+                ai_response = chat_completion.choices[0].message.content
 
-        # Handle Standard Text Chat
+        # Text via SiliconFlow / Groq
         else:
-            messages_payload.append({"role": "user", "content": message if message else "Hello!"})
-            chat_completion = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages_payload,
-                temperature=0.85,
-                max_tokens=2048
-            )
-            ai_response = chat_completion.choices[0].message.content
+            messages_payload = [{"role": "system", "content": system_prompt}]
+            for r, c in recent_history:
+                messages_payload.append({"role": r, "content": c})
+
+            if silicon_client:
+                response = await silicon_client.chat.completions.create(
+                    model="deepseek-ai/DeepSeek-V3",
+                    messages=messages_payload,
+                    max_tokens=2048
+                )
+                ai_response = response.choices[0].message.content
+            else:
+                chat_completion = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages_payload,
+                    temperature=0.75,
+                    max_tokens=2048
+                )
+                ai_response = chat_completion.choices[0].message.content
 
     except Exception as e:
-        ai_response = f"[ERROR] Failed to connect to core: {str(e)}"
+        ai_response = f"[ERROR] Core processing failed: {str(e)}"
 
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "assistant", ai_response))
     conn.commit()
@@ -338,5 +373,4 @@ async def chat_with_assistant(session_id: int = Form(...), message: str = Form("
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT",8000)), reload=False)
-    
+    uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
