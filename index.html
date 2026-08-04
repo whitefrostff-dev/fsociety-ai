@@ -148,12 +148,14 @@
         async function checkUserStatus() {
             try {
                 const res = await fetch('/api/user');
-                const user = await res.json();
-                if (user && user.email) {
-                    document.getElementById('user-display-name').innerText = user.name || user.email;
-                    const authBtn = document.getElementById('auth-btn');
-                    authBtn.innerText = 'Logout';
-                    authBtn.href = '/auth/logout';
+                if (res.ok) {
+                    const user = await res.json();
+                    if (user && user.email) {
+                        document.getElementById('user-display-name').innerText = user.name || user.email;
+                        const authBtn = document.getElementById('auth-btn');
+                        authBtn.innerText = 'Logout';
+                        authBtn.href = '/auth/logout';
+                    }
                 }
             } catch (e) {
                 console.log("Not logged in");
@@ -193,23 +195,27 @@
         }
 
         async function fetchSessions() {
-            const res = await fetch('/api/sessions');
-            const sessions = await res.json();
-            const list = document.getElementById('session-list');
-            list.innerHTML = '';
-            
-            if (sessions.length > 0) {
-                sessions.forEach(s => {
-                    list.innerHTML += `
-                        <div class="flex items-center justify-between p-2 hover:bg-gray-800 rounded-lg cursor-pointer text-sm ${currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
-                            <span class="truncate w-40">${s.title}</span>
-                            <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    `;
-                });
-                if (!currentSessionId) loadSession(sessions[0].id, sessions[0].title);
-            } else {
-                createNewSession();
+            try {
+                const res = await fetch('/api/sessions');
+                const sessions = await res.json();
+                const list = document.getElementById('session-list');
+                list.innerHTML = '';
+                
+                if (sessions.length > 0) {
+                    sessions.forEach(s => {
+                        list.innerHTML += `
+                            <div class="flex items-center justify-between p-2 hover:bg-gray-800 rounded-lg cursor-pointer text-sm ${currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
+                                <span class="truncate w-40">${s.title}</span>
+                                <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        `;
+                    });
+                    if (!currentSessionId) loadSession(sessions[0].id, sessions[0].title);
+                } else {
+                    createNewSession();
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -307,7 +313,8 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        init();
+        // Initialize when DOM is completely loaded
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
