@@ -95,7 +95,8 @@ async def serve_frontend(request: Request, response: Response):
 # --- AUTH ROUTES ---
 @app.get('/auth/login')
 async def login(request: Request):
-    redirect_uri = request.url_for('auth')
+    # THE FIX: Force the redirect URL to be secure HTTPS so Google doesn't block Railway
+    redirect_uri = str(request.url_for('auth')).replace('http://', 'https://')
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get('/auth/callback')
