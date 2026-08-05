@@ -35,33 +35,42 @@
         .model-card:hover { border-color: #737373; background-color: #121212; }
         .model-card.active { border-color: #ffffff; background-color: #171717; }
         .badge-tag { background-color: #262626; color: #d4d4d4; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+        
+        /* Mobile Panel Utility */
+        .mobile-overlay { display: none; }
+        .mobile-overlay.active { display: block; position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 40; }
     </style>
 </head>
-<body class="h-screen flex overflow-hidden">
+<body class="h-screen flex overflow-hidden relative">
+
+    <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
     <!-- LEFT SIDEBAR: CHAT HISTORY -->
-    <aside class="sidebar w-64 flex-shrink-0 flex flex-col justify-between p-4">
+    <aside id="left-sidebar" class="sidebar absolute md:relative z-50 h-full w-64 flex-shrink-0 flex-col justify-between p-4 hidden md:flex">
         <div>
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-xl font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-terminal text-gray-400"></i> Fsociety AI
                 </h1>
-                <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg transition-colors" title="New Chat">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg transition-colors" title="New Chat">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <!-- Mobile Close Button -->
+                    <button onclick="toggleLeftSidebar()" class="md:hidden text-gray-400 hover:text-white text-lg transition-colors">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </div>
             <div id="session-list" class="space-y-1.5 overflow-y-auto max-h-[50vh] pr-1"></div>
         </div>
 
-        <!-- CREATOR & CONTACT INFO BOX -->
         <div class="space-y-3">
             <div class="p-3 bg-[#0a0a0a] rounded-xl border border-[#262626] text-xs text-gray-400 space-y-1">
                 <p class="text-white font-bold mb-1"><i class="fa-solid fa-bolt text-white"></i> Frost Made Me</p>
                 <p><i class="fa-solid fa-envelope w-4"></i> whitefrostff@gmail.com</p>
                 <p><i class="fa-solid fa-phone w-4"></i> +234 707 718 7114</p>
             </div>
-
-            <!-- USER PROFILE AREA -->
             <div id="user-profile" class="border-t border-[#1a1a1a] pt-3 flex items-center justify-between">
                 <span id="user-display-name" class="text-xs text-gray-300 truncate max-w-[110px]">Guest User</span>
                 <a id="auth-btn" href="/auth/login" class="text-xs bg-white hover:bg-gray-200 text-black px-3 py-1.5 rounded-lg font-semibold transition-colors">Login</a>
@@ -70,27 +79,30 @@
     </aside>
 
     <!-- CENTER CHAT INTERFACE -->
-    <main class="flex-1 flex flex-col h-full relative bg-black">
-        <header class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-6 bg-black">
+    <main class="flex-1 flex flex-col h-full relative bg-black min-w-0">
+        <header class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-3 md:px-6 bg-black">
             <div class="flex items-center gap-3">
-                <h2 id="current-chat-title" class="font-semibold text-gray-200 text-sm">New Chat</h2>
+                <!-- Mobile Menu Button -->
+                <button onclick="toggleLeftSidebar()" class="md:hidden text-gray-200 hover:text-white text-lg">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <h2 id="current-chat-title" class="font-semibold text-gray-200 text-sm hidden md:block">New Chat</h2>
                 
-                <!-- MODEL SWITCHER TRIGGER BUTTON -->
                 <button onclick="openModelModal()" class="flex items-center gap-2 bg-[#0a0a0a] hover:bg-[#171717] text-xs text-gray-200 px-3 py-1.5 rounded-lg border border-[#262626] transition-colors">
                     <span id="current-model-label">Llama 3.3 70B</span>
                     <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
                 </button>
             </div>
             <button onclick="toggleArtifactPanel()" class="text-xs bg-[#0a0a0a] hover:bg-[#171717] text-white px-3 py-1.5 rounded-lg border border-[#262626] flex items-center gap-2">
-                <i class="fa-solid fa-code"></i> Artifacts / Code
+                <i class="fa-solid fa-code"></i> <span class="hidden md:inline">Artifacts</span>
             </button>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl mx-auto w-full"></div>
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-3xl mx-auto w-full"></div>
 
-        <!-- INPUT BOX -->
-        <div class="p-4 max-w-3xl mx-auto w-full">
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl">
+        <div class="p-3 md:p-4 max-w-3xl mx-auto w-full">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl relative">
                 <textarea id="user-input" rows="2" placeholder="Ask Fsociety AI or type 'generate image of...' " class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2 placeholder-gray-600"></textarea>
                 <div class="flex items-center justify-between pt-2 border-t border-[#1a1a1a]">
                     <div class="flex items-center gap-2">
@@ -98,10 +110,10 @@
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
-                        <span id="file-name-display" class="text-xs text-gray-400"></span>
+                        <span id="file-name-display" class="text-xs text-gray-400 truncate max-w-[100px] md:max-w-[200px]"></span>
                     </div>
-                    <button type="submit" class="bg-white text-black hover:bg-gray-200 font-bold px-4 py-1.5 rounded-xl text-sm flex items-center gap-2 transition-colors">
-                        Send <i class="fa-solid fa-paper-plane text-xs"></i>
+                    <button id="send-btn" type="submit" class="bg-white text-black hover:bg-gray-200 font-bold px-4 py-1.5 rounded-xl text-sm flex items-center gap-2 transition-colors">
+                        <span>Send</span> <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </div>
             </form>
@@ -109,14 +121,20 @@
     </main>
 
     <!-- RIGHT ARTIFACTS & CODE EXECUTION PANEL -->
-    <aside id="artifact-sidebar" class="artifact-panel w-96 flex-shrink-0 flex flex-col h-full">
+    <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden">
         <div class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-4 bg-black">
             <span class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
-                <i class="fa-solid fa-laptop-code text-white"></i> Artifacts / Code Sandbox
+                <i class="fa-solid fa-laptop-code text-white"></i> <span class="hidden md:inline">Artifacts</span>
             </span>
-            <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
-                <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
-                <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
+            <div class="flex items-center gap-2">
+                <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
+                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
+                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
+                </div>
+                <!-- Mobile Close Button for Artifacts -->
+                <button onclick="toggleArtifactPanel()" class="md:hidden text-gray-400 hover:text-white text-lg ml-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </div>
         
@@ -185,6 +203,43 @@
         let selectedFile = null;
         let activeModelValue = "groq:llama-3.3-70b-versatile";
         let latestExtractedCode = "";
+
+        // --- UI TOGGLE FUNCTIONS FOR MOBILE ---
+        function toggleLeftSidebar() {
+            const sidebar = document.getElementById('left-sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden');
+                sidebar.classList.add('flex');
+                backdrop.classList.add('active');
+            } else {
+                sidebar.classList.add('hidden');
+                sidebar.classList.remove('flex');
+                backdrop.classList.remove('active');
+            }
+        }
+
+        function toggleArtifactPanel() {
+            const panel = document.getElementById('artifact-sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                panel.classList.add('flex');
+                backdrop.classList.add('active');
+            } else {
+                panel.classList.add('hidden');
+                panel.classList.remove('flex');
+                backdrop.classList.remove('active');
+            }
+        }
+
+        function closeAllPanels() {
+            document.getElementById('left-sidebar').classList.add('hidden');
+            document.getElementById('left-sidebar').classList.remove('flex');
+            document.getElementById('artifact-sidebar').classList.add('hidden');
+            document.getElementById('artifact-sidebar').classList.remove('flex');
+            document.getElementById('mobile-backdrop').classList.remove('active');
+        }
 
         async function init() {
             await checkUserStatus();
@@ -285,6 +340,7 @@
             renderEmptyState();
             document.getElementById('current-chat-title').innerText = 'New Chat';
             fetchSessions();
+            closeAllPanels(); // Close menus on mobile if open
         }
 
         async function loadSession(id, title) {
@@ -299,8 +355,10 @@
                 renderEmptyState();
             } else {
                 messages.forEach(m => renderMessage(m.role, m.content, false));
+                container.scrollTop = container.scrollHeight;
             }
             fetchSessions();
+            closeAllPanels();
         }
 
         async function deleteSession(e, id) {
@@ -336,9 +394,27 @@
             document.getElementById('file-name-display').innerText = '';
             selectedFile = null;
 
-            const res = await fetch('/api/chat', { method: 'POST', body: formData });
-            const data = await res.json();
-            renderMessage('assistant', data.response, true);
+            // UI LOADING STATE UPDATE
+            const sendBtn = document.getElementById('send-btn');
+            const originalBtnHTML = sendBtn.innerHTML;
+            sendBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-lg"></i>`;
+            sendBtn.disabled = true;
+            sendBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+            try {
+                const res = await fetch('/api/chat', { method: 'POST', body: formData });
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                
+                const data = await res.json();
+                renderMessage('assistant', data.response, true);
+            } catch (error) {
+                renderMessage('assistant', `**System Alert:** Connection interrupted. Ensure the backend is running. (${error.message})`, true);
+            } finally {
+                // RESTORE BUTTON
+                sendBtn.innerHTML = originalBtnHTML;
+                sendBtn.disabled = false;
+                sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            }
         }
 
         function renderMessage(role, content, shouldScroll = true) {
@@ -349,14 +425,13 @@
             const isUser = role === 'user';
             const formattedContent = marked.parse(content);
             
-            // Extract code blocks for Artifacts Panel if assistant responds with code
             if (!isUser) {
                 extractCodeForArtifacts(content);
             }
 
             const msgHtml = `
                 <div class="flex ${isUser ? 'justify-end' : 'justify-start'} w-full my-2">
-                    <div class="max-w-xl rounded-2xl p-4 text-sm ${isUser ? 'user-msg font-medium' : 'assistant-msg w-full'}">
+                    <div class="max-w-xl rounded-2xl p-4 text-sm ${isUser ? 'user-msg font-medium' : 'assistant-msg w-full shadow-lg'}">
                         <div class="prose prose-invert text-xs md:text-sm leading-relaxed">${formattedContent}</div>
                     </div>
                 </div>
@@ -378,7 +453,6 @@
                 latestExtractedCode = extracted.trim();
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 
-                // If it looks like HTML, load it into preview iframe automatically
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     const iframe = document.getElementById('artifact-preview-view');
                     iframe.srcdoc = latestExtractedCode;
@@ -403,18 +477,12 @@
                 previewView.classList.remove('hidden');
                 codeView.classList.add('hidden');
                 
-                // Render iframe preview
                 if (latestExtractedCode) {
                     previewView.srcdoc = latestExtractedCode;
                 } else {
                     previewView.srcdoc = "<html><body style='font-family:sans-serif;padding:20px;text-align:center;color:#666;'><h3>No HTML/UI code found to preview yet.</h3></body></html>";
                 }
             }
-        }
-
-        function toggleArtifactPanel() {
-            const panel = document.getElementById('artifact-sidebar');
-            panel.classList.toggle('hidden');
         }
 
         document.addEventListener('DOMContentLoaded', init);
