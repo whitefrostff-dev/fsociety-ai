@@ -132,6 +132,16 @@ async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")
 
+@app.post("/api/guest-mode")
+async def switch_to_guest_mode(request: Request, response: Response):
+    # Clear current logged-in user session
+    request.session.pop('user', None)
+    # Ensure guest cookie is generated if missing
+    if not request.cookies.get("guest_id"):
+        guest_id = str(uuid.uuid4())
+        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
+    return {"status": "success"}
+
 def get_identifier(request: Request):
     user = request.session.get('user')
     if user:
