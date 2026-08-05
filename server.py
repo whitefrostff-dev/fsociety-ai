@@ -2,6 +2,7 @@ from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from typing import Optional
 import sqlite3
 import uuid
 import os
@@ -185,7 +186,7 @@ async def delete_session(session_id: int):
 async def chat_with_assistant(
     session_id: int = Form(...), 
     message: str = Form(""), 
-    file: UploadFile = File(None),
+    file: Optional[UploadFile] = File(None),  # <-- Fixed typing to prevent validation errors
     model_choice: str = Form("groq:llama-3.3-70b-versatile")
 ):
     conn = sqlite3.connect("fsociety_history.db")
