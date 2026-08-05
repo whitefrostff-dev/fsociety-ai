@@ -381,6 +381,11 @@
             const text = input.value.trim();
             if (!text && !selectedFile) return;
 
+            // FIX: Ensure session exists before sending to prevent HTTP 422
+            if (!currentSessionId) {
+                await createNewSession();
+            }
+
             renderMessage('user', text + (selectedFile ? ` [File: ${selectedFile.name}]` : ''), true);
             
             const formData = new FormData();
