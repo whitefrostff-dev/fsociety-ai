@@ -9,3 +9,4 @@ httpx
 google-genai
 openai
 duckduckgo-search
+starlette
