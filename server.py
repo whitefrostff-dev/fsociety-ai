@@ -186,7 +186,7 @@ async def delete_session(session_id: int):
 async def chat_with_assistant(
     session_id: int = Form(...), 
     message: str = Form(""), 
-    file: Optional[UploadFile] = File(None),  # <-- Fixed typing to prevent validation errors
+    file: Optional[UploadFile] = File(None),
     model_choice: str = Form("groq:llama-3.3-70b-versatile")
 ):
     conn = sqlite3.connect("fsociety_history.db")
