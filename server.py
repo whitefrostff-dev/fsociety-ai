@@ -108,7 +108,6 @@ def init_db():
         )
     ''')
     
-    # Insert Default Gems if empty
     cursor.execute("SELECT COUNT(*) FROM gems")
     if cursor.fetchone()[0] == 0:
         default_gems = [
@@ -298,7 +297,6 @@ async def chat_with_assistant(
         mime_type = file.content_type or "image/png"
         is_image = mime_type.startswith("image/")
         
-        # Save asset to disk & DB
         filename = f"{uuid.uuid4().hex}_{file.filename}"
         filepath = os.path.join(UPLOAD_DIR, filename)
         with open(filepath, "wb") as f:
@@ -312,11 +310,14 @@ async def chat_with_assistant(
             
         display_message += f" [Attached File: {file.filename}]"
 
+    # Always insert message
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
     
-    cursor.execute("SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,))
-    if cursor.fetchone()[0] == 1:
-        short_title = (message[:25] + '...') if len(message) > 25 else (message or "File Analysis")
+    # Auto-update session title on first message
+    cursor.execute("SELECT title FROM sessions WHERE id = ?", (session_id,))
+    current_title = cursor.fetchone()
+    if current_title and current_title[0] in ["New Chat", ""]:
+        short_title = (message[:28] + '...') if len(message) > 28 else (message or "File Upload")
         cursor.execute("UPDATE sessions SET title = ? WHERE id = ?", (short_title, session_id))
 
     conn.commit()
