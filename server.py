@@ -223,11 +223,17 @@ async def chat_with_assistant(
     cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
     past_messages = cursor.fetchall()
     recent_history = past_messages[-12:]
-
-    lower_prompt = message.lower()
-    if any(keyword in lower_prompt for keyword in ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a"]):
-        clean_prompt = message.replace("generate image of", "").replace("draw an image of", "").replace("create image of", "").strip()
-        encoded_prompt = urllib.parse.quote(clean_prompt or "cyberpunk hacktivist matrix art")
+lower_prompt = message.lower()
+    # Expanded keyword trigger to catch variations like "generate a pic" or "generate pics"
+    image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate a pic", "generate pics", "draw pics"]
+    
+    if any(keyword in lower_prompt for keyword in image_keywords):
+        clean_prompt = message
+        for kw in image_keywords:
+            clean_prompt = clean_prompt.replace(kw, "")
+        clean_prompt = clean_prompt.strip() or "cyberpunk hacktivist matrix art"
+        
+        encoded_prompt = urllib.parse.quote(clean_prompt)
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
         ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n![Generated Image]({image_url})"
         
@@ -235,6 +241,7 @@ async def chat_with_assistant(
         conn.commit()
         conn.close()
         return {"response": ai_response}
+    
 
     system_prompt = (
         "You are Fsociety AI, an elite intelligent assistant created and engineered exclusively by Frost. "
