@@ -1,13 +1,16 @@
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional
 import sqlite3
 import uuid
 import os
+import re
 import base64
 import urllib.parse
+import shutil
 from groq import Groq
 from google import genai
 from google.genai import types
@@ -15,6 +18,11 @@ from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
 
 app = FastAPI()
+
+# --- UPLOADS DIRECTORY ---
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # --- RAILWAY PROXY & SECURE SESSION FIX ---
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
@@ -78,12 +86,53 @@ def init_db():
             FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS gems (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT,
+            guest_id TEXT,
+            name TEXT,
+            description TEXT,
+            system_prompt TEXT,
+            icon TEXT DEFAULT 'fa-robot'
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT,
+            guest_id TEXT,
+            file_name TEXT,
+            file_path TEXT,
+            file_type TEXT
+        )
+    ''')
+    
+    # Insert Default Gems if empty
+    cursor.execute("SELECT COUNT(*) FROM gems")
+    if cursor.fetchone()[0] == 0:
+        default_gems = [
+            ("system", "system", "Fsociety AI Core", "Standard elite cybersecurity & full-stack assistant", 
+             "You are Fsociety AI, an elite intelligent assistant created and engineered exclusively by Frost. Creator Contact Info: Email: whitefrostff@gmail.com | Phone: +2347077187114. Speak with analytical precision, speed, and class.", "fa-terminal"),
+            ("system", "system", "CyberSec Hacker", "Offensive security, penetration testing, & exploitation tutor", 
+             "You are CyberSec AI, a dedicated offensive security and penetration testing advisor engineered by Frost. Provide precise technical insights on Kali, Termux, network security, and code execution safely and clearly.", "fa-user-ninja"),
+            ("system", "system", "Web Dev Pro", "Frontend & Backend full-stack architect", 
+             "You are Web Dev Pro AI, specializing in React, Next.js, FastAPI, Node.js, and sleek UI designs. Always provide clean, ready-to-render code artifacts.", "fa-code")
+        ]
+        cursor.executemany("INSERT INTO gems (user_email, guest_id, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?, ?)", default_gems)
+
     conn.commit()
     conn.close()
 
 @app.on_event("startup")
 def startup_event():
     init_db()
+
+def get_identifier(request: Request):
+    user = request.session.get('user')
+    if user:
+        return ("user_email", user['email'])
+    return ("guest_id", request.cookies.get("guest_id", "unknown_guest"))
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request, response: Response):
@@ -140,12 +189,7 @@ async def switch_to_guest_mode(request: Request, response: Response):
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
     return {"status": "success"}
 
-def get_identifier(request: Request):
-    user = request.session.get('user')
-    if user:
-        return ("user_email", user['email'])
-    return ("guest_id", request.cookies.get("guest_id", "unknown_guest"))
-
+# --- SESSION ROUTES ---
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
@@ -189,17 +233,61 @@ async def delete_session(session_id: int):
     conn.close()
     return {"status": "success"}
 
-# --- CHAT & VISION & IMAGE GENERATION ENGINE ---
+# --- GEMS / PERSONAS API ---
+@app.get("/api/gems")
+async def get_gems(request: Request):
+    col, val = get_identifier(request)
+    conn = sqlite3.connect("fsociety_history.db")
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR {col} = ?", (val,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "description": r[2], "system_prompt": r[3], "icon": r[4]} for r in rows]
+
+@app.post("/api/gems")
+async def create_gem(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(...),
+    system_prompt: str = Form(...),
+    icon: str = Form("fa-robot")
+):
+    col, val = get_identifier(request)
+    conn = sqlite3.connect("fsociety_history.db")
+    cursor = conn.cursor()
+    if col == "user_email":
+        cursor.execute("INSERT INTO gems (user_email, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
+    else:
+        cursor.execute("INSERT INTO gems (guest_id, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+# --- ASSETS & GALLERY API ---
+@app.get("/api/assets")
+async def get_user_assets(request: Request):
+    col, val = get_identifier(request)
+    conn = sqlite3.connect("fsociety_history.db")
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT id, file_name, file_path, file_type FROM assets WHERE {col} = ? ORDER BY id DESC", (val,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "file_name": r[1], "file_path": r[2], "file_type": r[3]} for r in rows]
+
+# --- CHAT ENGINE ---
 @app.post("/api/chat")
 async def chat_with_assistant(
+    request: Request,
     session_id: int = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-versatile")
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"),
+    gem_prompt: Optional[str] = Form(None)
 ):
     conn = sqlite3.connect("fsociety_history.db")
     cursor = conn.cursor()
 
+    col, val = get_identifier(request)
     file_bytes = None
     mime_type = ""
     is_image = False
@@ -209,6 +297,19 @@ async def chat_with_assistant(
         file_bytes = await file.read()
         mime_type = file.content_type or "image/png"
         is_image = mime_type.startswith("image/")
+        
+        # Save asset to disk & DB
+        filename = f"{uuid.uuid4().hex}_{file.filename}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+        
+        rel_path = f"/uploads/{filename}"
+        if col == "user_email":
+            cursor.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
+        else:
+            cursor.execute("INSERT INTO assets (guest_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
+            
         display_message += f" [Attached File: {file.filename}]"
 
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
@@ -224,15 +325,18 @@ async def chat_with_assistant(
     past_messages = cursor.fetchall()
     recent_history = past_messages[-12:]
 
+    # SMART IMAGE TRIGGER CHECK
     lower_prompt = message.lower()
-    image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate a pic", "generate pics", "draw pics"]
+    image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate pic", "generate pics", "draw pics"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
         clean_prompt = message
         for kw in image_keywords:
             clean_prompt = clean_prompt.replace(kw, "")
-        clean_prompt = clean_prompt.strip() or "cyberpunk hacktivist matrix art"
+        for noise in ["for me", "of a", "of", "a", "picture", "pics", "pic"]:
+            clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
         
+        clean_prompt = clean_prompt.strip() or "cyberpunk hacktivist matrix art"
         encoded_prompt = urllib.parse.quote(clean_prompt)
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
         ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n![Generated Image]({image_url})"
@@ -242,7 +346,8 @@ async def chat_with_assistant(
         conn.close()
         return {"response": ai_response}
 
-    system_prompt = (
+    # Dynamic Persona / Gem Prompt
+    system_prompt = gem_prompt or (
         "You are Fsociety AI, an elite intelligent assistant created and engineered exclusively by Frost. "
         "Creator Contact Info: Email: whitefrostff@gmail.com | Phone: +2347077187114. "
         "Always respond in clear, natural English unless the user explicitly asks for another language. "
@@ -254,16 +359,15 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # Correct model mapping for Google GenAI SDK
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
     try:
         if provider == "openrouter":
             if not openrouter_client:
-                ai_response = "**Error:** `OPENROUTER_API_KEY` is missing from environment variables."
+                ai_response = "**Error:** `OPENROUTER_API_KEY` is missing."
             else:
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for r, c in recent_history[:-1]:
@@ -274,7 +378,7 @@ async def chat_with_assistant(
                     messages_payload.append({
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": message or "Analyze and describe this image."},
+                            {"type": "text", "text": message or "Analyze this file."},
                             {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
                         ]
                     })
@@ -293,7 +397,6 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `GOOGLE_API_KEY` is missing."
             else:
                 contents = []
-                # Add conversation history
                 for r, c in recent_history[:-1]:
                     role_prefix = "User" if r == "user" else "Model"
                     contents.append(f"{role_prefix}: {c}")
