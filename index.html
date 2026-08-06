@@ -181,22 +181,23 @@
         </div>
     </aside>
 
-    <!-- GEMS / PERSONAS MODAL -->
+    <!-- RESPONSIVE GEMS / PERSONAS MODAL -->
     <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
-                <button onclick="closeGemsModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <div class="bg-[#0a0a0a] w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border border-[#262626] flex flex-col gap-4 overflow-y-auto">
+            <div class="flex items-center justify-between flex-shrink-0">
+                <h3 class="text-base md:text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
+                <button onclick="closeGemsModal()" class="text-gray-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="gems-list" class="space-y-2 max-h-[40vh] overflow-y-auto pr-1"></div>
             
-            <div class="border-t border-[#1a1a1a] pt-3">
+            <div id="gems-list" class="space-y-2 max-h-[35vh] overflow-y-auto pr-1 flex-shrink-0"></div>
+            
+            <div class="border-t border-[#1a1a1a] pt-3 flex-shrink-0">
                 <p class="text-xs text-gray-400 mb-2 font-semibold">Create Custom Gem</p>
                 <div class="space-y-2">
-                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5">
-                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5">
-                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 h-16 resize-none"></textarea>
-                    <button onclick="createCustomGem()" class="w-full bg-white text-black py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">Save Custom Gem</button>
+                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 focus:outline-none focus:border-gray-500">
+                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 focus:outline-none focus:border-gray-500">
+                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 h-20 resize-none focus:outline-none focus:border-gray-500"></textarea>
+                    <button onclick="createCustomGem()" class="w-full bg-white text-black py-2.5 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">Save Custom Gem</button>
                 </div>
             </div>
         </div>
@@ -204,14 +205,14 @@
 
     <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5">
-            <div class="flex items-center gap-4">
+        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center gap-4 flex-shrink-0">
                 <button onclick="closeModelModal()" class="text-gray-400 hover:text-white text-lg">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
                 <h3 class="text-xl font-bold text-white">Select Model Engine</h3>
             </div>
-            <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div class="space-y-3 overflow-y-auto pr-1">
                 <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-openrouter-llama">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold text-white">Llama 3.3 70B</span>
@@ -261,7 +262,7 @@
             <p class="text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
             <div class="space-y-2 pt-2">
                 <a href="/auth/login" class="w-full bg-white text-black hover:bg-gray-200 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
-                    <i class="fa-brands fa-google"></i> Sign in with another Google Email
+                    <i class="fa-brands fa-google"></i> Sign in with Google
                 </a>
                 <button onclick="switchToGuestMode()" class="w-full bg-[#171717] hover:bg-[#222] text-white py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border border-[#262626] transition-colors">
                     <i class="fa-solid fa-user-secret"></i> Continue as Guest User
@@ -402,7 +403,7 @@
 
         function setGem(prompt, name) {
             activeGemPrompt = prompt;
-            alert(`Persona set to: ${name}`);
+            alert(`Persona active: ${name}`);
             closeGemsModal();
         }
 
@@ -431,7 +432,7 @@
                 const container = document.getElementById('artifact-assets-view');
                 container.innerHTML = '';
                 if (assets.length === 0) {
-                    container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No uploaded files or assets found.</div>`;
+                    container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No uploaded files found.</div>`;
                     return;
                 }
                 assets.forEach(a => {
@@ -467,10 +468,8 @@
                         </div>
                     `;
                 });
-                if (!currentSessionId && sessions.length > 0) loadSession(sessions[0].id, sessions[0].title);
             } else {
-                list.innerHTML = `<div class="text-xs text-gray-600 text-center py-4">No chats found.</div>`;
-                if (!currentSessionId) createNewSession();
+                list.innerHTML = `<div class="text-xs text-gray-600 text-center py-4">No past chats yet.</div>`;
             }
         }
 
@@ -522,7 +521,10 @@
         async function deleteSession(e, id) {
             e.stopPropagation();
             await fetch(`/api/delete-session/${id}`, { method: 'DELETE' });
-            if (currentSessionId === id) currentSessionId = null;
+            if (currentSessionId === id) {
+                currentSessionId = null;
+                renderEmptyState();
+            }
             fetchSessions();
         }
 
@@ -540,7 +542,9 @@
             if (!text && !selectedFile) return;
 
             if (!currentSessionId) {
-                await createNewSession();
+                const newRes = await fetch('/api/new-session', { method: 'POST' });
+                const newData = await newRes.json();
+                currentSessionId = newData.session_id;
             }
 
             renderMessage('user', text + (selectedFile ? ` [File: ${selectedFile.name}]` : ''), true);
@@ -567,6 +571,7 @@
                 if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 const data = await res.json();
                 renderMessage('assistant', data.response, true);
+                await fetchSessions();
             } catch (error) {
                 renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
             } finally {
