@@ -223,8 +223,8 @@ async def chat_with_assistant(
     cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
     past_messages = cursor.fetchall()
     recent_history = past_messages[-12:]
-lower_prompt = message.lower()
-    # Expanded keyword trigger to catch variations like "generate a pic" or "generate pics"
+
+    lower_prompt = message.lower()
     image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate a pic", "generate pics", "draw pics"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
@@ -241,7 +241,6 @@ lower_prompt = message.lower()
         conn.commit()
         conn.close()
         return {"response": ai_response}
-    
 
     system_prompt = (
         "You are Fsociety AI, an elite intelligent assistant created and engineered exclusively by Frost. "
