@@ -250,7 +250,7 @@ async def chat_with_assistant(
 
     # Correct model mapping for Google GenAI SDK
     if provider == "google":
-        actual_model = "gemini-2.5-flash"
+        actual_model = "gemini-3.6-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
