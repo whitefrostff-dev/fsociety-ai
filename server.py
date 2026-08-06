@@ -134,9 +134,7 @@ async def logout(request: Request):
 
 @app.post("/api/guest-mode")
 async def switch_to_guest_mode(request: Request, response: Response):
-    # Clear current logged-in user session
     request.session.pop('user', None)
-    # Ensure guest cookie is generated if missing
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
@@ -250,8 +248,9 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    if provider == "google" and ("2.5" in actual_model or "gemini-2.5" in actual_model):
-        actual_model = "gemini-1.5-flash"
+    # Correct model mapping for Google GenAI SDK
+    if provider == "google":
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -287,19 +286,27 @@ async def chat_with_assistant(
             if not genai_client:
                 ai_response = "**Error:** `GOOGLE_API_KEY` is missing."
             else:
-                formatted_prompt = f"System Instruction: {system_prompt}\n\n"
+                contents = []
+                # Add conversation history
                 for r, c in recent_history[:-1]:
-                    formatted_prompt += f"{r.upper()}: {c}\n"
-                formatted_prompt += f"USER: {message}"
+                    role_prefix = "User" if r == "user" else "Model"
+                    contents.append(f"{role_prefix}: {c}")
 
-                contents = [formatted_prompt]
                 if is_image and file_bytes:
                     image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
                     contents.append(image_part)
+                
+                contents.append(message)
+
+                config = types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.7,
+                )
 
                 resp = genai_client.models.generate_content(
                     model=actual_model,
-                    contents=contents
+                    contents=contents,
+                    config=config
                 )
                 ai_response = resp.text
 
