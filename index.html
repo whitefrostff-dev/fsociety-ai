@@ -23,7 +23,6 @@
         .user-msg { background-color: #ffffff; color: #000000; }
         .assistant-msg { background-color: #0d0d0d; border: 1px solid #1a1a1a; color: #ededed; }
         
-        /* SHINY WHITE 3D ANIMATION */
         @keyframes float3D {
             0% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
             50% { transform: translateY(-6px) rotateX(4deg) rotateY(-3deg); text-shadow: 0 15px 30px rgba(255,255,255,0.3); }
@@ -44,7 +43,6 @@
         .model-card.active { border-color: #ffffff; background-color: #171717; }
         .badge-tag { background-color: #262626; color: #d4d4d4; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
         
-        /* Mobile Panel Utility */
         .mobile-overlay { display: none; }
         .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 40; }
         
@@ -67,7 +65,7 @@
 
     <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
-    <!-- LEFT SIDEBAR: CHAT HISTORY -->
+    <!-- LEFT SIDEBAR: CHAT HISTORY & GEMS -->
     <aside id="left-sidebar" class="sidebar h-full w-72 flex-shrink-0 flex-col justify-between p-4 flex">
         <div class="flex flex-col h-full overflow-hidden">
             <div class="flex items-center justify-between mb-4">
@@ -90,6 +88,12 @@
                 <input type="text" id="chat-search" oninput="filterSessions(this.value)" placeholder="Search chats..." class="w-full bg-[#0a0a0a] border border-[#262626] rounded-xl text-xs text-white pl-8 pr-3 py-2 focus:outline-none focus:border-gray-500 placeholder-gray-600">
             </div>
 
+            <!-- Custom Personas / Gems Trigger -->
+            <button onclick="openGemsModal()" class="w-full mb-3 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+                <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gem text-amber-400"></i> AI Gems & Personas</span>
+                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+            </button>
+
             <!-- Session List -->
             <div id="session-list" class="space-y-1.5 overflow-y-auto flex-1 pr-1"></div>
         </div>
@@ -101,7 +105,6 @@
                 <p><i class="fa-solid fa-phone w-4"></i> +234 707 718 7114</p>
             </div>
             
-            <!-- User Profile & Account Switcher -->
             <div id="user-profile" class="flex items-center justify-between bg-[#0a0a0a] p-2 rounded-xl border border-[#262626]">
                 <div class="flex items-center gap-2 truncate">
                     <div class="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-xs text-white font-bold" id="user-initials">G</div>
@@ -133,7 +136,7 @@
                 </button>
             </div>
             <button onclick="toggleArtifactPanel()" class="text-xs bg-[#0a0a0a] hover:bg-[#171717] text-white px-3 py-1.5 rounded-lg border border-[#262626] flex items-center gap-2">
-                <i class="fa-solid fa-code"></i> <span class="hidden md:inline">Artifacts</span>
+                <i class="fa-solid fa-folder-open"></i> <span class="hidden md:inline">My Stuff & Code</span>
             </button>
         </header>
 
@@ -158,28 +161,46 @@
         </div>
     </main>
 
-    <!-- RIGHT ARTIFACTS & CODE EXECUTION PANEL -->
+    <!-- RIGHT PANEL: ARTIFACTS & MY STUFF ASSETS -->
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden">
         <div class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-4 bg-black">
-            <span class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
-                <i class="fa-solid fa-laptop-code text-white"></i> <span class="hidden md:inline">Artifacts</span>
-            </span>
-            <div class="flex items-center gap-2">
-                <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
-                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
-                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
-                </div>
-                <button onclick="toggleArtifactPanel()" class="md:hidden text-gray-400 hover:text-white text-lg ml-2">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+            <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
+                <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
+                <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
+                <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">My Stuff</button>
             </div>
+            <button onclick="toggleArtifactPanel()" class="text-gray-400 hover:text-white text-lg ml-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-4 bg-black">
             <div id="artifact-code-view" class="flex-1 overflow-auto bg-[#050505] p-3 rounded-xl border border-[#1a1a1a] font-mono text-xs text-gray-300 whitespace-pre-wrap">No code artifacts generated yet. Ask Fsociety AI to write code or build an app to inspect it here.</div>
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[#1a1a1a] hidden"></iframe>
+            <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
         </div>
     </aside>
+
+    <!-- GEMS / PERSONAS MODAL -->
+    <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
+                <button onclick="closeGemsModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="gems-list" class="space-y-2 max-h-[40vh] overflow-y-auto pr-1"></div>
+            
+            <div class="border-t border-[#1a1a1a] pt-3">
+                <p class="text-xs text-gray-400 mb-2 font-semibold">Create Custom Gem</p>
+                <div class="space-y-2">
+                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5">
+                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5">
+                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 h-16 resize-none"></textarea>
+                    <button onclick="createCustomGem()" class="w-full bg-white text-black py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">Save Custom Gem</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
@@ -230,7 +251,7 @@
         </div>
     </div>
 
-    <!-- ACCOUNT / SESSION MODE MODAL -->
+    <!-- ACCOUNT MODAL -->
     <div id="account-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
         <div class="bg-[#0a0a0a] w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-4">
             <div class="flex items-center justify-between">
@@ -253,6 +274,7 @@
         let currentSessionId = null;
         let selectedFile = null;
         let activeModelValue = "groq:llama-3.3-70b-versatile";
+        let activeGemPrompt = null;
         let latestExtractedCode = "";
         let allSessions = [];
 
@@ -274,6 +296,7 @@
                 panel.classList.remove('hidden');
                 panel.classList.add('flex');
                 backdrop.classList.add('active');
+                fetchAssets();
             } else {
                 panel.classList.add('hidden');
                 panel.classList.remove('flex');
@@ -291,6 +314,7 @@
         async function init() {
             await checkUserStatus();
             await fetchSessions();
+            await fetchGems();
             highlightActiveModelCard();
         }
 
@@ -324,6 +348,8 @@
         function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); }
         function openAccountModal() { document.getElementById('account-modal').classList.remove('hidden'); }
         function closeAccountModal() { document.getElementById('account-modal').classList.add('hidden'); }
+        function openGemsModal() { document.getElementById('gems-modal').classList.remove('hidden'); }
+        function closeGemsModal() { document.getElementById('gems-modal').classList.add('hidden'); }
 
         async function switchToGuestMode() {
             await fetch('/api/guest-mode', { method: 'POST' });
@@ -352,6 +378,71 @@
             const activeCard = document.getElementById(cardMap[activeModelValue]);
             activeCard?.classList.add('active');
             activeCard?.querySelector('.check-icon')?.classList.remove('hidden');
+        }
+
+        async function fetchGems() {
+            try {
+                const res = await fetch('/api/gems');
+                const gems = await res.json();
+                const container = document.getElementById('gems-list');
+                container.innerHTML = '';
+                gems.forEach(g => {
+                    container.innerHTML += `
+                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 bg-[#111] hover:bg-[#1a1a1a] border border-[#262626] rounded-xl cursor-pointer flex items-center justify-between">
+                            <div>
+                                <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
+                                <p class="text-[10px] text-gray-400">${g.description}</p>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>
+                        </div>
+                    `;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function setGem(prompt, name) {
+            activeGemPrompt = prompt;
+            alert(`Persona set to: ${name}`);
+            closeGemsModal();
+        }
+
+        async function createCustomGem() {
+            const name = document.getElementById('gem-name').value;
+            const description = document.getElementById('gem-desc').value;
+            const system_prompt = document.getElementById('gem-prompt').value;
+            if (!name || !system_prompt) return;
+
+            const fd = new FormData();
+            fd.append('name', name);
+            fd.append('description', description);
+            fd.append('system_prompt', system_prompt);
+
+            await fetch('/api/gems', { method: 'POST', body: fd });
+            document.getElementById('gem-name').value = '';
+            document.getElementById('gem-desc').value = '';
+            document.getElementById('gem-prompt').value = '';
+            fetchGems();
+        }
+
+        async function fetchAssets() {
+            try {
+                const res = await fetch('/api/assets');
+                const assets = await res.json();
+                const container = document.getElementById('artifact-assets-view');
+                container.innerHTML = '';
+                if (assets.length === 0) {
+                    container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No uploaded files or assets found.</div>`;
+                    return;
+                }
+                assets.forEach(a => {
+                    container.innerHTML += `
+                        <div class="p-2.5 bg-[#0a0a0a] border border-[#262626] rounded-xl flex items-center justify-between text-xs">
+                            <span class="text-gray-300 truncate w-48"><i class="fa-solid fa-file text-gray-500 mr-2"></i>${a.file_name}</span>
+                            <a href="${a.file_path}" target="_blank" class="text-white hover:underline text-[10px] bg-[#1a1a1a] px-2 py-1 rounded">View</a>
+                        </div>
+                    `;
+                });
+            } catch (e) { console.error(e); }
         }
 
         async function fetchSessions() {
@@ -458,6 +549,7 @@
             formData.append('session_id', currentSessionId);
             formData.append('message', text);
             formData.append('model_choice', activeModelValue);
+            if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
             if (selectedFile) formData.append('file', selectedFile);
 
             input.value = '';
@@ -523,20 +615,31 @@
         function switchArtifactTab(tab) {
             const codeBtn = document.getElementById('tab-code-btn');
             const previewBtn = document.getElementById('tab-preview-btn');
+            const assetsBtn = document.getElementById('tab-assets-btn');
+            
             const codeView = document.getElementById('artifact-code-view');
             const previewView = document.getElementById('artifact-preview-view');
+            const assetsView = document.getElementById('artifact-assets-view');
+
+            codeBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+            previewBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+            assetsBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+
+            codeView.classList.add('hidden');
+            previewView.classList.add('hidden');
+            assetsView.classList.add('hidden');
 
             if (tab === 'code') {
                 codeBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
-                previewBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
                 codeView.classList.remove('hidden');
-                previewView.classList.add('hidden');
-            } else {
+            } else if (tab === 'preview') {
                 previewBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
-                codeBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
                 previewView.classList.remove('hidden');
-                codeView.classList.add('hidden');
                 if (latestExtractedCode) previewView.srcdoc = latestExtractedCode;
+            } else if (tab === 'assets') {
+                assetsBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                assetsView.classList.remove('hidden');
+                fetchAssets();
             }
         }
 
