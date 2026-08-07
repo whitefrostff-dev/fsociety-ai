@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,7 +29,7 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     SessionMiddleware, 
     secret_key="fsociety_super_secret_session_string",
-    https_only=True,
+    https_only=False, # Changed to False for proxy compatibility
     same_site="lax"
 )
 
@@ -68,6 +68,8 @@ oauth.register(
 def init_db():
     conn = sqlite3.connect("fsociety_history.db")
     cursor = conn.cursor()
+    
+    # Core tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,6 +79,17 @@ def init_db():
             is_pinned INTEGER DEFAULT 0
         )
     ''')
+    
+    # Safe migrations for existing databases
+    try: cursor.execute("ALTER TABLE sessions ADD COLUMN guest_id TEXT")
+    except: pass
+    try: cursor.execute("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER DEFAULT 0")
+    except: pass
+    try: cursor.execute("ALTER TABLE gems ADD COLUMN guest_id TEXT")
+    except: pass
+    try: cursor.execute("ALTER TABLE assets ADD COLUMN guest_id TEXT")
+    except: pass
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,19 +147,24 @@ def get_identifier(request: Request):
     return ("guest_id", request.cookies.get("guest_id", "unknown_guest"))
 
 @app.get("/", response_class=HTMLResponse)
-async def serve_frontend(request: Request, response: Response):
-    if not request.session.get('user') and not request.cookies.get("guest_id"):
-        guest_id = str(uuid.uuid4())
-        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
-    
+async def serve_frontend(request: Request):
     html_path = os.path.join("..", "app", "index.html")
     if not os.path.exists(html_path):
         html_path = "index.html"
     
+    content = "<h3>index.html not found.</h3>"
     if os.path.exists(html_path):
         with open(html_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return "<h3>index.html not found.</h3>"
+            content = f.read()
+            
+    # Explicitly create the response object so cookies attach properly
+    response = HTMLResponse(content=content)
+    
+    if not request.session.get('user') and not request.cookies.get("guest_id"):
+        guest_id = str(uuid.uuid4())
+        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
+        
+    return response
 
 @app.get("/api/user")
 async def get_current_user(request: Request):
@@ -181,12 +199,15 @@ async def logout(request: Request):
     return RedirectResponse(url="/")
 
 @app.post("/api/guest-mode")
-async def switch_to_guest_mode(request: Request, response: Response):
+async def switch_to_guest_mode(request: Request):
     request.session.pop('user', None)
+    response = JSONResponse(content={"status": "success"})
+    
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
-    return {"status": "success"}
+        
+    return response
 
 # --- SESSION ROUTES ---
 @app.get("/api/sessions")
@@ -361,7 +382,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
