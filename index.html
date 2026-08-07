@@ -317,6 +317,11 @@
             await fetchSessions();
             await fetchGems();
             highlightActiveModelCard();
+            
+            // Auto-load the most recent session if it exists so you don't start on a blank screen
+            if (allSessions.length > 0 && !currentSessionId) {
+                loadSession(allSessions[0].id, allSessions[0].title);
+            }
         }
 
         async function checkUserStatus() {
@@ -461,9 +466,10 @@
             list.innerHTML = '';
             if (sessions.length > 0) {
                 sessions.forEach(s => {
+                    const safeTitle = s.title || 'New Chat'; 
                     list.innerHTML += `
-                        <div class="flex items-center justify-between p-2.5 hover:bg-[#121212] rounded-xl cursor-pointer text-xs ${currentSessionId === s.id ? 'bg-[#171717] text-white font-medium border border-[#262626]' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${s.title.replace(/'/g, "\\'")}')">
-                            <span class="truncate w-44">${s.title}</span>
+                        <div class="flex items-center justify-between p-2.5 hover:bg-[#121212] rounded-xl cursor-pointer text-xs ${currentSessionId === s.id ? 'bg-[#171717] text-white font-medium border border-[#262626]' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${safeTitle.replace(/'/g, "\\'")}')">
+                            <span class="truncate w-44">${safeTitle}</span>
                             <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs px-1"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     `;
