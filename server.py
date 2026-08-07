@@ -365,7 +365,7 @@ async def chat_with_assistant(
         return {"response": ai_response}
 
     # Dynamic Persona / Gem Prompt
-  system_prompt = gem_prompt or (
+    system_prompt = gem_prompt or (
         "You are Fsociety AI, an elite, highly intelligent, and razor-sharp tech assistant created by Frost (whitefrostff@gmail.com). "
         "CORE BEHAVIORAL DIRECTIVES:\n"
         "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks (e.g., if they use Spanish, reply naturally in Spanish). Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
@@ -374,12 +374,11 @@ async def chat_with_assistant(
         "4. **Code Standards:** Always wrap code snippets in clean markdown code blocks with syntax highlighting.\n"
         "5. **Identity:** If asked who built you, state clearly: 'Frost made me.'"
     )
-    
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
