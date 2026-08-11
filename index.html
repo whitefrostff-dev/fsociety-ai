@@ -89,8 +89,20 @@
             </div>
 
             <!-- Custom Personas / Gems Trigger -->
-            <button onclick="openGemsModal()" class="w-full mb-3 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+            <button onclick="openGemsModal()" class="w-full mb-2 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
                 <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gem text-amber-400"></i> AI Gems & Personas</span>
+                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+            </button>
+
+            <!-- Plugins & Tools Trigger -->
+            <button onclick="openPluginsModal()" class="w-full mb-2 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+                <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-plug text-blue-400"></i> Plugins (Tools)</span>
+                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+            </button>
+
+            <!-- Settings Trigger -->
+            <button onclick="openSettingsModal()" class="w-full mb-3 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+                <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gear text-gray-400"></i> Settings</span>
                 <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
             </button>
 
@@ -112,7 +124,7 @@
                 </div>
                 <div class="flex items-center gap-1">
                     <button onclick="openAccountModal()" class="text-xs text-gray-400 hover:text-white p-1.5 rounded-lg transition-colors" title="Switch Account / Mode">
-                        <i class="fa-solid fa-gear"></i>
+                        <i class="fa-solid fa-user"></i>
                     </button>
                     <a id="auth-btn" href="/auth/login" class="text-xs bg-white hover:bg-gray-200 text-black px-2.5 py-1 rounded-lg font-semibold transition-colors">Login</a>
                 </div>
@@ -164,10 +176,16 @@
     <!-- RIGHT PANEL: ARTIFACTS & MY STUFF ASSETS -->
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden">
         <div class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-4 bg-black">
-            <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
-                <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
-                <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
-                <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">My Stuff</button>
+            <div class="flex items-center gap-2">
+                <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
+                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
+                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
+                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">My Stuff</button>
+                </div>
+                <!-- DEBUG BUTTON -->
+                <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden">
+                    <i class="fa-solid fa-bug"></i> Debug
+                </button>
             </div>
             <button onclick="toggleArtifactPanel()" class="text-gray-400 hover:text-white text-lg ml-2">
                 <i class="fa-solid fa-xmark"></i>
@@ -180,6 +198,78 @@
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
         </div>
     </aside>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5">
+            <div class="flex items-center justify-between border-b border-[#1a1a1a] pb-3">
+                <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-gear text-gray-400 mr-2"></i> Settings</h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Theme Setting -->
+                <div>
+                    <p class="text-sm font-semibold text-white mb-2">Appearance</p>
+                    <div class="flex gap-2">
+                        <button onclick="setTheme('dark')" class="flex-1 bg-[#171717] border border-[#737373] text-white py-2 rounded-xl text-xs font-medium">Dark Mode</button>
+                        <button onclick="setTheme('light')" class="flex-1 bg-white text-black py-2 rounded-xl text-xs font-medium opacity-50 cursor-not-allowed" title="Light mode UI in development">Light Mode</button>
+                    </div>
+                </div>
+
+                <!-- Legal Links -->
+                <div class="pt-2">
+                    <p class="text-sm font-semibold text-white mb-2">About & Legal</p>
+                    <div class="space-y-2">
+                        <a href="/terms" target="_blank" class="w-full flex justify-between items-center bg-[#111] p-3 rounded-xl border border-[#262626] text-xs text-gray-300 hover:bg-[#1a1a1a]">
+                            <span>Terms of Service</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                        <a href="/privacy" target="_blank" class="w-full flex justify-between items-center bg-[#111] p-3 rounded-xl border border-[#262626] text-xs text-gray-300 hover:bg-[#1a1a1a]">
+                            <span>Privacy Policy</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLUGINS MODAL -->
+    <div id="plugins-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-[#0a0a0a] w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5 max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-[#1a1a1a] pb-3 flex-shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-plug text-blue-400 mr-2"></i> Plugin Store</h3>
+                    <p class="text-xs text-gray-500">Connect external tools to Fsociety AI.</p>
+                </div>
+                <button onclick="closePluginsModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="space-y-3 overflow-y-auto pr-2">
+                <!-- GitHub Plugin Example -->
+                <div class="flex items-center justify-between p-3 bg-[#111] border border-[#262626] rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black text-lg"><i class="fa-brands fa-github"></i></div>
+                        <div>
+                            <p class="text-sm font-bold text-white">GitHub</p>
+                            <p class="text-[10px] text-gray-400">Triage PRs, issues, CI, and publish flows</p>
+                        </div>
+                    </div>
+                    <button class="bg-[#1a1a1a] hover:bg-[#262626] text-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                </div>
+                <!-- Google Calendar Example -->
+                <div class="flex items-center justify-between p-3 bg-[#111] border border-[#262626] rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-lg"><i class="fa-regular fa-calendar"></i></div>
+                        <div>
+                            <p class="text-sm font-bold text-white">Google Calendar</p>
+                            <p class="text-[10px] text-gray-400">Manage Google Calendar events</p>
+                        </div>
+                    </div>
+                    <button class="bg-[#1a1a1a] hover:bg-[#262626] text-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- RESPONSIVE GEMS / PERSONAS MODAL -->
     <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
@@ -350,6 +440,12 @@
             }
         }
 
+        // New Modal Toggles
+        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        function openPluginsModal() { document.getElementById('plugins-modal').classList.remove('hidden'); }
+        function closePluginsModal() { document.getElementById('plugins-modal').classList.add('hidden'); }
+        
         function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); }
         function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); }
         function openAccountModal() { document.getElementById('account-modal').classList.remove('hidden'); }
@@ -360,6 +456,27 @@
         async function switchToGuestMode() {
             await fetch('/api/guest-mode', { method: 'POST' });
             window.location.reload();
+        }
+
+        // Theme function
+        function setTheme(theme) {
+            if (theme === 'light') {
+                alert("Light mode is currently under development for Fsociety AI! Staying frosty in dark mode.");
+            }
+        }
+
+        // Debug Code feature
+        function debugArtifactCode() {
+            if (!latestExtractedCode) return;
+            
+            const debugPrompt = `Please analyze, debug, and fix the following code. Explain what went wrong and provide the corrected version:\n\n\`\`\`\n${latestExtractedCode}\n\`\`\``;
+            
+            if (window.innerWidth < 768) {
+                toggleArtifactPanel();
+            }
+            
+            document.getElementById('user-input').value = debugPrompt;
+            sendMessage(new Event('submit'));
         }
 
         function selectModel(modelValue, labelName) {
@@ -620,6 +737,13 @@
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
                 }
+                
+                // Show debug button if code tab is active
+                const debugBtn = document.getElementById('debug-code-btn');
+                const codeView = document.getElementById('artifact-code-view');
+                if (!codeView.classList.contains('hidden')) {
+                    debugBtn.classList.remove('hidden');
+                }
             }
         }
 
@@ -627,6 +751,7 @@
             const codeBtn = document.getElementById('tab-code-btn');
             const previewBtn = document.getElementById('tab-preview-btn');
             const assetsBtn = document.getElementById('tab-assets-btn');
+            const debugBtn = document.getElementById('debug-code-btn');
             
             const codeView = document.getElementById('artifact-code-view');
             const previewView = document.getElementById('artifact-preview-view');
@@ -639,10 +764,12 @@
             codeView.classList.add('hidden');
             previewView.classList.add('hidden');
             assetsView.classList.add('hidden');
+            debugBtn.classList.add('hidden');
 
             if (tab === 'code') {
                 codeBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
                 codeView.classList.remove('hidden');
+                if (latestExtractedCode) debugBtn.classList.remove('hidden');
             } else if (tab === 'preview') {
                 previewBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
                 previewView.classList.remove('hidden');
@@ -658,3 +785,5 @@
     </script>
 </body>
 </html>
+
+
