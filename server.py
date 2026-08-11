@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -161,6 +162,29 @@ async def serve_frontend(request: Request):
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
         
     return response
+
+# --- LEGAL ROUTES ---
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page():
+    return """
+    <html><head><title>Terms of Service - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Terms of Service for Fsociety AI</h2>
+    <p>1. <b>Acceptable Use:</b> Do not use the service for malicious activities, prompt injection, or illegal content generation.<br>
+    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Fsociety AI for critical medical, legal, or financial advice.<br>
+    3. <b>Content Ownership:</b> You retain rights to your inputs; we retain rights to the platform UI/UX.<br>
+    4. <b>Liability:</b> Service is provided "as is". We are not responsible for downtime or damages.</p></body></html>
+    """
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page():
+    return """
+    <html><head><title>Privacy Policy - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Privacy Policy for Fsociety AI</h2>
+    <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs to provide the service.<br>
+    2. <b>Third-Party Providers:</b> Your prompts and images are processed securely via external APIs (e.g., Groq, Google Gemini) to generate responses.<br>
+    3. <b>Data Sales:</b> We do not sell your personal data or chat histories to third-party advertisers.<br>
+    4. <b>Retention:</b> Chat history is stored to provide session continuity and can be deleted upon request.</p></body></html>
+    """
 
 @app.get("/api/user")
 async def get_current_user(request: Request):
@@ -378,7 +402,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash" # Updated to proper Gemini 2.5 flash string
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
