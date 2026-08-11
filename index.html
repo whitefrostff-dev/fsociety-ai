@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,20 +9,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        :root {
+            --bg-main: #000000;
+            --bg-panel: #050505;
+            --bg-card: #0a0a0a;
+            --bg-card-hover: #141414;
+            --border-color: #262626;
+            --text-main: #ededed;
+            --text-muted: #9ca3af;
+        }
+
+        body.light-mode {
+            --bg-main: #f9fafb;
+            --bg-panel: #ffffff;
+            --bg-card: #f3f4f6;
+            --bg-card-hover: #e5e7eb;
+            --border-color: #d1d5db;
+            --text-main: #111827;
+            --text-muted: #4b5563;
+        }
+
         body { 
-            background-color: #000000; 
-            color: #ededed; 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             height: 100dvh;
             width: 100vw;
             overflow: hidden;
             position: fixed;
+            transition: background-color 0.3s, color 0.3s;
         }
-        .sidebar { background-color: #050505; border-right: 1px solid #1a1a1a; transition: transform 0.3s ease-in-out; }
-        .artifact-panel { background-color: #050505; border-left: 1px solid #1a1a1a; }
-        .input-box { background-color: #0a0a0a; border: 1px solid #262626; }
-        .user-msg { background-color: #ffffff; color: #000000; }
-        .assistant-msg { background-color: #0d0d0d; border: 1px solid #1a1a1a; color: #ededed; }
+        .sidebar, .artifact-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
+        .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { background-color: var(--bg-card) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
+        button.bg-\[\#0a0a0a\]:hover { background-color: var(--bg-card-hover) !important; }
+        .user-msg { background-color: var(--text-main); color: var(--bg-main); }
+        .assistant-msg { background-color: var(--bg-panel); border: 1px solid var(--border-color); color: var(--text-main); }
+        h1, h2, h3, h4, span.text-white, p.text-white { color: var(--text-main) !important; }
+        span.text-gray-300, p.text-gray-400, i.text-gray-400, div.text-gray-400 { color: var(--text-muted) !important; }
         
         @keyframes float3D {
             0% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
@@ -38,10 +62,10 @@
             font-weight: 800;
         }
 
-        .model-card { background-color: #0a0a0a; border: 1px solid #262626; transition: all 0.2s ease-in-out; }
-        .model-card:hover { border-color: #737373; background-color: #121212; }
-        .model-card.active { border-color: #ffffff; background-color: #171717; }
-        .badge-tag { background-color: #262626; color: #d4d4d4; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+        .model-card { transition: all 0.2s ease-in-out; }
+        .model-card:hover { border-color: #737373; background-color: var(--bg-card-hover); }
+        .model-card.active { border-color: var(--text-main); background-color: var(--bg-card-hover); }
+        .badge-tag { background-color: var(--border-color); color: var(--text-main); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
         
         .mobile-overlay { display: none; }
         .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 40; }
@@ -54,6 +78,7 @@
                 bottom: 0;
                 z-index: 50;
                 transform: translateX(-100%);
+                transition: transform 0.3s ease;
             }
             #left-sidebar.mobile-open {
                 transform: translateX(0);
@@ -66,17 +91,17 @@
     <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
     <!-- LEFT SIDEBAR: CHAT HISTORY & GEMS -->
-    <aside id="left-sidebar" class="sidebar h-full w-72 flex-shrink-0 flex-col justify-between p-4 flex">
+    <aside id="left-sidebar" class="sidebar h-full w-72 flex-shrink-0 flex-col justify-between p-4 flex border-r">
         <div class="flex flex-col h-full overflow-hidden">
             <div class="flex items-center justify-between mb-4">
-                <h1 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-terminal text-gray-400"></i> Fsociety AI
+                <h1 class="text-lg font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-terminal"></i> Fsociety AI
                 </h1>
                 <div class="flex items-center gap-2">
-                    <button onclick="createNewSession()" class="text-gray-400 hover:text-white text-lg transition-colors p-1" title="New Chat">
+                    <button onclick="createNewSession()" class="text-lg transition-colors p-1" title="New Chat">
                         <i class="fa-solid fa-plus"></i>
                     </button>
-                    <button onclick="toggleLeftSidebar()" class="md:hidden text-gray-400 hover:text-white text-lg transition-colors p-1">
+                    <button onclick="toggleLeftSidebar()" class="md:hidden text-lg transition-colors p-1">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
@@ -84,70 +109,70 @@
 
             <!-- Chat Search Bar -->
             <div class="relative mb-3">
-                <i class="fa-solid fa-search absolute left-3 top-2.5 text-xs text-gray-500"></i>
-                <input type="text" id="chat-search" oninput="filterSessions(this.value)" placeholder="Search chats..." class="w-full bg-[#0a0a0a] border border-[#262626] rounded-xl text-xs text-white pl-8 pr-3 py-2 focus:outline-none focus:border-gray-500 placeholder-gray-600">
+                <i class="fa-solid fa-search absolute left-3 top-2.5 text-xs"></i>
+                <input type="text" id="chat-search" oninput="filterSessions(this.value)" placeholder="Search chats..." class="w-full rounded-xl text-xs pl-8 pr-3 py-2 focus:outline-none">
             </div>
 
             <!-- Custom Personas / Gems Trigger -->
-            <button onclick="openGemsModal()" class="w-full mb-2 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+            <button onclick="openGemsModal()" class="w-full mb-2 text-xs py-2 px-3 rounded-xl flex items-center justify-between transition-colors border">
                 <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gem text-amber-400"></i> AI Gems & Personas</span>
-                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
             </button>
 
             <!-- Plugins & Tools Trigger -->
-            <button onclick="openPluginsModal()" class="w-full mb-2 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
+            <button onclick="openPluginsModal()" class="w-full mb-2 text-xs py-2 px-3 rounded-xl flex items-center justify-between transition-colors border">
                 <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-plug text-blue-400"></i> Plugins (Tools)</span>
-                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
             </button>
 
             <!-- Settings Trigger -->
-            <button onclick="openSettingsModal()" class="w-full mb-3 bg-[#0a0a0a] hover:bg-[#141414] border border-[#262626] text-xs text-gray-300 py-2 px-3 rounded-xl flex items-center justify-between transition-colors">
-                <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gear text-gray-400"></i> Settings</span>
-                <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+            <button onclick="openSettingsModal()" class="w-full mb-3 text-xs py-2 px-3 rounded-xl flex items-center justify-between transition-colors border">
+                <span class="flex items-center gap-2 font-medium"><i class="fa-solid fa-gear"></i> Settings</span>
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
             </button>
 
             <!-- Session List -->
             <div id="session-list" class="space-y-1.5 overflow-y-auto flex-1 pr-1"></div>
         </div>
 
-        <div class="space-y-3 pt-3 border-t border-[#1a1a1a]">
-            <div class="p-3 bg-[#0a0a0a] rounded-xl border border-[#262626] text-xs text-gray-400 space-y-1">
-                <p class="text-white font-bold mb-1"><i class="fa-solid fa-bolt text-white"></i> Frost Made Me</p>
+        <div class="space-y-3 pt-3 border-t">
+            <div class="p-3 rounded-xl border text-xs space-y-1">
+                <p class="font-bold mb-1"><i class="fa-solid fa-bolt"></i> Frost Made Me</p>
                 <p><i class="fa-solid fa-envelope w-4"></i> whitefrostff@gmail.com</p>
                 <p><i class="fa-solid fa-phone w-4"></i> +234 707 718 7114</p>
             </div>
             
-            <div id="user-profile" class="flex items-center justify-between bg-[#0a0a0a] p-2 rounded-xl border border-[#262626]">
+            <div id="user-profile" class="flex items-center justify-between p-2 rounded-xl border">
                 <div class="flex items-center gap-2 truncate">
-                    <div class="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-xs text-white font-bold" id="user-initials">G</div>
-                    <span id="user-display-name" class="text-xs text-gray-300 truncate max-w-[100px]">Guest User</span>
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border" id="user-initials">G</div>
+                    <span id="user-display-name" class="text-xs truncate max-w-[100px]">Guest User</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button onclick="openAccountModal()" class="text-xs text-gray-400 hover:text-white p-1.5 rounded-lg transition-colors" title="Switch Account / Mode">
+                    <button onclick="openAccountModal()" class="text-xs p-1.5 rounded-lg transition-colors" title="Switch Account / Mode">
                         <i class="fa-solid fa-user"></i>
                     </button>
-                    <a id="auth-btn" href="/auth/login" class="text-xs bg-white hover:bg-gray-200 text-black px-2.5 py-1 rounded-lg font-semibold transition-colors">Login</a>
+                    <a id="auth-btn" href="/auth/login" class="text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors border">Login</a>
                 </div>
             </div>
         </div>
     </aside>
 
     <!-- CENTER CHAT INTERFACE -->
-    <main class="flex-1 flex flex-col h-full relative bg-black min-w-0">
-        <header class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-3 md:px-6 bg-black flex-shrink-0">
+    <main class="flex-1 flex flex-col h-full relative min-w-0">
+        <header class="h-14 border-b flex items-center justify-between px-3 md:px-6 flex-shrink-0">
             <div class="flex items-center gap-3">
-                <button onclick="toggleLeftSidebar()" class="text-gray-200 hover:text-white text-lg p-1">
+                <button onclick="toggleLeftSidebar()" class="text-lg p-1">
                     <i class="fa-solid fa-bars"></i>
                 </button>
 
-                <h2 id="current-chat-title" class="font-semibold text-gray-200 text-sm truncate max-w-[150px] md:max-w-xs">New Chat</h2>
+                <h2 id="current-chat-title" class="font-semibold text-sm truncate max-w-[150px] md:max-w-xs">New Chat</h2>
                 
-                <button onclick="openModelModal()" class="flex items-center gap-2 bg-[#0a0a0a] hover:bg-[#171717] text-xs text-gray-200 px-3 py-1.5 rounded-lg border border-[#262626] transition-colors">
+                <button onclick="openModelModal()" class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-colors">
                     <span id="current-model-label">Llama 3.3 70B</span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
                 </button>
             </div>
-            <button onclick="toggleArtifactPanel()" class="text-xs bg-[#0a0a0a] hover:bg-[#171717] text-white px-3 py-1.5 rounded-lg border border-[#262626] flex items-center gap-2">
+            <button onclick="toggleArtifactPanel()" class="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-2">
                 <i class="fa-solid fa-folder-open"></i> <span class="hidden md:inline">My Stuff & Code</span>
             </button>
         </header>
@@ -155,17 +180,17 @@
         <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-3xl mx-auto w-full"></div>
 
         <div class="p-3 md:p-4 max-w-3xl mx-auto w-full flex-shrink-0">
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl relative">
-                <textarea id="user-input" rows="1" placeholder="Ask Fsociety AI or type 'generate image of...' " class="bg-transparent text-white focus:outline-none resize-none w-full text-sm px-2 placeholder-gray-600 max-h-32"></textarea>
-                <div class="flex items-center justify-between pt-2 border-t border-[#1a1a1a]">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl relative border">
+                <textarea id="user-input" rows="1" placeholder="Ask Fsociety AI or type 'generate image of...' " class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 max-h-32"></textarea>
+                <div class="flex items-center justify-between pt-2 border-t">
                     <div class="flex items-center gap-2">
-                        <label for="file-upload" class="cursor-pointer text-gray-400 hover:text-white px-2 py-1 rounded text-sm transition-colors" title="Upload Image / File">
+                        <label for="file-upload" class="cursor-pointer px-2 py-1 rounded text-sm transition-colors" title="Upload Image / File">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
-                        <span id="file-name-display" class="text-xs text-gray-400 truncate max-w-[100px] md:max-w-[200px]"></span>
+                        <span id="file-name-display" class="text-xs truncate max-w-[100px] md:max-w-[200px]"></span>
                     </div>
-                    <button id="send-btn" type="submit" class="bg-white text-black hover:bg-gray-200 font-bold px-4 py-1.5 rounded-xl text-sm flex items-center gap-2 transition-colors">
+                    <button id="send-btn" type="submit" class="font-bold px-4 py-1.5 rounded-xl text-sm flex items-center gap-2 transition-colors border">
                         <span>Send</span> <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </div>
@@ -174,57 +199,55 @@
     </main>
 
     <!-- RIGHT PANEL: ARTIFACTS & MY STUFF ASSETS -->
-    <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden">
-        <div class="h-14 border-b border-[#1a1a1a] flex items-center justify-between px-4 bg-black">
+    <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden border-l">
+        <div class="h-14 border-b flex items-center justify-between px-4">
             <div class="flex items-center gap-2">
-                <div class="flex gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#262626]">
-                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors">Code</button>
-                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">Preview</button>
-                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors">My Stuff</button>
+                <div class="flex gap-1 p-1 rounded-lg border">
+                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors">Code</button>
+                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors">Preview</button>
+                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors">My Stuff</button>
                 </div>
                 <!-- DEBUG BUTTON -->
                 <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden">
                     <i class="fa-solid fa-bug"></i> Debug
                 </button>
             </div>
-            <button onclick="toggleArtifactPanel()" class="text-gray-400 hover:text-white text-lg ml-2">
+            <button onclick="toggleArtifactPanel()" class="text-lg ml-2">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         
-        <div class="flex-1 overflow-hidden flex flex-col p-4 bg-black">
-            <div id="artifact-code-view" class="flex-1 overflow-auto bg-[#050505] p-3 rounded-xl border border-[#1a1a1a] font-mono text-xs text-gray-300 whitespace-pre-wrap">No code artifacts generated yet. Ask Fsociety AI to write code or build an app to inspect it here.</div>
-            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[#1a1a1a] hidden"></iframe>
+        <div class="flex-1 overflow-hidden flex flex-col p-4">
+            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Fsociety AI to write code or build an app to inspect it here.</div>
+            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
         </div>
     </aside>
 
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5">
-            <div class="flex items-center justify-between border-b border-[#1a1a1a] pb-3">
-                <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-gear text-gray-400 mr-2"></i> Settings</h3>
-                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 input-box">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gear"></i> Settings</h3>
+                <button onclick="closeSettingsModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="space-y-4">
-                <!-- Theme Setting -->
                 <div>
-                    <p class="text-sm font-semibold text-white mb-2">Appearance</p>
+                    <p class="text-sm font-semibold mb-2">Appearance</p>
                     <div class="flex gap-2">
-                        <button onclick="setTheme('dark')" class="flex-1 bg-[#171717] border border-[#737373] text-white py-2 rounded-xl text-xs font-medium">Dark Mode</button>
-                        <button onclick="setTheme('light')" class="flex-1 bg-white text-black py-2 rounded-xl text-xs font-medium opacity-50 cursor-not-allowed" title="Light mode UI in development">Light Mode</button>
+                        <button onclick="setTheme('dark')" class="flex-1 border py-2 rounded-xl text-xs font-medium">Dark Mode</button>
+                        <button onclick="setTheme('light')" class="flex-1 border py-2 rounded-xl text-xs font-medium transition-colors">Light Mode</button>
                     </div>
                 </div>
 
-                <!-- Legal Links -->
                 <div class="pt-2">
-                    <p class="text-sm font-semibold text-white mb-2">About & Legal</p>
+                    <p class="text-sm font-semibold mb-2">About & Legal</p>
                     <div class="space-y-2">
-                        <a href="/terms" target="_blank" class="w-full flex justify-between items-center bg-[#111] p-3 rounded-xl border border-[#262626] text-xs text-gray-300 hover:bg-[#1a1a1a]">
+                        <a href="/terms" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border text-xs">
                             <span>Terms of Service</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
-                        <a href="/privacy" target="_blank" class="w-full flex justify-between items-center bg-[#111] p-3 rounded-xl border border-[#262626] text-xs text-gray-300 hover:bg-[#1a1a1a]">
+                        <a href="/privacy" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border text-xs">
                             <span>Privacy Policy</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
                     </div>
@@ -235,37 +258,45 @@
 
     <!-- PLUGINS MODAL -->
     <div id="plugins-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5 max-h-[85vh]">
-            <div class="flex items-center justify-between border-b border-[#1a1a1a] pb-3 flex-shrink-0">
+        <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 max-h-[85vh] input-box">
+            <div class="flex items-center justify-between border-b pb-3 flex-shrink-0">
                 <div>
-                    <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-plug text-blue-400 mr-2"></i> Plugin Store</h3>
-                    <p class="text-xs text-gray-500">Connect external tools to Fsociety AI.</p>
+                    <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store</h3>
+                    <p class="text-xs">Connect external tools to Fsociety AI.</p>
                 </div>
-                <button onclick="closePluginsModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="closePluginsModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="space-y-3 overflow-y-auto pr-2">
-                <!-- GitHub Plugin Example -->
-                <div class="flex items-center justify-between p-3 bg-[#111] border border-[#262626] rounded-xl">
+                <div class="flex items-center justify-between p-3 border rounded-xl">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black text-lg"><i class="fa-brands fa-github"></i></div>
                         <div>
-                            <p class="text-sm font-bold text-white">GitHub</p>
-                            <p class="text-[10px] text-gray-400">Triage PRs, issues, CI, and publish flows</p>
+                            <p class="text-sm font-bold">GitHub</p>
+                            <p class="text-[10px]">Triage PRs, issues, CI, and publish flows</p>
                         </div>
                     </div>
-                    <button class="bg-[#1a1a1a] hover:bg-[#262626] text-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                    <button onclick="window.location.href='/auth/github-plugin'" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
                 </div>
-                <!-- Google Calendar Example -->
-                <div class="flex items-center justify-between p-3 bg-[#111] border border-[#262626] rounded-xl">
+                <div class="flex items-center justify-between p-3 border rounded-xl">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-lg"><i class="fa-regular fa-calendar"></i></div>
                         <div>
-                            <p class="text-sm font-bold text-white">Google Calendar</p>
-                            <p class="text-[10px] text-gray-400">Manage Google Calendar events</p>
+                            <p class="text-sm font-bold">Google Calendar</p>
+                            <p class="text-[10px]">Manage Google Calendar events</p>
                         </div>
                     </div>
-                    <button class="bg-[#1a1a1a] hover:bg-[#262626] text-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                    <button onclick="window.location.href='/auth/login'" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                </div>
+                <div class="flex items-center justify-between p-3 border rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center text-white text-lg"><i class="fa-solid fa-shoe-prints"></i></div>
+                        <div>
+                            <p class="text-sm font-bold">Live Step Counter</p>
+                            <p class="text-[10px]">Steps: <span id="nav-step-count">0</span></p>
+                        </div>
+                    </div>
+                    <button id="enable-steps-btn" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Enable</button>
                 </div>
             </div>
         </div>
@@ -273,21 +304,21 @@
 
     <!-- RESPONSIVE GEMS / PERSONAS MODAL -->
     <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border border-[#262626] flex flex-col gap-4 overflow-y-auto">
+        <div class="w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border flex flex-col gap-4 overflow-y-auto input-box">
             <div class="flex items-center justify-between flex-shrink-0">
-                <h3 class="text-base md:text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
-                <button onclick="closeGemsModal()" class="text-gray-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
+                <h3 class="text-base md:text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
+                <button onclick="closeGemsModal()" class="text-base"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div id="gems-list" class="space-y-2 max-h-[35vh] overflow-y-auto pr-1 flex-shrink-0"></div>
             
-            <div class="border-t border-[#1a1a1a] pt-3 flex-shrink-0">
-                <p class="text-xs text-gray-400 mb-2 font-semibold">Create Custom Gem</p>
+            <div class="border-t pt-3 flex-shrink-0">
+                <p class="text-xs mb-2 font-semibold">Create Custom Gem</p>
                 <div class="space-y-2">
-                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 focus:outline-none focus:border-gray-500">
-                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 focus:outline-none focus:border-gray-500">
-                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full bg-black border border-[#262626] rounded-xl text-xs text-white p-2.5 h-20 resize-none focus:outline-none focus:border-gray-500"></textarea>
-                    <button onclick="createCustomGem()" class="w-full bg-white text-black py-2.5 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">Save Custom Gem</button>
+                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full border rounded-xl text-xs p-2.5 focus:outline-none">
+                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full border rounded-xl text-xs p-2.5 focus:outline-none">
+                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full border rounded-xl text-xs p-2.5 h-20 resize-none focus:outline-none"></textarea>
+                    <button onclick="createCustomGem()" class="w-full border py-2.5 rounded-xl text-xs font-bold transition-colors">Save Custom Gem</button>
                 </div>
             </div>
         </div>
@@ -295,48 +326,48 @@
 
     <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-5 max-h-[85vh] overflow-y-auto">
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 max-h-[85vh] overflow-y-auto input-box">
             <div class="flex items-center gap-4 flex-shrink-0">
-                <button onclick="closeModelModal()" class="text-gray-400 hover:text-white text-lg">
+                <button onclick="closeModelModal()" class="text-lg">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
-                <h3 class="text-xl font-bold text-white">Select Model Engine</h3>
+                <h3 class="text-xl font-bold">Select Model Engine</h3>
             </div>
             <div class="space-y-3 overflow-y-auto pr-1">
-                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-openrouter-llama">
+                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
                     <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold text-white">Llama 3.3 70B</span>
+                        <span class="text-base font-semibold">Llama 3.3 70B</span>
                         <span class="badge-tag">OpenRouter • Free</span>
                     </div>
-                    <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
-                <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-openrouter-deepseek">
+                <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-deepseek">
                     <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold text-white">DeepSeek R1</span>
+                        <span class="text-base font-semibold">DeepSeek R1</span>
                         <span class="badge-tag">OpenRouter • Free</span>
                     </div>
-                    <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
-                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-groq-llama">
+                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
                     <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold text-white">Llama 3.3 70B</span>
+                        <span class="text-base font-semibold">Llama 3.3 70B</span>
                         <span class="badge-tag">Groq • Fast</span>
                     </div>
-                    <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
-                <div onclick="selectModel('google:gemini-2.5-flash', 'Gemini 2.5 Flash (Vision)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-google-flash">
+                <div onclick="selectModel('google:gemini-2.5-flash', 'Gemini 2.5 Flash (Vision)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
                     <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold text-white">Gemini 2.5 Flash</span>
+                        <span class="text-base font-semibold">Gemini 2.5 Flash</span>
                         <span class="badge-tag">Google • Vision</span>
                     </div>
-                    <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
-                <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between" id="m-silicon-qwen">
+                <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-silicon-qwen">
                     <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold text-white">Qwen 2.5 7B</span>
+                        <span class="text-base font-semibold">Qwen 2.5 7B</span>
                         <span class="badge-tag">SiliconFlow</span>
                     </div>
-                    <i class="fa-solid fa-check text-white text-sm hidden check-icon"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
             </div>
         </div>
@@ -344,17 +375,17 @@
 
     <!-- ACCOUNT MODAL -->
     <div id="account-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-[#0a0a0a] w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-[#262626] flex flex-col gap-4">
+        <div class="w-full max-w-sm rounded-3xl p-6 shadow-2xl border flex flex-col gap-4 input-box">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold text-white">Account & Guest Settings</h3>
-                <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+                <h3 class="text-lg font-bold">Account & Guest Settings</h3>
+                <button onclick="closeAccountModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
+            <p class="text-xs">Manage your active authentication state or switch to anonymous guest browsing.</p>
             <div class="space-y-2 pt-2">
-                <a href="/auth/login" class="w-full bg-white text-black hover:bg-gray-200 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
+                <a href="/auth/login" class="w-full border py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
                     <i class="fa-brands fa-google"></i> Sign in with Google
                 </a>
-                <button onclick="switchToGuestMode()" class="w-full bg-[#171717] hover:bg-[#222] text-white py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border border-[#262626] transition-colors">
+                <button onclick="switchToGuestMode()" class="w-full py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border transition-colors">
                     <i class="fa-solid fa-user-secret"></i> Continue as Guest User
                 </button>
             </div>
@@ -403,15 +434,18 @@
         }
 
         async function init() {
+            if (localStorage.getItem('fsociety_theme') === 'light') setTheme('light');
+
             await checkUserStatus();
             await fetchSessions();
             await fetchGems();
             highlightActiveModelCard();
             
-            // Auto-load the most recent session if it exists so you don't start on a blank screen
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
             }
+
+            initStepCounter();
         }
 
         async function checkUserStatus() {
@@ -440,7 +474,6 @@
             }
         }
 
-        // New Modal Toggles
         function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         function openPluginsModal() { document.getElementById('plugins-modal').classList.remove('hidden'); }
@@ -458,23 +491,63 @@
             window.location.reload();
         }
 
-        // Theme function
         function setTheme(theme) {
             if (theme === 'light') {
-                alert("Light mode is currently under development for Fsociety AI! Staying frosty in dark mode.");
+                document.body.classList.add('light-mode');
+                localStorage.setItem('fsociety_theme', 'light');
+            } else {
+                document.body.classList.remove('light-mode');
+                localStorage.setItem('fsociety_theme', 'dark');
             }
         }
 
-        // Debug Code feature
+        function initStepCounter() {
+            let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
+            let lastAccel = 0;
+            const stepDisplay = document.getElementById("nav-step-count");
+            const stepBtn = document.getElementById("enable-steps-btn");
+
+            if (stepDisplay) stepDisplay.innerText = stepCount;
+
+            if (stepBtn) {
+                stepBtn.addEventListener("click", async () => {
+                    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+                        const permission = await DeviceMotionEvent.requestPermission();
+                        if (permission !== "granted") return alert("Motion permission denied.");
+                    }
+                    
+                    window.addEventListener("devicemotion", (event) => {
+                        let acc = event.accelerationIncludingGravity;
+                        if (!acc) return;
+                        
+                        let totalAccel = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+                        if (totalAccel - lastAccel > 3.5) {
+                            stepCount++;
+                            if (stepDisplay) stepDisplay.innerText = stepCount;
+                            localStorage.setItem("daily_steps", stepCount);
+                            
+                            if (stepCount % 50 === 0) {
+                                fetch('/api/plugins/steps/save', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ steps: stepCount })
+                                });
+                            }
+                        }
+                        lastAccel = totalAccel;
+                    });
+                    
+                    stepBtn.innerText = "Active";
+                    stepBtn.disabled = true;
+                    stepBtn.classList.add("text-green-400");
+                });
+            }
+        }
+
         function debugArtifactCode() {
             if (!latestExtractedCode) return;
-            
             const debugPrompt = `Please analyze, debug, and fix the following code. Explain what went wrong and provide the corrected version:\n\n\`\`\`\n${latestExtractedCode}\n\`\`\``;
-            
-            if (window.innerWidth < 768) {
-                toggleArtifactPanel();
-            }
-            
+            if (window.innerWidth < 768) { toggleArtifactPanel(); }
             document.getElementById('user-input').value = debugPrompt;
             sendMessage(new Event('submit'));
         }
@@ -511,12 +584,12 @@
                 container.innerHTML = '';
                 gems.forEach(g => {
                     container.innerHTML += `
-                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 bg-[#111] hover:bg-[#1a1a1a] border border-[#262626] rounded-xl cursor-pointer flex items-center justify-between">
+                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border rounded-xl cursor-pointer flex items-center justify-between">
                             <div>
-                                <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
-                                <p class="text-[10px] text-gray-400">${g.description}</p>
+                                <h4 class="text-xs font-bold flex items-center gap-2"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
+                                <p class="text-[10px]">${g.description}</p>
                             </div>
-                            <i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
                         </div>
                     `;
                 });
@@ -554,14 +627,14 @@
                 const container = document.getElementById('artifact-assets-view');
                 container.innerHTML = '';
                 if (assets.length === 0) {
-                    container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No uploaded files found.</div>`;
+                    container.innerHTML = `<div class="text-xs text-center py-4">No uploaded files found.</div>`;
                     return;
                 }
                 assets.forEach(a => {
                     container.innerHTML += `
-                        <div class="p-2.5 bg-[#0a0a0a] border border-[#262626] rounded-xl flex items-center justify-between text-xs">
-                            <span class="text-gray-300 truncate w-48"><i class="fa-solid fa-file text-gray-500 mr-2"></i>${a.file_name}</span>
-                            <a href="${a.file_path}" target="_blank" class="text-white hover:underline text-[10px] bg-[#1a1a1a] px-2 py-1 rounded">View</a>
+                        <div class="p-2.5 border rounded-xl flex items-center justify-between text-xs">
+                            <span class="truncate w-48"><i class="fa-solid fa-file mr-2"></i>${a.file_name}</span>
+                            <a href="${a.file_path}" target="_blank" class="hover:underline text-[10px] px-2 py-1 rounded border">View</a>
                         </div>
                     `;
                 });
@@ -585,14 +658,14 @@
                 sessions.forEach(s => {
                     const safeTitle = s.title || 'New Chat'; 
                     list.innerHTML += `
-                        <div class="flex items-center justify-between p-2.5 hover:bg-[#121212] rounded-xl cursor-pointer text-xs ${currentSessionId === s.id ? 'bg-[#171717] text-white font-medium border border-[#262626]' : 'text-gray-400'}" onclick="loadSession(${s.id}, '${safeTitle.replace(/'/g, "\\'")}')">
+                        <div class="flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs ${currentSessionId === s.id ? 'font-medium border' : ''}" onclick="loadSession(${s.id}, '${safeTitle.replace(/'/g, "\\'")}')">
                             <span class="truncate w-44">${safeTitle}</span>
-                            <button onclick="deleteSession(event, ${s.id})" class="hover:text-red-400 text-xs px-1"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="deleteSession(event, ${s.id})" class="text-xs px-1"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     `;
                 });
             } else {
-                list.innerHTML = `<div class="text-xs text-gray-600 text-center py-4">No past chats yet.</div>`;
+                list.innerHTML = `<div class="text-xs text-center py-4">No past chats yet.</div>`;
             }
         }
 
@@ -608,7 +681,7 @@
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
                         Hi Whitefrostff, Where should we start?
                     </h1>
-                    <p class="text-gray-500 text-xs">Engineered by Frost with maximum class and humanoid precision.</p>
+                    <p class="text-xs">Engineered by Frost with maximum class and humanoid precision.</p>
                 </div>
             `;
         }
@@ -738,7 +811,6 @@
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
                 }
                 
-                // Show debug button if code tab is active
                 const debugBtn = document.getElementById('debug-code-btn');
                 const codeView = document.getElementById('artifact-code-view');
                 if (!codeView.classList.contains('hidden')) {
@@ -757,9 +829,9 @@
             const previewView = document.getElementById('artifact-preview-view');
             const assetsView = document.getElementById('artifact-assets-view');
 
-            codeBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
-            previewBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
-            assetsBtn.className = "text-xs px-2.5 py-1 rounded text-gray-400 hover:text-white transition-colors";
+            codeBtn.className = "text-xs px-2.5 py-1 rounded transition-colors";
+            previewBtn.className = "text-xs px-2.5 py-1 rounded transition-colors";
+            assetsBtn.className = "text-xs px-2.5 py-1 rounded transition-colors";
 
             codeView.classList.add('hidden');
             previewView.classList.add('hidden');
@@ -767,15 +839,15 @@
             debugBtn.classList.add('hidden');
 
             if (tab === 'code') {
-                codeBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                codeBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border";
                 codeView.classList.remove('hidden');
                 if (latestExtractedCode) debugBtn.classList.remove('hidden');
             } else if (tab === 'preview') {
-                previewBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                previewBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border";
                 previewView.classList.remove('hidden');
                 if (latestExtractedCode) previewView.srcdoc = latestExtractedCode;
             } else if (tab === 'assets') {
-                assetsBtn.className = "text-xs px-2.5 py-1 rounded bg-white text-black font-semibold transition-colors";
+                assetsBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border";
                 assetsView.classList.remove('hidden');
                 fetchAssets();
             }
@@ -784,6 +856,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html>
-
-
+            </html>
+    
