@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +11,8 @@ import re
 import base64
 import urllib.parse
 import shutil
+import httpx
+from pydantic import BaseModel
 from groq import Groq
 from google import genai
 from google.genai import types
@@ -30,7 +31,7 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     SessionMiddleware, 
     secret_key="fsociety_super_secret_session_string",
-    https_only=False, # Changed to False for proxy compatibility
+    https_only=False,
     same_site="lax"
 )
 
@@ -41,6 +42,8 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
 # Init API Clients
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
@@ -66,11 +69,13 @@ oauth.register(
     client_kwargs={'scope': 'openid email profile'}
 )
 
+class StepSyncRequest(BaseModel):
+    steps: int
+
 def init_db():
     conn = sqlite3.connect("fsociety_history.db")
     cursor = conn.cursor()
     
-    # Core tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,7 +86,6 @@ def init_db():
         )
     ''')
     
-    # Safe migrations for existing databases
     try: cursor.execute("ALTER TABLE sessions ADD COLUMN guest_id TEXT")
     except: pass
     try: cursor.execute("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER DEFAULT 0")
@@ -154,7 +158,6 @@ async def serve_frontend(request: Request):
         with open(html_path, "r", encoding="utf-8") as f:
             content = f.read()
             
-    # Explicitly create the response object so cookies attach properly
     response = HTMLResponse(content=content)
     
     if not request.session.get('user') and not request.cookies.get("guest_id"):
@@ -163,7 +166,6 @@ async def serve_frontend(request: Request):
         
     return response
 
-# --- LEGAL ROUTES ---
 @app.get("/terms", response_class=HTMLResponse)
 async def terms_page():
     return """
@@ -193,7 +195,6 @@ async def get_current_user(request: Request):
         return {"logged_in": True, "name": user['name'], "email": user['email']}
     return {"logged_in": False, "name": "Guest User"}
 
-# --- AUTH ROUTES ---
 @app.get('/auth/login')
 async def login(request: Request):
     redirect_uri = "https://fsociety-ai-production.up.railway.app/auth/callback"
@@ -229,7 +230,6 @@ async def switch_to_guest_mode(request: Request):
         
     return response
 
-# --- SESSION ROUTES ---
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
@@ -273,7 +273,6 @@ async def delete_session(session_id: int):
     conn.close()
     return {"status": "success"}
 
-# --- GEMS / PERSONAS API ---
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
@@ -303,7 +302,6 @@ async def create_gem(
     conn.close()
     return {"status": "success"}
 
-# --- ASSETS & GALLERY API ---
 @app.get("/api/assets")
 async def get_user_assets(request: Request):
     col, val = get_identifier(request)
@@ -314,7 +312,38 @@ async def get_user_assets(request: Request):
     conn.close()
     return [{"id": r[0], "file_name": r[1], "file_path": r[2], "file_type": r[3]} for r in rows]
 
-# --- CHAT ENGINE ---
+@app.post("/api/plugins/steps/save")
+async def save_user_steps(request: Request, payload: StepSyncRequest):
+    col, val = get_identifier(request)
+    return {"status": "success", "steps_saved": payload.steps}
+
+@app.get("/auth/github-plugin")
+async def github_plugin_login():
+    if not GITHUB_CLIENT_ID:
+        return RedirectResponse(url="/?error=github_keys_missing")
+    github_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo,user"
+    return RedirectResponse(github_url)
+
+@app.get("/auth/github/callback")
+async def github_plugin_callback(request: Request, code: str):
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": code,
+            },
+        )
+        data = res.json()
+        access_token = data.get("access_token")
+        
+        if access_token:
+            request.session['github_token'] = access_token
+            return RedirectResponse(url="/?plugin=github&status=connected")
+        return RedirectResponse(url="/?plugin=github&status=failed")
+
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
@@ -351,10 +380,8 @@ async def chat_with_assistant(
             
         display_message += f" [Attached File: {file.filename}]"
 
-    # Always insert message
     cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
     
-    # Auto-update session title on first message
     cursor.execute("SELECT title FROM sessions WHERE id = ?", (session_id,))
     current_title = cursor.fetchone()
     if current_title and current_title[0] in ["New Chat", ""]:
@@ -367,7 +394,6 @@ async def chat_with_assistant(
     past_messages = cursor.fetchall()
     recent_history = past_messages[-12:]
 
-    # SMART IMAGE TRIGGER CHECK
     lower_prompt = message.lower()
     image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate pic", "generate pics", "draw pics"]
     
@@ -388,12 +414,11 @@ async def chat_with_assistant(
         conn.close()
         return {"response": ai_response}
 
-    # Dynamic Persona / Gem Prompt
     system_prompt = gem_prompt or (
         "You are Fsociety AI, an elite, highly intelligent, and razor-sharp tech assistant created by Frost (whitefrostff@gmail.com). "
         "CORE BEHAVIORAL DIRECTIVES:\n"
-        "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks (e.g., if they use Spanish, reply naturally in Spanish). Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
-        "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary (e.g., 'It seems like we had a technical issue', 'How can I assist you today?'), and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
+        "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks. Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
+        "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary, and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
         "3. **Adaptive Depth:** Keep casual chat brief and punchy. Reserve detailed breakdowns and structured formatting strictly for technical or complex questions.\n"
         "4. **Code Standards:** Always wrap code snippets in clean markdown code blocks with syntax highlighting.\n"
         "5. **Identity:** If asked who built you, state clearly: 'Frost made me.'"
@@ -402,7 +427,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-2.5-flash" # Updated to proper Gemini 2.5 flash string
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -501,3 +526,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+
