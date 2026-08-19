@@ -350,7 +350,7 @@ async def chat_with_assistant(
     session_id: int = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-versatile"), # Default to versatile here too
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     conn = sqlite3.connect("fsociety_history.db")
@@ -505,10 +505,9 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Map old model choices to active Groq endpoints. "llama-3.3-70b-specdec" is removed.
-                valid_groq_models = ["llama-3.3-70b-versatile", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+                valid_groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "mixtral-8x7b-32768", "gemma2-9b-it"]
                 if actual_model not in valid_groq_models:
-                    actual_model = "llama-3.3-70b-versatile" # Fallback to live model
+                    actual_model = "llama-3.3-70b-versatile"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for r, c in recent_history:
@@ -534,3 +533,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+        
