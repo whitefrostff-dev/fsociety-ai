@@ -145,7 +145,11 @@ def get_identifier(request: Request):
     user = request.session.get('user')
     if user:
         return ("user_email", user['email'])
-    return ("guest_id", request.cookies.get("guest_id", "unknown_guest"))
+    
+    guest_id = request.cookies.get("guest_id")
+    if not guest_id:
+        guest_id = "default_guest_session"
+    return ("guest_id", guest_id)
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -172,9 +176,9 @@ async def terms_page():
     <html><head><title>Terms of Service - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
     <body><h2>Terms of Service for Fsociety AI</h2>
     <p>1. <b>Acceptable Use:</b> Do not use the service for malicious activities, prompt injection, or illegal content generation.<br>
-    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Fsociety AI for critical medical, legal, or financial advice.<br>
+    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations.<br>
     3. <b>Content Ownership:</b> You retain rights to your inputs; we retain rights to the platform UI/UX.<br>
-    4. <b>Liability:</b> Service is provided "as is". We are not responsible for downtime or damages.</p></body></html>
+    4. <b>Liability:</b> Service is provided "as is".</p></body></html>
     """
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -182,10 +186,10 @@ async def privacy_page():
     return """
     <html><head><title>Privacy Policy - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
     <body><h2>Privacy Policy for Fsociety AI</h2>
-    <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs to provide the service.<br>
-    2. <b>Third-Party Providers:</b> Your prompts and images are processed securely via external APIs (e.g., Groq, Google Gemini) to generate responses.<br>
-    3. <b>Data Sales:</b> We do not sell your personal data or chat histories to third-party advertisers.<br>
-    4. <b>Retention:</b> Chat history is stored to provide session continuity and can be deleted upon request.</p></body></html>
+    <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs.<br>
+    2. <b>Third-Party Providers:</b> Your prompts are processed via external APIs.<br>
+    3. <b>Data Sales:</b> We do not sell your personal data.<br>
+    4. <b>Retention:</b> Chat history is stored for session continuity.</p></body></html>
     """
 
 @app.get("/api/user")
@@ -317,40 +321,13 @@ async def save_user_steps(request: Request, payload: StepSyncRequest):
     col, val = get_identifier(request)
     return {"status": "success", "steps_saved": payload.steps}
 
-@app.get("/auth/github-plugin")
-async def github_plugin_login():
-    if not GITHUB_CLIENT_ID:
-        return RedirectResponse(url="/?error=github_keys_missing")
-    github_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo,user"
-    return RedirectResponse(github_url)
-
-@app.get("/auth/github/callback")
-async def github_plugin_callback(request: Request, code: str):
-    async with httpx.AsyncClient() as client:
-        res = await client.post(
-            "https://github.com/login/oauth/access_token",
-            headers={"Accept": "application/json"},
-            data={
-                "client_id": GITHUB_CLIENT_ID,
-                "client_secret": GITHUB_CLIENT_SECRET,
-                "code": code,
-            },
-        )
-        data = res.json()
-        access_token = data.get("access_token")
-        
-        if access_token:
-            request.session['github_token'] = access_token
-            return RedirectResponse(url="/?plugin=github&status=connected")
-        return RedirectResponse(url="/?plugin=github&status=failed")
-
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
     session_id: int = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-specdec"),
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"),
     gem_prompt: Optional[str] = Form(None)
 ):
     conn = sqlite3.connect("fsociety_history.db")
@@ -415,13 +392,8 @@ async def chat_with_assistant(
         return {"response": ai_response}
 
     system_prompt = gem_prompt or (
-        "You are Fsociety AI, an elite, highly intelligent, and razor-sharp tech assistant created by Frost (whitefrostff@gmail.com). "
-        "CORE BEHAVIORAL DIRECTIVES:\n"
-        "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks. Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
-        "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary, and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
-        "3. **Adaptive Depth:** Keep casual chat brief and punchy. Reserve detailed breakdowns and structured formatting strictly for technical or complex questions.\n"
-        "4. **Code Standards:** Always wrap code snippets in clean markdown code blocks with syntax highlighting.\n"
-        "5. **Identity:** If asked who built you, state clearly: 'Frost made me.'"
+        "You are Fsociety AI, an elite, highly intelligent, and razor-sharp tech assistant created by Frost. "
+        "Core directives: Speak naturally, be clear, avoid fluff, format cleanly."
     )
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
@@ -505,10 +477,10 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Map old model choices to active Groq endpoints
-                valid_groq_models = ["llama-3.3-70b-specdec", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+                # Updated active Groq model references
+                valid_groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"]
                 if actual_model not in valid_groq_models:
-                    actual_model = "llama-3.3-70b-specdec"
+                    actual_model = "llama-3.3-70b-versatile"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for r, c in recent_history:
