@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,8 +41,17 @@
         .sidebar, .artifact-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
         .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { background-color: var(--bg-card) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
         button.bg-\[\#0a0a0a\]:hover { background-color: var(--bg-card-hover) !important; }
-        .user-msg { background-color: var(--text-main); color: var(--bg-main); }
-        .assistant-msg { background-color: var(--bg-panel); border: 1px solid var(--border-color); color: var(--text-main); }
+        
+        /* GEMINI-STYLE MESSAGING */
+        .user-msg-container { display: flex; justify-content: flex-end; width: 100%; margin: 12px 0; }
+        .user-msg { background-color: var(--bg-card-hover); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 20px 20px 4px 20px; padding: 12px 18px; max-width: 80%; font-size: 0.875rem; }
+        
+        .assistant-msg-container { display: flex; gap: 12px; width: 100%; margin: 16px 0; align-items: flex-start; }
+        .assistant-avatar { width: 30px; height: 30px; border-radius: 50%; background: #171717; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
+        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.9rem; line-height: 1.6; }
+        .assistant-actions { display: flex; items-center; gap: 12px; margin-top: 8px; color: var(--text-muted); font-size: 12px; }
+        .assistant-actions button:hover { color: var(--text-main); }
+
         h1, h2, h3, h4, span.text-white, p.text-white { color: var(--text-main) !important; }
         span.text-gray-300, p.text-gray-400, i.text-gray-400, div.text-gray-400 { color: var(--text-muted) !important; }
         
@@ -84,6 +92,14 @@
                 transform: translateX(0);
             }
         }
+
+        /* Calendar Styling */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+        .calendar-day-head { font-size: 10px; font-weight: bold; color: var(--text-muted); padding: 4px 0; }
+        .calendar-cell { padding: 8px 0; font-size: 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+        .calendar-cell:hover { background-color: var(--bg-card-hover); }
+        .calendar-cell.active-day { border-color: var(--text-main); font-weight: bold; background-color: var(--bg-card-hover); }
+        .calendar-cell.today { background-color: #2563eb; color: #fff; font-weight: bold; }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -168,7 +184,7 @@
                 <h2 id="current-chat-title" class="font-semibold text-sm truncate max-w-[150px] md:max-w-xs">New Chat</h2>
                 
                 <button onclick="openModelModal()" class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-colors">
-                    <span id="current-model-label">Llama 3.3 70B</span>
+                    <span id="current-model-label">Llama 3.3 70B (Groq)</span>
                     <i class="fa-solid fa-chevron-down text-[10px]"></i>
                 </button>
             </div>
@@ -177,7 +193,7 @@
             </button>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-3xl mx-auto w-full"></div>
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-3xl mx-auto w-full"></div>
 
         <div class="p-3 md:p-4 max-w-3xl mx-auto w-full flex-shrink-0">
             <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-2xl p-3 flex flex-col gap-2 shadow-2xl relative border">
@@ -261,8 +277,8 @@
         <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 max-h-[85vh] input-box">
             <div class="flex items-center justify-between border-b pb-3 flex-shrink-0">
                 <div>
-                    <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store</h3>
-                    <p class="text-xs">Connect external tools to Fsociety AI.</p>
+                    <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
+                    <p class="text-xs">Connect external tools & utilities to Fsociety AI.</p>
                 </div>
                 <button onclick="closePluginsModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -272,22 +288,13 @@
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black text-lg"><i class="fa-brands fa-github"></i></div>
                         <div>
-                            <p class="text-sm font-bold">GitHub</p>
+                            <p class="text-sm font-bold">GitHub Integration</p>
                             <p class="text-[10px]">Triage PRs, issues, CI, and publish flows</p>
                         </div>
                     </div>
                     <button onclick="window.location.href='/auth/github-plugin'" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
                 </div>
-                <div class="flex items-center justify-between p-3 border rounded-xl">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-lg"><i class="fa-regular fa-calendar"></i></div>
-                        <div>
-                            <p class="text-sm font-bold">Google Calendar</p>
-                            <p class="text-[10px]">Manage Google Calendar events</p>
-                        </div>
-                    </div>
-                    <button onclick="window.location.href='/auth/login'" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
-                </div>
+
                 <div class="flex items-center justify-between p-3 border rounded-xl">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center text-white text-lg"><i class="fa-solid fa-shoe-prints"></i></div>
@@ -296,7 +303,40 @@
                             <p class="text-[10px]">Steps: <span id="nav-step-count">0</span></p>
                         </div>
                     </div>
-                    <button id="enable-steps-btn" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Enable</button>
+                    <button id="enable-steps-btn" onclick="initStepCounter()" class="border px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Enable Motion</button>
+                </div>
+
+                <!-- RESPONSIVE CALENDAR PLUGIN -->
+                <div class="p-3 border rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-lg"><i class="fa-regular fa-calendar"></i></div>
+                            <div>
+                                <p class="text-sm font-bold">Responsive Calendar</p>
+                                <p class="text-[10px]">Schedule and track your personal agenda</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 text-xs">
+                            <button onclick="changeCalendarMonth(-1)" class="p-1 border rounded"><i class="fa-solid fa-chevron-left"></i></button>
+                            <span id="cal-month-year" class="font-bold px-1"></span>
+                            <button onclick="changeCalendarMonth(1)" class="p-1 border rounded"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="calendar-grid">
+                        <div class="calendar-day-head">Su</div><div class="calendar-day-head">Mo</div><div class="calendar-day-head">Tu</div>
+                        <div class="calendar-day-head">We</div><div class="calendar-day-head">Th</div><div class="calendar-day-head">Fr</div>
+                        <div class="calendar-day-head">Sa</div>
+                    </div>
+                    <div id="calendar-days" class="calendar-grid"></div>
+
+                    <div class="pt-2 border-t flex flex-col gap-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-semibold" id="cal-selected-date-label">Selected Date Agenda</span>
+                            <button onclick="addCalendarEvent()" class="text-[10px] border px-2 py-1 rounded bg-blue-600 text-white font-bold">+ Add Event</button>
+                        </div>
+                        <div id="cal-events-list" class="space-y-1 text-xs max-h-24 overflow-y-auto"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -334,6 +374,13 @@
                 <h3 class="text-xl font-bold">Select Model Engine</h3>
             </div>
             <div class="space-y-3 overflow-y-auto pr-1">
+                <div onclick="selectModel('groq:llama-3.3-70b-specdec', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
+                    <div class="flex items-center gap-3">
+                        <span class="text-base font-semibold">Llama 3.3 70B</span>
+                        <span class="badge-tag">Groq • Ultra Fast</span>
+                    </div>
+                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
+                </div>
                 <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold">Llama 3.3 70B</span>
@@ -345,13 +392,6 @@
                     <div class="flex items-center gap-3">
                         <span class="text-base font-semibold">DeepSeek R1</span>
                         <span class="badge-tag">OpenRouter • Free</span>
-                    </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon"></i>
-                </div>
-                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">Llama 3.3 70B</span>
-                        <span class="badge-tag">Groq • Fast</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon"></i>
                 </div>
@@ -395,10 +435,15 @@
     <script>
         let currentSessionId = null;
         let selectedFile = null;
-        let activeModelValue = "groq:llama-3.3-70b-versatile";
+        let activeModelValue = "groq:llama-3.3-70b-specdec";
         let activeGemPrompt = null;
         let latestExtractedCode = "";
         let allSessions = [];
+
+        // CALENDAR VARIABLES
+        let calCurrentDate = new Date();
+        let calSelectedDate = new Date();
+        let calEvents = JSON.parse(localStorage.getItem('fsociety_cal_events') || '{}');
 
         function toggleLeftSidebar() {
             const sidebar = document.getElementById('left-sidebar');
@@ -440,12 +485,11 @@
             await fetchSessions();
             await fetchGems();
             highlightActiveModelCard();
+            renderCalendar();
             
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
             }
-
-            initStepCounter();
         }
 
         async function checkUserStatus() {
@@ -501,47 +545,134 @@
             }
         }
 
-        function initStepCounter() {
-            let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
-            let lastAccel = 0;
+        /* --- ACCELEROMETER / PEDOMETER PEDOMETER IMPLEMENTATION --- */
+        let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
+        let lastAccelMagnitude = 0;
+        let isStepCounterActive = false;
+
+        async function initStepCounter() {
             const stepDisplay = document.getElementById("nav-step-count");
             const stepBtn = document.getElementById("enable-steps-btn");
 
-            if (stepDisplay) stepDisplay.innerText = stepCount;
+            if (isStepCounterActive) return;
 
-            if (stepBtn) {
-                stepBtn.addEventListener("click", async () => {
-                    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
-                        const permission = await DeviceMotionEvent.requestPermission();
-                        if (permission !== "granted") return alert("Motion permission denied.");
-                    }
-                    
-                    window.addEventListener("devicemotion", (event) => {
-                        let acc = event.accelerationIncludingGravity;
-                        if (!acc) return;
-                        
-                        let totalAccel = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-                        if (totalAccel - lastAccel > 3.5) {
-                            stepCount++;
-                            if (stepDisplay) stepDisplay.innerText = stepCount;
-                            localStorage.setItem("daily_steps", stepCount);
-                            
-                            if (stepCount % 50 === 0) {
-                                fetch('/api/plugins/steps/save', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({ steps: stepCount })
-                                });
-                            }
-                        }
-                        lastAccel = totalAccel;
-                    });
-                    
-                    stepBtn.innerText = "Active";
-                    stepBtn.disabled = true;
-                    stepBtn.classList.add("text-green-400");
-                });
+            if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    if (permission !== "granted") return alert("Motion sensor permission required for Step Counter.");
+                } catch(e) { console.error(e); }
             }
+
+            window.addEventListener("devicemotion", (event) => {
+                let acc = event.accelerationIncludingGravity || event.acceleration;
+                if (!acc) return;
+                
+                let magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+                let delta = Math.abs(magnitude - lastAccelMagnitude);
+                
+                if (delta > 3.2) {
+                    stepCount++;
+                    if (stepDisplay) stepDisplay.innerText = stepCount;
+                    localStorage.setItem("daily_steps", stepCount);
+                    
+                    if (stepCount % 25 === 0) {
+                        fetch('/api/plugins/steps/save', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ steps: stepCount })
+                        });
+                    }
+                }
+                lastAccelMagnitude = magnitude;
+            });
+
+            isStepCounterActive = true;
+            if (stepBtn) {
+                stepBtn.innerText = "Active";
+                stepBtn.classList.add("text-green-400");
+            }
+        }
+
+        /* --- RESPONSIVE CALENDAR LOGIC --- */
+        function renderCalendar() {
+            const monthYearLabel = document.getElementById('cal-month-year');
+            const calendarDays = document.getElementById('calendar-days');
+            if (!monthYearLabel || !calendarDays) return;
+
+            const year = calCurrentDate.getFullYear();
+            const month = calCurrentDate.getMonth();
+
+            monthYearLabel.innerText = calCurrentDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            calendarDays.innerHTML = '';
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarDays.innerHTML += `<div class="calendar-cell"></div>`;
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+                const isSelected = calSelectedDate.getDate() === d && calSelectedDate.getMonth() === month && calSelectedDate.getFullYear() === year;
+                
+                let classes = 'calendar-cell';
+                if (isToday) classes += ' today';
+                else if (isSelected) classes += ' active-day';
+
+                calendarDays.innerHTML += `<div class="${classes}" onclick="selectCalendarDate(${year}, ${month}, ${d})">${d}</div>`;
+            }
+            renderCalendarEvents();
+        }
+
+        function changeCalendarMonth(delta) {
+            calCurrentDate.setMonth(calCurrentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function selectCalendarDate(y, m, d) {
+            calSelectedDate = new Date(y, m, d);
+            renderCalendar();
+        }
+
+        function renderCalendarEvents() {
+            const dateKey = calSelectedDate.toISOString().split('T')[0];
+            const label = document.getElementById('cal-selected-date-label');
+            const container = document.getElementById('cal-events-list');
+            if (label) label.innerText = `Agenda: ${calSelectedDate.toDateString()}`;
+
+            const events = calEvents[dateKey] || [];
+            if (!container) return;
+
+            if (events.length === 0) {
+                container.innerHTML = `<span class="text-[10px] text-gray-500 italic">No events logged.</span>`;
+                return;
+            }
+
+            container.innerHTML = events.map((ev, idx) => `
+                <div class="flex items-center justify-between p-1.5 border rounded">
+                    <span>${ev}</span>
+                    <button onclick="removeCalendarEvent('${dateKey}', ${idx})" class="text-[10px] text-red-400"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('');
+        }
+
+        function addCalendarEvent() {
+            const title = prompt("Enter event title:");
+            if (!title) return;
+            const dateKey = calSelectedDate.toISOString().split('T')[0];
+            if (!calEvents[dateKey]) calEvents[dateKey] = [];
+            calEvents[dateKey].push(title);
+            localStorage.setItem('fsociety_cal_events', JSON.stringify(calEvents));
+            renderCalendarEvents();
+        }
+
+        function removeCalendarEvent(dateKey, idx) {
+            calEvents[dateKey].splice(idx, 1);
+            localStorage.setItem('fsociety_cal_events', JSON.stringify(calEvents));
+            renderCalendarEvents();
         }
 
         function debugArtifactCode() {
@@ -567,7 +698,7 @@
             const cardMap = {
                 'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
                 'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
-                'groq:llama-3.3-70b-versatile': 'm-groq-llama',
+                'groq:llama-3.3-70b-specdec': 'm-groq-llama',
                 'google:gemini-2.5-flash': 'm-google-flash',
                 'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
             };
@@ -777,6 +908,7 @@
             }
         }
 
+        /* GEMINI-STYLE MESSAGE RENDERING */
         function renderMessage(role, content, shouldScroll = true) {
             const container = document.getElementById('messages-container');
             const welcomeScreen = document.getElementById('welcome-screen');
@@ -786,15 +918,41 @@
             const formattedContent = marked.parse(content);
             if (!isUser) extractCodeForArtifacts(content);
 
-            const msgHtml = `
-                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} w-full my-2">
-                    <div class="max-w-xl rounded-2xl p-4 text-sm ${isUser ? 'user-msg font-medium' : 'assistant-msg w-full shadow-lg'}">
-                        <div class="prose prose-invert text-xs md:text-sm leading-relaxed">${formattedContent}</div>
+            let msgHtml = "";
+            if (isUser) {
+                msgHtml = `
+                    <div class="user-msg-container">
+                        <div class="user-msg">
+                            ${formattedContent}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                msgHtml = `
+                    <div class="assistant-msg-container">
+                        <div class="assistant-avatar">
+                            <i class="fa-solid fa-sparkles text-white"></i>
+                        </div>
+                        <div class="assistant-content">
+                            <div class="prose prose-invert text-xs md:text-sm leading-relaxed">${formattedContent}</div>
+                            <div class="assistant-actions">
+                                <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="createNewSession()" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             container.innerHTML += msgHtml;
             if (shouldScroll) container.scrollTop = container.scrollHeight;
+        }
+
+        function copyToClipboard(btn) {
+            const text = btn.closest('.assistant-content').querySelector('.prose').innerText;
+            navigator.clipboard.writeText(text);
+            btn.innerHTML = `<i class="fa-solid fa-check text-green-400"></i>`;
+            setTimeout(() => { btn.innerHTML = `<i class="fa-regular fa-copy"></i>`; }, 2000);
         }
 
         function extractCodeForArtifacts(markdownText) {
@@ -856,5 +1014,4 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-            </html>
-    
+</html>
