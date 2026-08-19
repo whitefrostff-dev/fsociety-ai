@@ -350,7 +350,7 @@ async def chat_with_assistant(
     session_id: int = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-versatile"),
+    model_choice: str = Form("groq:llama-3.3-70b-specdec"),
     gem_prompt: Optional[str] = Form(None)
 ):
     conn = sqlite3.connect("fsociety_history.db")
@@ -427,7 +427,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -501,18 +501,26 @@ async def chat_with_assistant(
                 )
                 ai_response = response.choices[0].message.content
 
-        else:
-            messages_payload = [{"role": "system", "content": system_prompt}]
-            for r, c in recent_history:
-                messages_payload.append({"role": r, "content": c})
+        else: # GROQ PROVIDER FIX
+            if not groq_client:
+                ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
+            else:
+                # Map old model choices to active Groq endpoints
+                valid_groq_models = ["llama-3.3-70b-specdec", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+                if actual_model not in valid_groq_models:
+                    actual_model = "llama-3.3-70b-specdec"
 
-            chat_completion = groq_client.chat.completions.create(
-                model=actual_model,
-                messages=messages_payload,
-                temperature=0.75,
-                max_tokens=2048
-            )
-            ai_response = chat_completion.choices[0].message.content
+                messages_payload = [{"role": "system", "content": system_prompt}]
+                for r, c in recent_history:
+                    messages_payload.append({"role": r, "content": c})
+
+                chat_completion = groq_client.chat.completions.create(
+                    model=actual_model,
+                    messages=messages_payload,
+                    temperature=0.75,
+                    max_tokens=2048
+                )
+                ai_response = chat_completion.choices[0].message.content
 
     except Exception as e:
         ai_response = f"**{provider.upper()} API Error:** `{str(e)}`"
@@ -526,4 +534,3 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-
