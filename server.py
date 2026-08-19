@@ -427,7 +427,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-2.5-flash"
+        actual_model = "gemini-3.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
