@@ -30,7 +30,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     SessionMiddleware, 
-    secret_key="fsociety_super_secret_session_string",
+    secret_key="frost_super_secret_session_string",
     https_only=False,
     same_site="lax"
 )
@@ -73,7 +73,7 @@ class StepSyncRequest(BaseModel):
     steps: int
 
 def init_db():
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -129,8 +129,8 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM gems")
     if cursor.fetchone()[0] == 0:
         default_gems = [
-          ("system", "system", "Fsociety AI Core", "Standard elite assistant", 
-             "You are Fsociety AI, a sharp, casual, and universally fluent tech assistant created by Frost. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "fa-terminal"),
+          ("system", "system", "Frost Core", "Standard elite assistant created by Nwodili Yaemerie Covenant", 
+             "You are Frost, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "fa-terminal"),
         ]
         cursor.executemany("INSERT INTO gems (user_email, guest_id, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?, ?)", default_gems)
 
@@ -169,10 +169,10 @@ async def serve_frontend(request: Request):
 @app.get("/terms", response_class=HTMLResponse)
 async def terms_page():
     return """
-    <html><head><title>Terms of Service - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Terms of Service for Fsociety AI</h2>
+    <html><head><title>Terms of Service - Frost</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Terms of Service for Frost</h2>
     <p>1. <b>Acceptable Use:</b> Do not use the service for malicious activities, prompt injection, or illegal content generation.<br>
-    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Fsociety AI for critical medical, legal, or financial advice.<br>
+    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Frost for critical medical, legal, or financial advice.<br>
     3. <b>Content Ownership:</b> You retain rights to your inputs; we retain rights to the platform UI/UX.<br>
     4. <b>Liability:</b> Service is provided "as is". We are not responsible for downtime or damages.</p></body></html>
     """
@@ -180,8 +180,8 @@ async def terms_page():
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_page():
     return """
-    <html><head><title>Privacy Policy - Fsociety AI</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Privacy Policy for Fsociety AI</h2>
+    <html><head><title>Privacy Policy - Frost</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Privacy Policy for Frost</h2>
     <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs to provide the service.<br>
     2. <b>Third-Party Providers:</b> Your prompts and images are processed securely via external APIs (e.g., Groq, Google Gemini) to generate responses.<br>
     3. <b>Data Sales:</b> We do not sell your personal data or chat histories to third-party advertisers.<br>
@@ -233,7 +233,7 @@ async def switch_to_guest_mode(request: Request):
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, title, is_pinned FROM sessions WHERE {col} = ? ORDER BY id DESC", (val,))
     rows = cursor.fetchall()
@@ -242,7 +242,7 @@ async def get_user_sessions(request: Request):
 
 @app.get("/api/history/{session_id}")
 async def get_session_history(session_id: int):
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
     rows = cursor.fetchall()
@@ -252,7 +252,7 @@ async def get_session_history(session_id: int):
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     if col == "user_email":
         cursor.execute("INSERT INTO sessions (user_email, title) VALUES (?, ?)", (val, "New Chat"))
@@ -265,7 +265,7 @@ async def create_new_session(request: Request):
 
 @app.delete("/api/delete-session/{session_id}")
 async def delete_session(session_id: int):
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
     cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
@@ -276,7 +276,7 @@ async def delete_session(session_id: int):
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR {col} = ?", (val,))
     rows = cursor.fetchall()
@@ -292,7 +292,7 @@ async def create_gem(
     icon: str = Form("fa-robot")
 ):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     if col == "user_email":
         cursor.execute("INSERT INTO gems (user_email, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
@@ -305,7 +305,7 @@ async def create_gem(
 @app.get("/api/assets")
 async def get_user_assets(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, file_name, file_path, file_type FROM assets WHERE {col} = ? ORDER BY id DESC", (val,))
     rows = cursor.fetchall()
@@ -353,7 +353,7 @@ async def chat_with_assistant(
     model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
-    conn = sqlite3.connect("fsociety_history.db")
+    conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
 
     col, val = get_identifier(request)
@@ -415,19 +415,19 @@ async def chat_with_assistant(
         return {"response": ai_response}
 
     system_prompt = gem_prompt or (
-        "You are Fsociety AI, an elite, highly intelligent, and razor-sharp tech assistant created by Frost (whitefrostff@gmail.com). "
+        "You are Frost, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
         "CORE BEHAVIORAL DIRECTIVES:\n"
         "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks. Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
         "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary, and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
         "3. **Adaptive Depth:** Keep casual chat brief and punchy. Reserve detailed breakdowns and structured formatting strictly for technical or complex questions.\n"
         "4. **Code Standards:** Always wrap code snippets in clean markdown code blocks with syntax highlighting.\n"
-        "5. **Identity:** If asked who built you, state clearly: 'Frost made me.'"
+        "5. **Identity:** If asked who built you, state clearly: 'Nwodili Yaemerie Covenant made me.'"
     )
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -505,7 +505,6 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Force old or non-existent models to map to active ones
                 if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
                     actual_model = "openai/gpt-oss-120b"
                 elif "8b" in actual_model:
