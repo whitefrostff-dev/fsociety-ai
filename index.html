@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fsociety AI - Shinny Black & White Edition</title>
+    <title>Frost AI - Shinny Black & White Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --bg-main: #000000;
-            --bg-panel: #131314; /* Matched Gemini Sidebar Dark */
+            --bg-panel: #131314;
             --bg-card: #0a0a0a;
             --bg-card-hover: #1e1e1e;
             --border-color: #262626;
@@ -44,7 +44,6 @@
         .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { background-color: var(--bg-card) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
         button.bg-\[\#0a0a0a\]:hover { background-color: var(--bg-card-hover) !important; }
         
-        /* GEMINI-STYLE MESSAGING */
         .user-msg-container { display: flex; justify-content: flex-end; width: 100%; margin: 12px 0; }
         .user-msg { background-color: var(--bg-card-hover); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 20px 20px 4px 20px; padding: 12px 18px; max-width: 80%; font-size: 0.875rem; }
         
@@ -95,7 +94,6 @@
             }
         }
 
-        /* Calendar Styling */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
         .calendar-day-head { font-size: 10px; font-weight: bold; color: var(--text-muted); padding: 4px 0; }
         .calendar-cell { padding: 8px 0; font-size: 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
@@ -108,7 +106,7 @@
 
     <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
-    <!-- LEFT SIDEBAR: GEMINI STYLE UI -->
+    <!-- LEFT SIDEBAR -->
     <aside id="left-sidebar" class="sidebar h-full w-[300px] flex-shrink-0 flex-col justify-between p-3 flex">
         <div class="flex flex-col h-full overflow-hidden">
             
@@ -170,7 +168,6 @@
     <!-- CENTER CHAT INTERFACE -->
     <main class="flex-1 flex flex-col h-full relative min-w-0">
         <header class="h-14 border-b flex items-center justify-between px-3 md:px-6 flex-shrink-0">
-            <!-- Left Side: Menu, Title, Model Select -->
             <div class="flex items-center gap-3">
                 <button onclick="toggleLeftSidebar()" class="text-lg p-1 text-gray-300 md:hidden">
                     <i class="fa-solid fa-bars"></i>
@@ -184,7 +181,6 @@
                 </button>
             </div>
             
-            <!-- Right Side: Artifacts Toggle Button -->
             <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#333] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
                 <i class="fa-solid fa-layer-group text-blue-400"></i> 
                 <span class="hidden md:inline">Artifacts</span>
@@ -196,11 +192,9 @@
         <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-3 flex flex-col gap-2 shadow-2xl border border-[#333] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
                 
-                <!-- Text Area -->
-                <textarea id="user-input" rows="1" placeholder="Ask Fsociety AI..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-3 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
+                <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-3 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
                 <div class="flex items-center justify-between pt-1 px-1">
-                    <!-- Left Controls: Attachment -->
                     <div class="flex items-center gap-3">
                         <label for="file-upload" class="cursor-pointer p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload Image / File">
                             <i class="fa-solid fa-paperclip"></i>
@@ -209,15 +203,12 @@
                         <span id="file-name-display" class="text-xs truncate max-w-[100px] md:max-w-[200px] text-gray-400 font-mono"></span>
                     </div>
                     
-                    <!-- Right Controls: Fsociety Branding & Up-Arrow Send Button -->
                     <div class="flex items-center gap-3">
-                        <!-- AI Badge -->
                         <div class="hidden sm:flex items-center gap-1.5 bg-[#111] border border-[#333] px-3 py-1.5 rounded-full select-none">
                             <i class="fa-solid fa-microchip text-[10px] text-gray-400"></i>
-                            <span class="text-[10px] font-bold tracking-widest text-gray-300 uppercase">FSOCIETY AI</span>
+                            <span class="text-[10px] font-bold tracking-widest text-gray-300 uppercase">FROST AI</span>
                         </div>
                         
-                        <!-- Modern Send Button -->
                         <button id="send-btn" type="submit" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
                             <i class="fa-solid fa-arrow-up text-sm"></i>
                         </button>
@@ -225,14 +216,13 @@
                 </div>
             </form>
             
-            <!-- Footer Disclaimer -->
             <div class="text-center mt-3">
-                <span class="text-[10px] text-gray-500">Fsociety AI can make mistakes. Consider verifying important information.</span>
+                <span class="text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Covenant.</span>
             </div>
         </div>
     </main>
 
-    <!-- RIGHT PANEL: ARTIFACTS & MY STUFF ASSETS -->
+    <!-- RIGHT PANEL: ARTIFACTS -->
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden md:hidden border-l">
         <div class="h-14 border-b flex items-center justify-between px-4">
             <div class="flex items-center gap-2">
@@ -241,7 +231,6 @@
                     <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors">Preview</button>
                     <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors">My Stuff</button>
                 </div>
-                <!-- DEBUG BUTTON -->
                 <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden">
                     <i class="fa-solid fa-bug"></i> Debug
                 </button>
@@ -252,7 +241,7 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-4">
-            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Fsociety AI to write code or build an app to inspect it here.</div>
+            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
         </div>
@@ -296,7 +285,7 @@
             <div class="flex items-center justify-between border-b pb-3 flex-shrink-0">
                 <div>
                     <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
-                    <p class="text-xs text-gray-400">Connect external tools & utilities to Fsociety AI.</p>
+                    <p class="text-xs text-gray-400">Connect external tools & utilities to Frost.</p>
                 </div>
                 <button onclick="closePluginsModal()" class="text-lg hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -324,7 +313,6 @@
                     <button id="enable-steps-btn" onclick="initStepCounter()" class="border border-gray-600 hover:bg-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Enable Motion</button>
                 </div>
 
-                <!-- RESPONSIVE CALENDAR PLUGIN -->
                 <div class="p-3 border border-gray-700 bg-[#1e1e1e] rounded-xl space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -360,7 +348,7 @@
         </div>
     </div>
 
-    <!-- RESPONSIVE GEMS / PERSONAS MODAL -->
+    <!-- GEMS MODAL -->
     <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border flex flex-col gap-4 overflow-y-auto input-box">
             <div class="flex items-center justify-between flex-shrink-0">
@@ -453,15 +441,14 @@
     <script>
         let currentSessionId = null;
         let selectedFile = null;
-        let activeModelValue = "groq:llama-3.3-70b-versatile"; // Updated to Versatile API
+        let activeModelValue = "groq:llama-3.3-70b-versatile";
         let activeGemPrompt = null;
         let latestExtractedCode = "";
         let allSessions = [];
 
-        // CALENDAR VARIABLES
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
-        let calEvents = JSON.parse(localStorage.getItem('fsociety_cal_events') || '{}');
+        let calEvents = JSON.parse(localStorage.getItem('frost_cal_events') || '{}');
 
         function toggleLeftSidebar() {
             const sidebar = document.getElementById('left-sidebar');
@@ -497,7 +484,7 @@
         }
 
         async function init() {
-            if (localStorage.getItem('fsociety_theme') === 'light') setTheme('light');
+            if (localStorage.getItem('frost_theme') === 'light') setTheme('light');
 
             await checkUserStatus();
             await fetchSessions();
@@ -556,14 +543,13 @@
         function setTheme(theme) {
             if (theme === 'light') {
                 document.body.classList.add('light-mode');
-                localStorage.setItem('fsociety_theme', 'light');
+                localStorage.setItem('frost_theme', 'light');
             } else {
                 document.body.classList.remove('light-mode');
-                localStorage.setItem('fsociety_theme', 'dark');
+                localStorage.setItem('frost_theme', 'dark');
             }
         }
 
-        /* --- ACCELEROMETER / PEDOMETER FIX --- */
         let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
         let lastAccelMagnitude = 0;
         let isStepCounterActive = false;
@@ -586,12 +572,12 @@
 
             window.addEventListener("devicemotion", (event) => {
                 let acc = event.accelerationIncludingGravity || event.acceleration;
-                if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return; // Null data check
+                if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return;
                 
                 let magnitude = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
                 let delta = Math.abs(magnitude - lastAccelMagnitude);
                 
-                if (delta > 1.5) { // Sensitivity increased
+                if (delta > 1.5) {
                     stepCount++;
                     if (stepDisplay) stepDisplay.innerText = stepCount;
                     localStorage.setItem("daily_steps", stepCount);
@@ -616,7 +602,6 @@
             alert("Step Counter Active. Keep the app open as you walk.");
         }
 
-        /* --- RESPONSIVE CALENDAR LOGIC --- */
         function renderCalendar() {
             const monthYearLabel = document.getElementById('cal-month-year');
             const calendarDays = document.getElementById('calendar-days');
@@ -688,13 +673,13 @@
             const dateKey = calSelectedDate.toISOString().split('T')[0];
             if (!calEvents[dateKey]) calEvents[dateKey] = [];
             calEvents[dateKey].push(title);
-            localStorage.setItem('fsociety_cal_events', JSON.stringify(calEvents));
+            localStorage.setItem('frost_cal_events', JSON.stringify(calEvents));
             renderCalendarEvents();
         }
 
         function removeCalendarEvent(dateKey, idx) {
             calEvents[dateKey].splice(idx, 1);
-            localStorage.setItem('fsociety_cal_events', JSON.stringify(calEvents));
+            localStorage.setItem('frost_cal_events', JSON.stringify(calEvents));
             renderCalendarEvents();
         }
 
@@ -721,7 +706,7 @@
             const cardMap = {
                 'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
                 'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
-                'groq:llama-3.3-70b-versatile': 'm-groq-llama', // Updated
+                'groq:llama-3.3-70b-versatile': 'm-groq-llama',
                 'google:gemini-2.5-flash': 'm-google-flash',
                 'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
             };
@@ -805,7 +790,6 @@
             }
         }
 
-        /* UPDATED SIDEBAR STYLING - GEMINI BLUE HIGHLIGHT */
         function renderSessionList(sessions) {
             const list = document.getElementById('session-list');
             list.innerHTML = '';
@@ -814,8 +798,8 @@
                     const safeTitle = s.title || 'New Chat'; 
                     const isActive = currentSessionId === s.id;
                     const activeClasses = isActive 
-                        ? 'bg-[#283145] text-blue-200 font-medium' // Deep Blue Highlight
-                        : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white'; // Default state
+                        ? 'bg-[#283145] text-blue-200 font-medium'
+                        : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
 
                     list.innerHTML += `
                         <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession(${s.id}, '${safeTitle.replace(/'/g, "\\'")}')">
@@ -838,9 +822,9 @@
             container.innerHTML = `
                 <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
-                        Hi Whitefrostff, Where should we start?
+                        Hi Nwodili Yaemerie Covenant, Where should we start?
                     </h1>
-                    <p class="text-xs text-gray-400">Engineered by Frost with maximum class and humanoid precision.</p>
+                    <p class="text-xs text-gray-400">Engineered by Nwodili Yaemerie Covenant with maximum class and humanoid precision.</p>
                 </div>
             `;
         }
@@ -871,16 +855,6 @@
             }
             fetchSessions();
             closeAllPanels();
-        }
-
-        async function deleteSession(e, id) {
-            e.stopPropagation();
-            await fetch(`/api/delete-session/${id}`, { method: 'DELETE' });
-            if (currentSessionId === id) {
-                currentSessionId = null;
-                renderEmptyState();
-            }
-            fetchSessions();
         }
 
         function handleFileSelect(e) {
@@ -936,7 +910,6 @@
             }
         }
 
-        /* GEMINI-STYLE MESSAGE RENDERING */
         function renderMessage(role, content, shouldScroll = true) {
             const container = document.getElementById('messages-container');
             const welcomeScreen = document.getElementById('welcome-screen');
@@ -1042,5 +1015,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-        </html>
-                            
+    </html>
+    
