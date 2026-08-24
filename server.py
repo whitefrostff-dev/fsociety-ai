@@ -143,9 +143,12 @@ def startup_event():
 
 def get_identifier(request: Request):
     user = request.session.get('user')
-    if user:
+    if user and user.get('email'):
         return ("user_email", user['email'])
-    return ("guest_id", request.cookies.get("guest_id", "unknown_guest"))
+    
+    # Fallback/Ensure a persistent guest identifier lookup
+    guest_id = request.cookies.get("guest_id")
+    return ("guest_id", guest_id if guest_id else "unknown_guest")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -160,7 +163,7 @@ async def serve_frontend(request: Request):
             
     response = HTMLResponse(content=content)
     
-    if not request.session.get('user') and not request.cookies.get("guest_id"):
+    if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
         
@@ -192,7 +195,7 @@ async def privacy_page():
 async def get_current_user(request: Request):
     user = request.session.get('user')
     if user:
-        return {"logged_in": True, "name": user['name'], "email": user['email']}
+        return {"logged_in": True, "name": user.get('name'), "email": user.get('email')}
     return {"logged_in": False, "name": "Guest User"}
 
 @app.get('/auth/login')
@@ -223,11 +226,9 @@ async def logout(request: Request):
 async def switch_to_guest_mode(request: Request):
     request.session.pop('user', None)
     response = JSONResponse(content={"status": "success"})
-    
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
-        
     return response
 
 @app.get("/api/sessions")
@@ -241,9 +242,17 @@ async def get_user_sessions(request: Request):
     return [{"id": r[0], "title": r[1], "is_pinned": r[2]} for r in rows]
 
 @app.get("/api/history/{session_id}")
-async def get_session_history(session_id: int):
+async def get_session_history(request: Request, session_id: int):
+    col, val = get_identifier(request)
     conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
+    
+    # Ensure session belongs to current user identifier
+    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
+    if not cursor.fetchone():
+        conn.close()
+        return []
+        
     cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
     rows = cursor.fetchall()
     conn.close()
@@ -254,22 +263,22 @@ async def create_new_session(request: Request):
     col, val = get_identifier(request)
     conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
-    if col == "user_email":
-        cursor.execute("INSERT INTO sessions (user_email, title) VALUES (?, ?)", (val, "New Chat"))
-    else:
-        cursor.execute("INSERT INTO sessions (guest_id, title) VALUES (?, ?)", (val, "New Chat"))
+    cursor.execute(f"INSERT INTO sessions ({col}, title) VALUES (?, ?)", (val, "New Chat"))
     session_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return {"session_id": session_id}
 
 @app.delete("/api/delete-session/{session_id}")
-async def delete_session(session_id: int):
+async def delete_session(request: Request, session_id: int):
+    col, val = get_identifier(request)
     conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-    cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-    conn.commit()
+    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
+    if cursor.fetchone():
+        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
     conn.close()
     return {"status": "success"}
 
@@ -294,10 +303,7 @@ async def create_gem(
     col, val = get_identifier(request)
     conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
-    if col == "user_email":
-        cursor.execute("INSERT INTO gems (user_email, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
-    else:
-        cursor.execute("INSERT INTO gems (guest_id, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
+    cursor.execute(f"INSERT INTO gems ({col}, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
     conn.commit()
     conn.close()
     return {"status": "success"}
@@ -314,7 +320,6 @@ async def get_user_assets(request: Request):
 
 @app.post("/api/plugins/steps/save")
 async def save_user_steps(request: Request, payload: StepSyncRequest):
-    col, val = get_identifier(request)
     return {"status": "success", "steps_saved": payload.steps}
 
 @app.get("/auth/github-plugin")
@@ -353,10 +358,16 @@ async def chat_with_assistant(
     model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
+    col, val = get_identifier(request)
     conn = sqlite3.connect("frost_history.db")
     cursor = conn.cursor()
 
-    col, val = get_identifier(request)
+    # Verify session ownership
+    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
+    if not cursor.fetchone():
+        conn.close()
+        return JSONResponse(status_code=403, content={"response": "Session unauthorized or not found."})
+
     file_bytes = None
     mime_type = ""
     is_image = False
@@ -373,10 +384,7 @@ async def chat_with_assistant(
             f.write(file_bytes)
         
         rel_path = f"/uploads/{filename}"
-        if col == "user_email":
-            cursor.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
-        else:
-            cursor.execute("INSERT INTO assets (guest_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
+        cursor.execute(f"INSERT INTO assets ({col}, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
             
         display_message += f" [Attached File: {file.filename}]"
 
@@ -427,7 +435,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -501,7 +509,7 @@ async def chat_with_assistant(
                 )
                 ai_response = response.choices[0].message.content
 
-        else: # GROQ PROVIDER OVERRIDE FIX
+        else: 
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
@@ -534,3 +542,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+    
