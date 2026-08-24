@@ -22,14 +22,17 @@ from authlib.integrations.starlette_client import OAuth
 app = FastAPI()
 
 # --- RAILWAY PERSISTENT VOLUME PATH SETUP ---
-# Railway sets RAILWAY_VOLUME_MOUNT_PATH if a volume is attached.
-# Default to current directory "." for local development.
-VOLUME_PATH = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", ".")
-DB_PATH = os.path.join(VOLUME_PATH, "frost_history.db")
+# Bulletproof path setup: Forces the app to look for the /data volume we mounted.
+# If it's running locally and /data doesn't exist, it creates a local ./data folder.
+DATA_DIR = os.getenv("DATABASE_DIR", "/data" if os.path.exists("/data") else "./data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Lock the database directly into the persistent folder
+DB_PATH = os.path.join(DATA_DIR, "frost_history.db")
 
 # --- UPLOADS DIRECTORY ---
 # Store uploads in the persistent volume as well so they don't disappear!
-UPLOAD_DIR = os.path.join(VOLUME_PATH, "uploads")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
