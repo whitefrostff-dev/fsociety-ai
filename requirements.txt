@@ -10,3 +10,4 @@ google-genai
 openai
 duckduckgo-search
 starlette
+supabase
