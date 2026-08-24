@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Frost AI - Shinny Black & White Edition</title>
+    <title>Frost - Shinny Black & White Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -61,6 +61,24 @@
             50% { transform: translateY(-6px) rotateX(4deg) rotateY(-3deg); text-shadow: 0 15px 30px rgba(255,255,255,0.3); }
             100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
         }
+        
+        /* New Shining Text Animation */
+        @keyframes shine {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        
+        .frost-shining {
+            background: linear-gradient(90deg, #737373 0%, #ffffff 40%, #ffffff 60%, #737373 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 4s linear infinite;
+            font-weight: 900;
+            font-size: 1.15rem;
+            letter-spacing: 0.5px;
+        }
+
         .welcome-3d {
             display: inline-block;
             animation: float3D 4s ease-in-out infinite;
@@ -168,17 +186,16 @@
     <!-- CENTER CHAT INTERFACE -->
     <main class="flex-1 flex flex-col h-full relative min-w-0">
         <header class="h-14 border-b flex items-center justify-between px-3 md:px-6 flex-shrink-0">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 md:gap-4">
                 <button onclick="toggleLeftSidebar()" class="text-lg p-1 text-gray-300 md:hidden">
                     <i class="fa-solid fa-bars"></i>
                 </button>
         
-                <h2 id="current-chat-title" class="font-semibold text-sm truncate max-w-[150px] md:max-w-xs">New Chat</h2>
+                <!-- NEW SHINING TITLE -->
+                <div class="frost-shining select-none">Frost</div>
                 
-                <button onclick="openModelModal()" class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-colors hover:bg-gray-800">
-                    <span id="current-model-label">Llama 3.3 70B (Groq)</span>
-                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                </button>
+                <div class="h-4 w-[1px] bg-[#333] hidden md:block"></div>
+                <h2 id="current-chat-title" class="font-medium text-xs text-gray-500 truncate max-w-[120px] md:max-w-xs">New Chat</h2>
             </div>
             
             <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#333] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
@@ -195,20 +212,23 @@
                 <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-3 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
                 <div class="flex items-center justify-between pt-1 px-1">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 md:gap-3">
                         <label for="file-upload" class="cursor-pointer p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload Image / File">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
-                        <span id="file-name-display" class="text-xs truncate max-w-[100px] md:max-w-[200px] text-gray-400 font-mono"></span>
+                        
+                        <!-- MODEL SELECTOR MOVED TO INPUT AREA -->
+                        <button type="button" onclick="openModelModal()" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-xl border border-[#333] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[140px] md:max-w-none">
+                            <span id="current-model-label" class="truncate font-medium">Llama 3.3 70B (Groq)</span>
+                            <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
+                        </button>
+
+                        <span id="file-name-display" class="text-xs truncate max-w-[80px] md:max-w-[200px] text-gray-400 font-mono"></span>
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <div class="hidden sm:flex items-center gap-1.5 bg-[#111] border border-[#333] px-3 py-1.5 rounded-full select-none">
-                            <i class="fa-solid fa-microchip text-[10px] text-gray-400"></i>
-                            <span class="text-[10px] font-bold tracking-widest text-gray-300 uppercase">FROST AI</span>
-                        </div>
-                        
+                        <!-- Removed the FROST AI chip here as requested -->
                         <button id="send-btn" type="submit" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
                             <i class="fa-solid fa-arrow-up text-sm"></i>
                         </button>
@@ -1021,5 +1041,4 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-                </html>
-                        
+</html>
