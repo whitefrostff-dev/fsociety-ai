@@ -95,20 +95,19 @@ def get_identifier(request: Request):
 # --- SUPABASE DATABASE HELPER FUNCTIONS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
     if not supabase:
+        print("Error: Supabase client not initialized.")
         return None
-    res = supabase.table("user_chats").upsert({
-        "user_email": user_email,
-        "chat_id": str(chat_id),
-        "title": title,
-        "messages": messages
-    }, on_conflict="user_email,chat_id").execute()
-    return res.data
-
-def get_user_chats(user_email: str):
-    if not supabase:
-        return []
-    res = supabase.table("user_chats").select("*").eq("user_email", user_email).order("updated_at", desc=True).execute()
-    return res.data or []
+    try:
+        res = supabase.table("user_chats").upsert({
+            "user_email": user_email,
+            "chat_id": str(chat_id),
+            "title": title,
+            "messages": messages
+        }, on_conflict="user_email,chat_id").execute()
+        return res.data
+    except Exception as e:
+        print(f"SUPABASE UPSERT ERROR: {e}")
+        return None
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -194,21 +193,30 @@ async def switch_to_guest_mode(request: Request):
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
     if not supabase:
+        print("Error: Supabase client not initialized in /api/sessions")
         return []
     
-    res = supabase.table("user_chats").select("chat_id, title").eq("user_email", val).execute()
-    return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in (res.data or [])]
+    try:
+        res = supabase.table("user_chats").select("chat_id, title, created_at").eq("user_email", val).order("created_at", desc=True).execute()
+        return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in (res.data or [])]
+    except Exception as e:
+        print(f"SUPABASE FETCH SESSIONS ERROR: {e}")
+        return []
 
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: str):
     col, val = get_identifier(request)
     if not supabase:
         return []
-        
-    res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
-    if res.data and len(res.data) > 0:
-        return res.data[0].get("messages", [])
-    return []
+    
+    try:
+        res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0].get("messages", [])
+        return []
+    except Exception as e:
+        print(f"SUPABASE FETCH HISTORY ERROR: {e}")
+        return []
 
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
@@ -222,7 +230,10 @@ async def create_new_session(request: Request):
 async def delete_session(request: Request, session_id: str):
     col, val = get_identifier(request)
     if supabase:
-        supabase.table("user_chats").delete().eq("user_email", val).eq("chat_id", str(session_id)).execute()
+        try:
+            supabase.table("user_chats").delete().eq("user_email", val).eq("chat_id", str(session_id)).execute()
+        except Exception as e:
+            print(f"SUPABASE DELETE ERROR: {e}")
     return {"status": "success"}
 
 @app.get("/api/gems")
@@ -238,8 +249,8 @@ async def get_gems(request: Request):
         res = supabase.table("gems").select("*").or_(f"user_email.eq.system,{col}.eq.{val}").execute()
         if res.data:
             return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in res.data]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"SUPABASE GEMS ERROR: {e}")
 
     return default_gems
 
@@ -324,10 +335,13 @@ async def chat_with_assistant(
     existing_messages = []
     chat_title = "New Chat"
     if supabase:
-        res = supabase.table("user_chats").select("messages, title").eq("user_email", val).eq("chat_id", str(session_id)).execute()
-        if res.data and len(res.data) > 0:
-            existing_messages = res.data[0].get("messages", []) or []
-            chat_title = res.data[0].get("title", "New Chat")
+        try:
+            res = supabase.table("user_chats").select("messages, title").eq("user_email", val).eq("chat_id", str(session_id)).execute()
+            if res.data and len(res.data) > 0:
+                existing_messages = res.data[0].get("messages", []) or []
+                chat_title = res.data[0].get("title", "New Chat")
+        except Exception as e:
+            print(f"SUPABASE FETCH ERROR IN /api/chat: {e}")
 
     file_bytes = None
     mime_type = ""
@@ -496,6 +510,7 @@ async def chat_with_assistant(
         ai_response = f"**{provider.upper()} API Error:** `{str(e)}`"
 
     existing_messages.append({"role": "assistant", "content": ai_response})
+    
     if supabase:
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
 
@@ -504,3 +519,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+         
