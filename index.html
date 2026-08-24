@@ -445,6 +445,7 @@
         let activeGemPrompt = null;
         let latestExtractedCode = "";
         let allSessions = [];
+        let currentUserName = "Guest User";
 
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
@@ -507,15 +508,20 @@
                     const authBtn = document.getElementById('auth-btn');
 
                     if (user && user.logged_in) {
-                        nameDisplay.innerText = user.name || user.email;
-                        initials.innerText = (user.name || user.email)[0].toUpperCase();
+                        currentUserName = user.name || user.email;
+                        nameDisplay.innerText = currentUserName;
+                        initials.innerText = currentUserName[0].toUpperCase();
                         authBtn.innerText = 'Logout';
                         authBtn.href = '/auth/logout';
                     } else {
-                        nameDisplay.innerText = 'Guest User';
+                        currentUserName = 'Guest User';
+                        nameDisplay.innerText = currentUserName;
                         initials.innerText = 'G';
                         authBtn.innerText = 'Login';
                         authBtn.href = '/auth/login';
+                    }
+                    if (document.getElementById('welcome-screen')) {
+                        renderEmptyState();
                     }
                 }
             } catch (e) {
@@ -822,7 +828,7 @@
             container.innerHTML = `
                 <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
-                        Hi Nwodili Yaemerie Covenant, Where should we start?
+                        Hi ${currentUserName}, Where should we start?
                     </h1>
                     <p class="text-xs text-gray-400">Engineered by Nwodili Yaemerie Covenant with maximum class and humanoid precision.</p>
                 </div>
@@ -1015,5 +1021,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-    </html>
-    
+                </html>
+                        
