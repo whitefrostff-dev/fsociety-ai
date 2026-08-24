@@ -25,13 +25,58 @@
         body.light-mode {
             --bg-main: #f8fafc;
             --bg-panel: rgba(255, 255, 255, 0.85);
-            --bg-card: rgba(241, 245, 249, 0.7);
+            --bg-card: #ffffff;
             --bg-card-hover: rgba(226, 232, 240, 0.9);
             --border-color: rgba(0, 0, 0, 0.08);
             --border-glow: rgba(0, 0, 0, 0.15);
             --text-main: #0f172a;
             --text-muted: #64748b;
             --accent-glow: rgba(0, 0, 0, 0.02);
+        }
+
+        /* LIGHT MODE OVERRIDES FOR HARDCODED TAILWIND COLORS */
+        body.light-mode .bg-\[\#1e1e1e\],
+        body.light-mode .bg-\[\#1a1a1a\],
+        body.light-mode .bg-\[\#111\],
+        body.light-mode .bg-\[\#2a2a2a\] {
+            background-color: var(--bg-card) !important;
+        }
+        body.light-mode .hover\:bg-\[\#2a2a2a\]:hover,
+        body.light-mode .hover\:bg-gray-800:hover,
+        body.light-mode .hover\:bg-gray-700:hover {
+            background-color: var(--bg-card-hover) !important;
+            color: var(--text-main) !important;
+        }
+        body.light-mode .text-white,
+        body.light-mode .text-gray-200,
+        body.light-mode .text-gray-300 {
+            color: var(--text-main) !important;
+        }
+        body.light-mode .text-gray-400,
+        body.light-mode .text-gray-500 {
+            color: var(--text-muted) !important;
+        }
+        body.light-mode .border-gray-700,
+        body.light-mode .border-gray-600 {
+            border-color: var(--border-color) !important;
+        }
+        body.light-mode .bg-black\/80 {
+            background-color: rgba(255, 255, 255, 0.4) !important;
+        }
+        body.light-mode input, 
+        body.light-mode textarea {
+            color: var(--text-main) !important;
+        }
+
+        /* Active Session Styling - Theme Aware */
+        .active-session {
+            background-color: #283145 !important;
+            color: #bfdbfe !important;
+            font-weight: 500;
+        }
+        body.light-mode .active-session {
+            background-color: #e2e8f0 !important;
+            color: #1e40af !important;
         }
 
         body { 
@@ -95,7 +140,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         }
         
-        .light-mode .user-msg {
+        body.light-mode .user-msg {
             background: linear-gradient(135deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.02) 100%);
         }
         
@@ -139,6 +184,13 @@
             font-size: 1.3rem;
             letter-spacing: -0.5px;
         }
+        
+        body.light-mode .frost-shining {
+            background: linear-gradient(90deg, #64748b 0%, #0f172a 30%, #475569 50%, #0f172a 70%, #64748b 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
         .welcome-3d {
             display: inline-block;
@@ -148,6 +200,12 @@
             -webkit-text-fill-color: transparent;
             font-weight: 800;
             letter-spacing: -1px;
+        }
+        
+        body.light-mode .welcome-3d {
+            background: linear-gradient(135deg, #0f172a 0%, #64748b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .model-card { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 16px; }
@@ -164,6 +222,10 @@
             border-radius: 20px; 
         }
         
+        body.light-mode .badge-tag {
+            background: rgba(0, 0, 0, 0.04);
+        }
+        
         .mobile-overlay { display: none; backdrop-filter: blur(5px); }
         .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; }
         
@@ -171,6 +233,9 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        
+        body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
+        body.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
 
         @media (max-width: 768px) {
             #left-sidebar {
@@ -369,8 +434,8 @@
                 <div>
                     <p class="text-sm font-semibold mb-2">Appearance</p>
                     <div class="flex gap-2">
-                        <button onclick="setTheme('dark')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium">Dark Mode</button>
-                        <button onclick="setTheme('light')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium transition-colors">Light Mode</button>
+                        <button onclick="setTheme('dark')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition-colors">Dark Mode</button>
+                        <button onclick="setTheme('light')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-100 text-black bg-white transition-colors">Light Mode</button>
                     </div>
                 </div>
 
@@ -917,11 +982,12 @@
                     const safeTitle = s.title || 'New Chat'; 
                     const isActive = currentSessionId === s.id;
                     const activeClasses = isActive 
-                        ? 'bg-[#283145] text-blue-200 font-medium'
+                        ? 'active-session'
                         : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
 
+                    // FIX: Wrapped ${s.id} in single quotes so it passes correctly as a string to the JS function
                     list.innerHTML += `
-                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession(${s.id}, '${safeTitle.replace(/'/g, "\\'")}')">
+                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
                             <span class="truncate pr-2">${safeTitle}</span>
                         </div>
                     `;
@@ -1154,5 +1220,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-                            </html>
-    
+    </html>
+    sabled = false;
