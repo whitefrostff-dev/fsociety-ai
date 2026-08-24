@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "deploy": {
+    "volumes": [
+      {
+        "mountPath": "/data"
+      }
+    ]
+  }
+}
+
