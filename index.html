@@ -8,58 +8,120 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
         :root {
-            --bg-main: #000000;
-            --bg-panel: #131314;
-            --bg-card: #0a0a0a;
-            --bg-card-hover: #1e1e1e;
-            --border-color: #262626;
-            --text-main: #e3e3e3;
-            --text-muted: #9ca3af;
+            --bg-main: #030305;
+            --bg-panel: rgba(12, 12, 16, 0.75);
+            --bg-card: rgba(20, 20, 28, 0.6);
+            --bg-card-hover: rgba(30, 30, 42, 0.8);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(255, 255, 255, 0.2);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-glow: rgba(255, 255, 255, 0.05);
         }
 
         body.light-mode {
-            --bg-main: #f9fafb;
-            --bg-panel: #ffffff;
-            --bg-card: #f3f4f6;
-            --bg-card-hover: #e5e7eb;
-            --border-color: #d1d5db;
-            --text-main: #111827;
-            --text-muted: #4b5563;
+            --bg-main: #f8fafc;
+            --bg-panel: rgba(255, 255, 255, 0.85);
+            --bg-card: rgba(241, 245, 249, 0.7);
+            --bg-card-hover: rgba(226, 232, 240, 0.9);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-glow: rgba(0, 0, 0, 0.15);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent-glow: rgba(0, 0, 0, 0.02);
         }
 
         body { 
             background-color: var(--bg-main); 
             color: var(--text-main); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             height: 100dvh;
             width: 100vw;
             overflow: hidden;
             position: fixed;
-            transition: background-color 0.3s, color 0.3s;
+            transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s;
+            background-image: 
+                radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 75%),
+                linear-gradient(to right, var(--border-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
         }
         
-        .sidebar { background-color: var(--bg-panel); border-right: 1px solid var(--border-color); }
-        .artifact-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
-        .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { background-color: var(--bg-card) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
-        button.bg-\[\#0a0a0a\]:hover { background-color: var(--bg-card-hover) !important; }
+        .sidebar { 
+            background-color: var(--bg-panel); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color); 
+        }
+
+        .artifact-panel { 
+            background-color: var(--bg-panel); 
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-color: var(--border-color); 
+        }
+
+        .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { 
+            background-color: var(--bg-card) !important; 
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color) !important; 
+            color: var(--text-main) !important; 
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
         
-        .user-msg-container { display: flex; justify-content: flex-end; width: 100%; margin: 12px 0; }
-        .user-msg { background-color: var(--bg-card-hover); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 20px 20px 4px 20px; padding: 12px 18px; max-width: 80%; font-size: 0.875rem; }
+        .input-box:focus-within {
+            border-color: var(--border-glow) !important;
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.04);
+        }
+
+        button.bg-\[\#0a0a0a\]:hover, .model-card:hover { 
+            background-color: var(--bg-card-hover) !important;
+            border-color: var(--border-glow) !important;
+            transform: translateY(-1px);
+        }
         
-        .assistant-msg-container { display: flex; gap: 12px; width: 100%; margin: 16px 0; align-items: flex-start; }
-        .assistant-avatar { width: 30px; height: 30px; border-radius: 50%; background: #171717; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
-        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.9rem; line-height: 1.6; }
-        .assistant-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; color: var(--text-muted); font-size: 12px; }
-        .assistant-actions button:hover { color: var(--text-main); }
+        .user-msg-container { display: flex; justify-content: flex-end; width: 100%; margin: 16px 0; }
+        .user-msg { 
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+            border: 1px solid var(--border-glow); 
+            color: var(--text-main); 
+            border-radius: 20px 20px 4px 20px; 
+            padding: 14px 20px; 
+            max-width: 80%; 
+            font-size: 0.9rem; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        
+        .light-mode .user-msg {
+            background: linear-gradient(135deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.02) 100%);
+        }
+        
+        .assistant-msg-container { display: flex; gap: 14px; width: 100%; margin: 20px 0; align-items: flex-start; }
+        .assistant-avatar { 
+            width: 34px; height: 34px; border-radius: 10px; 
+            background: linear-gradient(135deg, #262626 0%, #0f0f0f 100%); 
+            border: 1px solid var(--border-glow); 
+            display: flex; align-items: center; justify-content: center; 
+            flex-shrink: 0; font-size: 13px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.92rem; line-height: 1.7; }
+        .assistant-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
+        .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
+        .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
+
+        code, pre { font-family: 'JetBrains Mono', monospace !important; }
 
         h1, h2, h3, h4, span.text-white, p.text-white { color: var(--text-main) !important; }
         span.text-gray-300, p.text-gray-400, i.text-gray-400, div.text-gray-400 { color: var(--text-muted) !important; }
         
-        @keyframes float3D {
-            0% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
-            50% { transform: translateY(-6px) rotateX(4deg) rotateY(-3deg); text-shadow: 0 15px 30px rgba(255,255,255,0.3); }
-            100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); text-shadow: 0 5px 15px rgba(255,255,255,0.1); }
+        @keyframes floatHUD {
+            0% { transform: translateY(0px) rotateX(0deg); text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+            50% { transform: translateY(-4px) rotateX(2deg); text-shadow: 0 0 35px rgba(255,255,255,0.4); }
+            100% { transform: translateY(0px) rotateX(0deg); text-shadow: 0 0 20px rgba(255,255,255,0.2); }
         }
         
         @keyframes shine {
@@ -68,55 +130,65 @@
         }
         
         .frost-shining {
-            background: linear-gradient(90deg, #737373 0%, #ffffff 40%, #ffffff 60%, #737373 100%);
+            background: linear-gradient(90deg, #a3a3a3 0%, #ffffff 30%, #e2e8f0 50%, #ffffff 70%, #a3a3a3 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: shine 4s linear infinite;
-            font-weight: 500;
-            font-size: 1.4rem;
+            animation: shine 6s linear infinite;
+            font-weight: 700;
+            font-size: 1.3rem;
             letter-spacing: -0.5px;
         }
 
         .welcome-3d {
             display: inline-block;
-            animation: float3D 4s ease-in-out infinite;
-            perspective: 1000px;
-            background: linear-gradient(135deg, #ffffff 0%, #a3a3a3 100%);
+            animation: floatHUD 5s ease-in-out infinite;
+            background: linear-gradient(135deg, #ffffff 0%, #64748b 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: 800;
+            letter-spacing: -1px;
         }
 
-        .model-card { transition: all 0.2s ease-in-out; }
-        .model-card:hover { border-color: #737373; background-color: var(--bg-card-hover); }
-        .model-card.active { border-color: var(--text-main); background-color: var(--bg-card-hover); }
-        .badge-tag { background-color: var(--border-color); color: var(--text-main); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+        .model-card { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 16px; }
+        .model-card:hover { border-color: var(--border-glow); background-color: var(--bg-card-hover); }
+        .model-card.active { border-color: var(--text-main) !important; background-color: var(--bg-card-hover) !important; box-shadow: 0 0 20px rgba(255,255,255,0.06); }
         
-        .mobile-overlay { display: none; }
-        .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 40; }
+        .badge-tag { 
+            background: rgba(255, 255, 255, 0.06); 
+            border: 1px solid var(--border-color);
+            color: var(--text-main); 
+            font-size: 10px; 
+            font-weight: 600; 
+            padding: 3px 10px; 
+            border-radius: 20px; 
+        }
         
+        .mobile-overlay { display: none; backdrop-filter: blur(5px); }
+        .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
         @media (max-width: 768px) {
             #left-sidebar {
                 position: fixed;
-                left: 0;
-                top: 0;
-                bottom: 0;
+                left: 0; top: 0; bottom: 0;
                 z-index: 50;
                 transform: translateX(-100%);
-                transition: transform 0.3s ease;
+                transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
             }
-            #left-sidebar.mobile-open {
-                transform: translateX(0);
-            }
+            #left-sidebar.mobile-open { transform: translateX(0); }
         }
 
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
-        .calendar-day-head { font-size: 10px; font-weight: bold; color: var(--text-muted); padding: 4px 0; }
-        .calendar-cell { padding: 8px 0; font-size: 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
-        .calendar-cell:hover { background-color: var(--bg-card-hover); }
+        .calendar-day-head { font-size: 10px; font-weight: 600; color: var(--text-muted); padding: 4px 0; }
+        .calendar-cell { padding: 8px 0; font-size: 12px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .calendar-cell:hover { background-color: var(--bg-card-hover); border-color: var(--border-color); }
         .calendar-cell.active-day { border-color: var(--text-main); font-weight: bold; background-color: var(--bg-card-hover); }
-        .calendar-cell.today { background-color: #2563eb; color: #fff; font-weight: bold; }
+        .calendar-cell.today { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; font-weight: bold; box-shadow: 0 0 12px rgba(59, 130, 246, 0.4); }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -171,7 +243,7 @@
         </div>
 
         <!-- Bottom User Profile Area -->
-        <div class="space-y-3 pt-3 mt-2 border-t border-[#262626]">
+        <div class="space-y-3 pt-3 mt-2 border-t border-[var(--border-color)]">
             <div id="user-profile" class="flex items-center justify-between p-2 hover:bg-[#2a2a2a] rounded-xl transition-colors cursor-pointer" onclick="openAccountModal()">
                 <div class="flex items-center gap-3 truncate">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-[#1e1e1e] border border-gray-700 text-white" id="user-initials">G</div>
@@ -184,7 +256,7 @@
 
     <!-- CENTER CHAT INTERFACE -->
     <main class="flex-1 flex flex-col h-full relative min-w-0">
-        <header class="h-16 border-b flex items-center justify-between px-4 md:px-6 flex-shrink-0 relative">
+        <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-4 md:px-6 flex-shrink-0 relative">
             <div class="flex items-center z-10 gap-3">
                 <button onclick="toggleLeftSidebar()" class="text-2xl p-1 text-gray-200 hover:text-white transition-colors">
                     <i class="fa-solid fa-bars"></i>
@@ -197,7 +269,7 @@
             </div>
             
             <div class="flex items-center z-10 gap-3">
-                <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#333] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
+                <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
                     <i class="fa-solid fa-layer-group text-blue-400"></i> 
                     <span>Artifacts</span>
                 </button>
@@ -213,7 +285,7 @@
         <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             
             <!-- Attachment Preview Box -->
-            <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-[#1a1a1a] border border-[#333] max-w-fit">
+            <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)] max-w-fit">
                 <img id="attachment-preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg border border-gray-700">
                 <div class="flex flex-col pr-2">
                     <span id="attachment-name" class="text-xs text-white font-medium truncate max-w-[150px]"></span>
@@ -222,7 +294,7 @@
                 <button type="button" onclick="clearAttachment()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
 
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-3 flex flex-col gap-2 shadow-2xl border border-[#333] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
                 
                 <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-3 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
@@ -240,7 +312,7 @@
                         </label>
                         <input id="file-upload" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                         
-                        <button type="button" onclick="openModelModal()" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-xl border border-[#333] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[140px] md:max-w-none">
+                        <button type="button" onclick="openModelModal()" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[140px] md:max-w-none">
                             <span id="current-model-label" class="truncate font-medium">Llama 3.3 70B (Groq)</span>
                             <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
                         </button>
@@ -262,9 +334,9 @@
 
     <!-- RIGHT PANEL: ARTIFACTS -->
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden border-l">
-        <div class="h-14 border-b flex items-center justify-between px-4">
+        <div class="h-14 border-b border-[var(--border-color)] flex items-center justify-between px-4">
             <div class="flex items-center gap-2">
-                <div class="flex gap-1 p-1 rounded-lg border">
+                <div class="flex gap-1 p-1 rounded-lg border border-[var(--border-color)]">
                     <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors">Code</button>
                     <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors">Preview</button>
                     <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors">My Stuff</button>
@@ -279,16 +351,16 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-4">
-            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
-            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border hidden"></iframe>
+            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
+            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
         </div>
     </aside>
 
     <!-- SETTINGS MODAL -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 input-box">
-            <div class="flex items-center justify-between border-b pb-3">
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 input-box">
+            <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
                 <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gear"></i> Settings</h3>
                 <button onclick="closeSettingsModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -297,18 +369,18 @@
                 <div>
                     <p class="text-sm font-semibold mb-2">Appearance</p>
                     <div class="flex gap-2">
-                        <button onclick="setTheme('dark')" class="flex-1 border py-2 rounded-xl text-xs font-medium">Dark Mode</button>
-                        <button onclick="setTheme('light')" class="flex-1 border py-2 rounded-xl text-xs font-medium transition-colors">Light Mode</button>
+                        <button onclick="setTheme('dark')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium">Dark Mode</button>
+                        <button onclick="setTheme('light')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium transition-colors">Light Mode</button>
                     </div>
                 </div>
 
                 <div class="pt-2">
                     <p class="text-sm font-semibold mb-2">About & Legal</p>
                     <div class="space-y-2">
-                        <a href="/terms" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border text-xs hover:bg-[#2a2a2a] transition-colors">
+                        <a href="/terms" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
                             <span>Terms of Service</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
-                        <a href="/privacy" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border text-xs hover:bg-[#2a2a2a] transition-colors">
+                        <a href="/privacy" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
                             <span>Privacy Policy</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
                     </div>
@@ -318,9 +390,9 @@
     </div>
 
     <!-- PLUGINS MODAL -->
-    <div id="plugins-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 max-h-[85vh] input-box overflow-y-auto">
-            <div class="flex items-center justify-between border-b pb-3 flex-shrink-0">
+    <div id="plugins-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] input-box overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3 flex-shrink-0">
                 <div>
                     <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
                     <p class="text-xs text-gray-400">Connect external tools & utilities to Frost.</p>
@@ -387,8 +459,8 @@
     </div>
 
     <!-- GEMS MODAL -->
-    <div id="gems-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border flex flex-col gap-4 overflow-y-auto input-box">
+    <div id="gems-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 overflow-y-auto input-box">
             <div class="flex items-center justify-between flex-shrink-0">
                 <h3 class="text-base md:text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gem text-amber-400"></i> AI Personas (Gems)</h3>
                 <button onclick="closeGemsModal()" class="text-base"><i class="fa-solid fa-xmark"></i></button>
@@ -396,21 +468,21 @@
             
             <div id="gems-list" class="space-y-2 max-h-[35vh] overflow-y-auto pr-1 flex-shrink-0"></div>
             
-            <div class="border-t pt-3 flex-shrink-0">
+            <div class="border-t border-[var(--border-color)] pt-3 flex-shrink-0">
                 <p class="text-xs mb-2 font-semibold text-gray-300">Create Custom Gem</p>
                 <div class="space-y-2">
-                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full border rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
-                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full border rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
-                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full border rounded-xl text-xs p-2.5 h-20 resize-none focus:outline-none bg-[#1e1e1e] text-white"></textarea>
-                    <button onclick="createCustomGem()" class="w-full border hover:bg-gray-800 py-2.5 rounded-xl text-xs font-bold transition-colors">Save Custom Gem</button>
+                    <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
+                    <input type="text" id="gem-desc" placeholder="Short Description" class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
+                    <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 h-20 resize-none focus:outline-none bg-[#1e1e1e] text-white"></textarea>
+                    <button onclick="createCustomGem()" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2.5 rounded-xl text-xs font-bold transition-colors">Save Custom Gem</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- MODEL SELECTION MODAL -->
-    <div id="model-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border flex flex-col gap-5 max-h-[85vh] overflow-y-auto input-box">
+    <div id="model-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] overflow-y-auto input-box">
             <div class="flex items-center gap-4 flex-shrink-0">
                 <button onclick="closeModelModal()" class="text-lg">
                     <i class="fa-solid fa-arrow-left"></i>
@@ -458,18 +530,18 @@
     </div>
 
     <!-- ACCOUNT MODAL -->
-    <div id="account-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-sm rounded-3xl p-6 shadow-2xl border flex flex-col gap-4 input-box">
+    <div id="account-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 input-box">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-bold">Account & Guest Settings</h3>
                 <button onclick="closeAccountModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <p class="text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
             <div class="space-y-2 pt-2">
-                <a href="/auth/login" class="w-full border hover:bg-gray-800 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
+                <a href="/auth/login" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
                     <i class="fa-brands fa-google"></i> Sign in with Google
                 </a>
-                <button onclick="switchToGuestMode()" class="w-full py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border hover:bg-gray-800 transition-colors">
+                <button onclick="switchToGuestMode()" class="w-full py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border border-[var(--border-color)] hover:bg-gray-800 transition-colors">
                     <i class="fa-solid fa-user-secret"></i> Continue as Guest User
                 </button>
             </div>
@@ -1082,5 +1154,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-    </html>
-                
+                    </html>
+                        
