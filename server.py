@@ -4,7 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional
-import sqlite3
 import uuid
 import os
 import re
@@ -18,20 +17,23 @@ from google import genai
 from google.genai import types
 from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
+from supabase import create_client, Client
 
 app = FastAPI()
 
-# --- RAILWAY PERSISTENT VOLUME PATH SETUP ---
-# Bulletproof path setup: Forces the app to look for the /data volume we mounted.
-# If it's running locally and /data doesn't exist, it creates a local ./data folder.
+# --- SUPABASE DATABASE SETUP ---
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing.")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
+
+# --- PERSISTENT FILE STORAGE & UPLOADS ---
 DATA_DIR = os.getenv("DATABASE_DIR", "/data" if os.path.exists("/data") else "./data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Lock the database directly into the persistent folder
-DB_PATH = os.path.join(DATA_DIR, "frost_history.db")
-
-# --- UPLOADS DIRECTORY ---
-# Store uploads in the persistent volume as well so they don't disappear!
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -82,83 +84,31 @@ oauth.register(
 class StepSyncRequest(BaseModel):
     steps: int
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            guest_id TEXT,
-            title TEXT,
-            is_pinned INTEGER DEFAULT 0
-        )
-    ''')
-    
-    try: cursor.execute("ALTER TABLE sessions ADD COLUMN guest_id TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER DEFAULT 0")
-    except: pass
-    try: cursor.execute("ALTER TABLE gems ADD COLUMN guest_id TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE assets ADD COLUMN guest_id TEXT")
-    except: pass
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER,
-            role TEXT,
-            content TEXT,
-            FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS gems (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            guest_id TEXT,
-            name TEXT,
-            description TEXT,
-            system_prompt TEXT,
-            icon TEXT DEFAULT 'fa-robot'
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS assets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            guest_id TEXT,
-            file_name TEXT,
-            file_path TEXT,
-            file_type TEXT
-        )
-    ''')
-    
-    cursor.execute("SELECT COUNT(*) FROM gems")
-    if cursor.fetchone()[0] == 0:
-        default_gems = [
-          ("system", "system", "Frost Core", "Standard elite assistant created by Nwodili Yaemerie Covenant", 
-             "You are Frost, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "fa-terminal"),
-        ]
-        cursor.executemany("INSERT INTO gems (user_email, guest_id, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?, ?)", default_gems)
-
-    conn.commit()
-    conn.close()
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
-
 def get_identifier(request: Request):
     user = request.session.get('user')
     if user and user.get('email'):
         return ("user_email", user['email'])
     
-    # Fallback/Ensure a persistent guest identifier lookup
     guest_id = request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
+
+# --- SUPABASE DATABASE HELPER FUNCTIONS ---
+def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
+    if not supabase:
+        return None
+    res = supabase.table("user_chats").upsert({
+        "user_email": user_email,
+        "chat_id": str(chat_id),
+        "title": title,
+        "messages": messages
+    }, on_conflict="user_email,chat_id").execute()
+    return res.data
+
+def get_user_chats(user_email: str):
+    if not supabase:
+        return []
+    res = supabase.table("user_chats").select("*").eq("user_email", user_email).order("updated_at", desc=True).execute()
+    return res.data or []
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -172,7 +122,6 @@ async def serve_frontend(request: Request):
             content = f.read()
             
     response = HTMLResponse(content=content)
-    
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
@@ -244,63 +193,55 @@ async def switch_to_guest_mode(request: Request):
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT id, title, is_pinned FROM sessions WHERE {col} = ? ORDER BY id DESC", (val,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [{"id": r[0], "title": r[1], "is_pinned": r[2]} for r in rows]
+    if not supabase:
+        return []
+    
+    res = supabase.table("user_chats").select("chat_id, title").eq("user_email", val).execute()
+    return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in (res.data or [])]
 
 @app.get("/api/history/{session_id}")
-async def get_session_history(request: Request, session_id: int):
+async def get_session_history(request: Request, session_id: str):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Ensure session belongs to current user identifier
-    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
-    if not cursor.fetchone():
-        conn.close()
+    if not supabase:
         return []
         
-    cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [{"role": r[0], "content": r[1]} for r in rows]
+    res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
+    if res.data and len(res.data) > 0:
+        return res.data[0].get("messages", [])
+    return []
 
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"INSERT INTO sessions ({col}, title) VALUES (?, ?)", (val, "New Chat"))
-    session_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return {"session_id": session_id}
+    new_chat_id = str(uuid.uuid4())
+    if supabase:
+        save_chat_history(user_email=val, chat_id=new_chat_id, title="New Chat", messages=[])
+    return {"session_id": new_chat_id}
 
 @app.delete("/api/delete-session/{session_id}")
-async def delete_session(request: Request, session_id: int):
+async def delete_session(request: Request, session_id: str):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
-    if cursor.fetchone():
-        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        conn.commit()
-    conn.close()
+    if supabase:
+        supabase.table("user_chats").delete().eq("user_email", val).eq("chat_id", str(session_id)).execute()
     return {"status": "success"}
 
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR {col} = ?", (val,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [{"id": r[0], "name": r[1], "description": r[2], "system_prompt": r[3], "icon": r[4]} for r in rows]
+    default_gems = [
+        {"id": 1, "name": "Frost Core", "description": "Standard elite assistant created by Nwodili Yaemerie Covenant", "system_prompt": "You are Frost, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "icon": "fa-terminal"}
+    ]
+    if not supabase:
+        return default_gems
+
+    try:
+        res = supabase.table("gems").select("*").or_(f"user_email.eq.system,{col}.eq.{val}").execute()
+        if res.data:
+            return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in res.data]
+    except Exception:
+        pass
+
+    return default_gems
 
 @app.post("/api/gems")
 async def create_gem(
@@ -311,22 +252,31 @@ async def create_gem(
     icon: str = Form("fa-robot")
 ):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"INSERT INTO gems ({col}, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
-    conn.commit()
-    conn.close()
+    if supabase:
+        try:
+            supabase.table("gems").insert({
+                col: val,
+                "name": name,
+                "description": description,
+                "system_prompt": system_prompt,
+                "icon": icon
+            }).execute()
+        except Exception as e:
+            print(f"Error creating gem: {e}")
     return {"status": "success"}
 
 @app.get("/api/assets")
 async def get_user_assets(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT id, file_name, file_path, file_type FROM assets WHERE {col} = ? ORDER BY id DESC", (val,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [{"id": r[0], "file_name": r[1], "file_path": r[2], "file_type": r[3]} for r in rows]
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("assets").select("*").eq(col, val).order("id", desc=True).execute()
+        if res.data:
+            return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in res.data]
+    except Exception:
+        pass
+    return []
 
 @app.post("/api/plugins/steps/save")
 async def save_user_steps(request: Request, payload: StepSyncRequest):
@@ -362,21 +312,22 @@ async def github_plugin_callback(request: Request, code: str):
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
-    session_id: int = Form(...), 
+    session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
     model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
 
-    # Verify session ownership
-    cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
-    if not cursor.fetchone():
-        conn.close()
-        return JSONResponse(status_code=403, content={"response": "Session unauthorized or not found."})
+    # Fetch existing chat history from Supabase
+    existing_messages = []
+    chat_title = "New Chat"
+    if supabase:
+        res = supabase.table("user_chats").select("messages, title").eq("user_email", val).eq("chat_id", str(session_id)).execute()
+        if res.data and len(res.data) > 0:
+            existing_messages = res.data[0].get("messages", []) or []
+            chat_title = res.data[0].get("title", "New Chat")
 
     file_bytes = None
     mime_type = ""
@@ -392,26 +343,27 @@ async def chat_with_assistant(
         filepath = os.path.join(UPLOAD_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(file_bytes)
-        
-        rel_path = f"/uploads/{filename}"
-        cursor.execute(f"INSERT INTO assets ({col}, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", (val, file.filename, rel_path, mime_type))
             
+        rel_path = f"/uploads/{filename}"
+        if supabase:
+            try:
+                supabase.table("assets").insert({
+                    col: val,
+                    "file_name": file.filename,
+                    "file_path": rel_path,
+                    "file_type": mime_type
+                }).execute()
+            except Exception as e:
+                print(f"Error saving asset to DB: {e}")
+
         display_message += f" [Attached File: {file.filename}]"
 
-    cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "user", display_message))
+    existing_messages.append({"role": "user", "content": display_message})
     
-    cursor.execute("SELECT title FROM sessions WHERE id = ?", (session_id,))
-    current_title = cursor.fetchone()
-    if current_title and current_title[0] in ["New Chat", ""]:
-        short_title = (message[:28] + '...') if len(message) > 28 else (message or "File Upload")
-        cursor.execute("UPDATE sessions SET title = ? WHERE id = ?", (short_title, session_id))
+    if chat_title in ["New Chat", ""] and message:
+        chat_title = (message[:28] + '...') if len(message) > 28 else message
 
-    conn.commit()
-
-    cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
-    past_messages = cursor.fetchall()
-    recent_history = past_messages[-12:]
-
+    recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate pic", "generate pics", "draw pics"]
     
@@ -427,9 +379,9 @@ async def chat_with_assistant(
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
         ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n![Generated Image]({image_url})"
         
-        cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "assistant", ai_response))
-        conn.commit()
-        conn.close()
+        existing_messages.append({"role": "assistant", "content": ai_response})
+        if supabase:
+            save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
     system_prompt = gem_prompt or (
@@ -455,8 +407,8 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `OPENROUTER_API_KEY` is missing."
             else:
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                for r, c in recent_history[:-1]:
-                    messages_payload.append({"role": r, "content": c})
+                for msg in recent_history[:-1]:
+                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
 
                 if is_image and file_bytes:
                     b64_img = base64.b64encode(file_bytes).decode('utf-8')
@@ -482,9 +434,9 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `GOOGLE_API_KEY` is missing."
             else:
                 contents = []
-                for r, c in recent_history[:-1]:
-                    role_prefix = "User" if r == "user" else "Model"
-                    contents.append(f"{role_prefix}: {c}")
+                for msg in recent_history[:-1]:
+                    role_prefix = "User" if msg["role"] == "user" else "Model"
+                    contents.append(f"{role_prefix}: {msg['content']}")
 
                 if is_image and file_bytes:
                     image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
@@ -509,8 +461,8 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `SILICONFLOW_API_KEY` is missing."
             else:
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                for r, c in recent_history:
-                    messages_payload.append({"role": r, "content": c})
+                for msg in recent_history:
+                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
                 
                 response = await silicon_client.chat.completions.create(
                     model=actual_model,
@@ -529,8 +481,8 @@ async def chat_with_assistant(
                     actual_model = "openai/gpt-oss-20b"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                for r, c in recent_history:
-                    messages_payload.append({"role": r, "content": c})
+                for msg in recent_history:
+                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
 
                 chat_completion = groq_client.chat.completions.create(
                     model=actual_model,
@@ -543,9 +495,9 @@ async def chat_with_assistant(
     except Exception as e:
         ai_response = f"**{provider.upper()} API Error:** `{str(e)}`"
 
-    cursor.execute("INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)", (session_id, "assistant", ai_response))
-    conn.commit()
-    conn.close()
+    existing_messages.append({"role": "assistant", "content": ai_response})
+    if supabase:
+        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
 
     return {"response": ai_response}
 
