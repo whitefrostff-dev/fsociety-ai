@@ -21,8 +21,15 @@ from authlib.integrations.starlette_client import OAuth
 
 app = FastAPI()
 
+# --- RAILWAY PERSISTENT VOLUME PATH SETUP ---
+# Railway sets RAILWAY_VOLUME_MOUNT_PATH if a volume is attached.
+# Default to current directory "." for local development.
+VOLUME_PATH = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", ".")
+DB_PATH = os.path.join(VOLUME_PATH, "frost_history.db")
+
 # --- UPLOADS DIRECTORY ---
-UPLOAD_DIR = "uploads"
+# Store uploads in the persistent volume as well so they don't disappear!
+UPLOAD_DIR = os.path.join(VOLUME_PATH, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
@@ -73,7 +80,7 @@ class StepSyncRequest(BaseModel):
     steps: int
 
 def init_db():
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -234,7 +241,7 @@ async def switch_to_guest_mode(request: Request):
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, title, is_pinned FROM sessions WHERE {col} = ? ORDER BY id DESC", (val,))
     rows = cursor.fetchall()
@@ -244,7 +251,7 @@ async def get_user_sessions(request: Request):
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: int):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # Ensure session belongs to current user identifier
@@ -261,7 +268,7 @@ async def get_session_history(request: Request, session_id: int):
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"INSERT INTO sessions ({col}, title) VALUES (?, ?)", (val, "New Chat"))
     session_id = cursor.lastrowid
@@ -272,7 +279,7 @@ async def create_new_session(request: Request):
 @app.delete("/api/delete-session/{session_id}")
 async def delete_session(request: Request, session_id: int):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"SELECT id FROM sessions WHERE id = ? AND {col} = ?", (session_id, val))
     if cursor.fetchone():
@@ -285,7 +292,7 @@ async def delete_session(request: Request, session_id: int):
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR {col} = ?", (val,))
     rows = cursor.fetchall()
@@ -301,7 +308,7 @@ async def create_gem(
     icon: str = Form("fa-robot")
 ):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"INSERT INTO gems ({col}, name, description, system_prompt, icon) VALUES (?, ?, ?, ?, ?)", (val, name, description, system_prompt, icon))
     conn.commit()
@@ -311,7 +318,7 @@ async def create_gem(
 @app.get("/api/assets")
 async def get_user_assets(request: Request):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, file_name, file_path, file_type FROM assets WHERE {col} = ? ORDER BY id DESC", (val,))
     rows = cursor.fetchall()
@@ -359,7 +366,7 @@ async def chat_with_assistant(
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
-    conn = sqlite3.connect("frost_history.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Verify session ownership
@@ -542,4 +549,3 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-    
