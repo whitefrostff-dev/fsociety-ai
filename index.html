@@ -186,20 +186,22 @@
     <main class="flex-1 flex flex-col h-full relative min-w-0">
         <header class="h-16 border-b flex items-center justify-between px-4 md:px-6 flex-shrink-0 relative">
             <!-- Left: Hamburger Menu -->
-            <div class="flex items-center z-10">
+            <div class="flex items-center z-10 gap-3">
                 <button onclick="toggleLeftSidebar()" class="text-2xl p-1 text-gray-200 hover:text-white transition-colors">
                     <i class="fa-solid fa-bars"></i>
                 </button>
+                <!-- Added Session Title Element to prevent null error -->
+                <span id="current-chat-title" class="text-xs font-semibold text-gray-400 hidden md:inline truncate max-w-[150px]">New Chat</span>
             </div>
             
-            <!-- Center: Shiny Frost Title -->
+            <!-- Center: Shiny Frost Title (Fixed to call createNewSession instead of full reload) -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="frost-shining select-none pointer-events-auto cursor-pointer" onclick="window.location.reload()">Frost</div>
+                <div class="frost-shining select-none pointer-events-auto cursor-pointer" onclick="createNewSession()">Frost</div>
             </div>
             
-            <!-- Right: Artifacts button placed next to user avatar -->
+            <!-- Right: User Avatar -->
             <div class="flex items-center z-10 gap-3">
-                <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#333] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
+                <button onclick="toggleArtifactPanel()" class="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#333] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
                     <i class="fa-solid fa-layer-group text-blue-400"></i> 
                     <span>Artifacts</span>
                 </button>
@@ -224,7 +226,6 @@
                         </label>
                         <input id="file-upload" type="file" class="hidden" onchange="handleFileSelect(event)">
                         
-                        <!-- MODEL SELECTOR -->
                         <button type="button" onclick="openModelModal()" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-xl border border-[#333] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[140px] md:max-w-none">
                             <span id="current-model-label" class="truncate font-medium">Llama 3.3 70B (Groq)</span>
                             <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
@@ -499,16 +500,6 @@
                 panel.classList.add('hidden');
                 panel.classList.remove('flex');
                 backdrop.classList.remove('active');
-            }
-        }
-
-        function openArtifactPanel() {
-            const panel = document.getElementById('artifact-sidebar');
-            const backdrop = document.getElementById('mobile-backdrop');
-            if (panel.classList.contains('hidden')) {
-                panel.classList.remove('hidden');
-                panel.classList.add('flex');
-                backdrop.classList.add('active');
             }
         }
 
@@ -878,12 +869,16 @@
             const data = await res.json();
             currentSessionId = data.session_id;
             renderEmptyState();
+            const titleEl = document.getElementById('current-chat-title');
+            if (titleEl) titleEl.innerText = 'New Chat';
             await fetchSessions();
             closeAllPanels();
         }
 
         async function loadSession(id, title) {
             currentSessionId = id;
+            const titleEl = document.getElementById('current-chat-title');
+            if (titleEl) titleEl.innerText = title;
             const res = await fetch(`/api/history/${id}`);
             const messages = await res.json();
             const container = document.getElementById('messages-container');
@@ -1017,9 +1012,6 @@
                 if (!codeView.classList.contains('hidden')) {
                     debugBtn.classList.remove('hidden');
                 }
-
-                // Automatically pop open the artifact panel when code is generated
-                openArtifactPanel();
             }
         }
 
@@ -1060,5 +1052,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-    </html>
-            
+                    </html>
+    
