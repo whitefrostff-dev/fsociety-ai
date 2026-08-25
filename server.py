@@ -11,6 +11,7 @@ import base64
 import urllib.parse
 import shutil
 import httpx
+import json
 from pydantic import BaseModel
 from groq import Groq
 from google import genai
@@ -21,21 +22,36 @@ from supabase import create_client, Client
 
 app = FastAPI()
 
-# --- IN-MEMORY FALLBACK STORAGE FOR CHATS ---
-MEMORY_CHATS = {}
-
 # --- SUPABASE DATABASE SETUP ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing. Using memory fallback.")
+    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing. Using persistent disk fallback.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
 
 # --- PERSISTENT FILE STORAGE & UPLOADS ---
 DATA_DIR = os.getenv("DATABASE_DIR", "/data" if os.path.exists("/data") else "./data")
 os.makedirs(DATA_DIR, exist_ok=True)
+
+CHATS_FILE = os.path.join(DATA_DIR, "chats.json")
+
+def load_local_chats():
+    if os.path.exists(CHATS_FILE):
+        try:
+            with open(CHATS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_local_chats(data):
+    try:
+        with open(CHATS_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Error saving to disk: {e}")
 
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -109,13 +125,15 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
         except Exception as e:
             print(f"SUPABASE UPSERT ERROR: {e}")
     
-    # Fallback storage
-    if user_email not in MEMORY_CHATS:
-        MEMORY_CHATS[user_email] = {}
-    MEMORY_CHATS[user_email][str(chat_id)] = {
+    # Persistent disk fallback instead of MEMORY_CHATS
+    local_chats = load_local_chats()
+    if user_email not in local_chats:
+        local_chats[user_email] = {}
+    local_chats[user_email][str(chat_id)] = {
         "title": title,
         "messages": messages
     }
+    save_local_chats(local_chats)
     return True
 
 @app.get("/", response_class=HTMLResponse)
@@ -209,8 +227,9 @@ async def get_user_sessions(request: Request):
         except Exception as e:
             print(f"SUPABASE FETCH SESSIONS ERROR: {e}")
     
-    # Memory fallback
-    user_data = MEMORY_CHATS.get(val, {})
+    # Disk fallback
+    local_chats = load_local_chats()
+    user_data = local_chats.get(val, {})
     return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
 
 @app.get("/api/history/{session_id}")
@@ -224,8 +243,9 @@ async def get_session_history(request: Request, session_id: str):
         except Exception as e:
             print(f"SUPABASE FETCH HISTORY ERROR: {e}")
     
-    # Memory fallback
-    user_data = MEMORY_CHATS.get(val, {})
+    # Disk fallback
+    local_chats = load_local_chats()
+    user_data = local_chats.get(val, {})
     if str(session_id) in user_data:
         return user_data[str(session_id)].get("messages", [])
     return []
@@ -246,8 +266,10 @@ async def delete_session(request: Request, session_id: str):
         except Exception as e:
             print(f"SUPABASE DELETE ERROR: {e}")
             
-    if val in MEMORY_CHATS and str(session_id) in MEMORY_CHATS[val]:
-        del MEMORY_CHATS[val][str(session_id)]
+    local_chats = load_local_chats()
+    if val in local_chats and str(session_id) in local_chats[val]:
+        del local_chats[val][str(session_id)]
+        save_local_chats(local_chats)
         
     return {"status": "success"}
 
@@ -359,7 +381,9 @@ async def chat_with_assistant(
         except Exception as e:
             print(f"SUPABASE FETCH ERROR IN /api/chat: {e}")
     else:
-        user_data = MEMORY_CHATS.get(val, {}).get(str(session_id), {})
+        # Disk fallback
+        local_chats = load_local_chats()
+        user_data = local_chats.get(val, {}).get(str(session_id), {})
         existing_messages = user_data.get("messages", [])
         chat_title = user_data.get("title", "New Chat")
 
