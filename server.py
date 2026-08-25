@@ -283,7 +283,8 @@ async def get_gems(request: Request):
         return default_gems
 
     try:
-        res = supabase.table("gems").select("*").or_(f"user_email.eq.system,{col}.eq.{val}").execute()
+        # FIXED: Ensure column is explicitly user_email
+        res = supabase.table("gems").select("*").or_(f"user_email.eq.system,user_email.eq.{val}").execute()
         if res.data:
             return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in res.data]
     except Exception as e:
@@ -302,8 +303,9 @@ async def create_gem(
     col, val = get_identifier(request)
     if supabase:
         try:
+            # FIXED: explicitly use user_email to match database column
             supabase.table("gems").insert({
-                col: val,
+                "user_email": val,
                 "name": name,
                 "description": description,
                 "system_prompt": system_prompt,
@@ -319,11 +321,12 @@ async def get_user_assets(request: Request):
     if not supabase:
         return []
     try:
-        res = supabase.table("assets").select("*").eq(col, val).order("id", desc=True).execute()
+        # FIXED: explicitly use user_email
+        res = supabase.table("assets").select("*").eq("user_email", val).order("id", desc=True).execute()
         if res.data:
             return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in res.data]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"SUPABASE ASSETS ERROR: {e}")
     return []
 
 @app.post("/api/plugins/steps/save")
@@ -405,8 +408,9 @@ async def chat_with_assistant(
         rel_path = f"/uploads/{filename}"
         if supabase:
             try:
+                # FIXED: explicitly use user_email
                 supabase.table("assets").insert({
-                    col: val,
+                    "user_email": val,
                     "file_name": file.filename,
                     "file_path": rel_path,
                     "file_type": mime_type
