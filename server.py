@@ -21,12 +21,15 @@ from supabase import create_client, Client
 
 app = FastAPI()
 
+# --- IN-MEMORY FALLBACK STORAGE FOR CHATS ---
+MEMORY_CHATS = {}
+
 # --- SUPABASE DATABASE SETUP ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing.")
+    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing. Using memory fallback.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
 
@@ -92,22 +95,28 @@ def get_identifier(request: Request):
     guest_id = request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
 
-# --- SUPABASE DATABASE HELPER FUNCTIONS ---
+# --- DATABASE / FALLBACK HELPER FUNCTIONS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
-    if not supabase:
-        print("Error: Supabase client not initialized.")
-        return None
-    try:
-        res = supabase.table("user_chats").upsert({
-            "user_email": user_email,
-            "chat_id": str(chat_id),
-            "title": title,
-            "messages": messages
-        }, on_conflict="user_email,chat_id").execute()
-        return res.data
-    except Exception as e:
-        print(f"SUPABASE UPSERT ERROR: {e}")
-        return None
+    if supabase:
+        try:
+            res = supabase.table("user_chats").upsert({
+                "user_email": user_email,
+                "chat_id": str(chat_id),
+                "title": title,
+                "messages": messages
+            }, on_conflict="user_email,chat_id").execute()
+            return res.data
+        except Exception as e:
+            print(f"SUPABASE UPSERT ERROR: {e}")
+    
+    # Fallback storage
+    if user_email not in MEMORY_CHATS:
+        MEMORY_CHATS[user_email] = {}
+    MEMORY_CHATS[user_email][str(chat_id)] = {
+        "title": title,
+        "messages": messages
+    }
+    return True
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -192,38 +201,40 @@ async def switch_to_guest_mode(request: Request):
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
-    if not supabase:
-        print("Error: Supabase client not initialized in /api/sessions")
-        return []
+    if supabase:
+        try:
+            res = supabase.table("user_chats").select("chat_id, title, created_at").eq("user_email", val).order("created_at", desc=True).execute()
+            if res.data:
+                return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in res.data]
+        except Exception as e:
+            print(f"SUPABASE FETCH SESSIONS ERROR: {e}")
     
-    try:
-        res = supabase.table("user_chats").select("chat_id, title, created_at").eq("user_email", val).order("created_at", desc=True).execute()
-        return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in (res.data or [])]
-    except Exception as e:
-        print(f"SUPABASE FETCH SESSIONS ERROR: {e}")
-        return []
+    # Memory fallback
+    user_data = MEMORY_CHATS.get(val, {})
+    return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
 
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: str):
     col, val = get_identifier(request)
-    if not supabase:
-        return []
+    if supabase:
+        try:
+            res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0].get("messages", [])
+        except Exception as e:
+            print(f"SUPABASE FETCH HISTORY ERROR: {e}")
     
-    try:
-        res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
-        if res.data and len(res.data) > 0:
-            return res.data[0].get("messages", [])
-        return []
-    except Exception as e:
-        print(f"SUPABASE FETCH HISTORY ERROR: {e}")
-        return []
+    # Memory fallback
+    user_data = MEMORY_CHATS.get(val, {})
+    if str(session_id) in user_data:
+        return user_data[str(session_id)].get("messages", [])
+    return []
 
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
     col, val = get_identifier(request)
     new_chat_id = str(uuid.uuid4())
-    if supabase:
-        save_chat_history(user_email=val, chat_id=new_chat_id, title="New Chat", messages=[])
+    save_chat_history(user_email=val, chat_id=new_chat_id, title="New Chat", messages=[])
     return {"session_id": new_chat_id}
 
 @app.delete("/api/delete-session/{session_id}")
@@ -234,6 +245,10 @@ async def delete_session(request: Request, session_id: str):
             supabase.table("user_chats").delete().eq("user_email", val).eq("chat_id", str(session_id)).execute()
         except Exception as e:
             print(f"SUPABASE DELETE ERROR: {e}")
+            
+    if val in MEMORY_CHATS and str(session_id) in MEMORY_CHATS[val]:
+        del MEMORY_CHATS[val][str(session_id)]
+        
     return {"status": "success"}
 
 @app.get("/api/gems")
@@ -331,9 +346,10 @@ async def chat_with_assistant(
 ):
     col, val = get_identifier(request)
 
-    # Fetch existing chat history from Supabase
+    # Fetch existing chat history
     existing_messages = []
     chat_title = "New Chat"
+    
     if supabase:
         try:
             res = supabase.table("user_chats").select("messages, title").eq("user_email", val).eq("chat_id", str(session_id)).execute()
@@ -342,6 +358,10 @@ async def chat_with_assistant(
                 chat_title = res.data[0].get("title", "New Chat")
         except Exception as e:
             print(f"SUPABASE FETCH ERROR IN /api/chat: {e}")
+    else:
+        user_data = MEMORY_CHATS.get(val, {}).get(str(session_id), {})
+        existing_messages = user_data.get("messages", [])
+        chat_title = user_data.get("title", "New Chat")
 
     file_bytes = None
     mime_type = ""
@@ -394,8 +414,7 @@ async def chat_with_assistant(
         ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n![Generated Image]({image_url})"
         
         existing_messages.append({"role": "assistant", "content": ai_response})
-        if supabase:
-            save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
+        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
     system_prompt = gem_prompt or (
@@ -510,13 +529,10 @@ async def chat_with_assistant(
         ai_response = f"**{provider.upper()} API Error:** `{str(e)}`"
 
     existing_messages.append({"role": "assistant", "content": ai_response})
-    
-    if supabase:
-        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
+    save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
 
     return {"response": ai_response}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-         
