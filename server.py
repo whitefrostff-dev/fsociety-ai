@@ -136,6 +136,11 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
     save_local_chats(local_chats)
     return True
 
+# --- GOOGLE SEARCH CONSOLE VERIFICATION ROUTE ---
+@app.get("/google0b211ab21a1539ad.html", response_class=HTMLResponse)
+async def google_verification():
+    return "google-site-verification: google0b211ab21a1539ad.html"
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
     html_path = os.path.join("..", "app", "index.html")
@@ -283,7 +288,6 @@ async def get_gems(request: Request):
         return default_gems
 
     try:
-        # FIXED: Ensure column is explicitly user_email
         res = supabase.table("gems").select("*").or_(f"user_email.eq.system,user_email.eq.{val}").execute()
         if res.data:
             return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in res.data]
@@ -303,7 +307,6 @@ async def create_gem(
     col, val = get_identifier(request)
     if supabase:
         try:
-            # FIXED: explicitly use user_email to match database column
             supabase.table("gems").insert({
                 "user_email": val,
                 "name": name,
@@ -321,7 +324,6 @@ async def get_user_assets(request: Request):
     if not supabase:
         return []
     try:
-        # FIXED: explicitly use user_email
         res = supabase.table("assets").select("*").eq("user_email", val).order("id", desc=True).execute()
         if res.data:
             return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in res.data]
@@ -371,7 +373,6 @@ async def chat_with_assistant(
 ):
     col, val = get_identifier(request)
 
-    # Fetch existing chat history
     existing_messages = []
     chat_title = "New Chat"
     
@@ -384,7 +385,6 @@ async def chat_with_assistant(
         except Exception as e:
             print(f"SUPABASE FETCH ERROR IN /api/chat: {e}")
     else:
-        # Disk fallback
         local_chats = load_local_chats()
         user_data = local_chats.get(val, {}).get(str(session_id), {})
         existing_messages = user_data.get("messages", [])
@@ -408,7 +408,6 @@ async def chat_with_assistant(
         rel_path = f"/uploads/{filename}"
         if supabase:
             try:
-                # FIXED: explicitly use user_email
                 supabase.table("assets").insert({
                     "user_email": val,
                     "file_name": file.filename,
