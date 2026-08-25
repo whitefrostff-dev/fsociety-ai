@@ -23,49 +23,62 @@
         }
 
         body.light-mode {
-            --bg-main: #f8fafc;
-            --bg-panel: rgba(255, 255, 255, 0.85);
-            --bg-card: #ffffff;
-            --bg-card-hover: rgba(226, 232, 240, 0.9);
-            --border-color: rgba(0, 0, 0, 0.08);
-            --border-glow: rgba(0, 0, 0, 0.15);
+            --bg-main: #ffffff;
+            --bg-panel: rgba(245, 245, 247, 0.95);
+            --bg-card: #f1f5f9;
+            --bg-card-hover: rgba(226, 232, 240, 1);
+            --border-color: rgba(0, 0, 0, 0.12);
+            --border-glow: rgba(0, 0, 0, 0.3);
             --text-main: #0f172a;
-            --text-muted: #64748b;
-            --accent-glow: rgba(0, 0, 0, 0.02);
+            --text-muted: #475569;
+            --accent-glow: rgba(0, 0, 0, 0.03);
         }
 
         /* LIGHT MODE OVERRIDES FOR HARDCODED TAILWIND COLORS */
         body.light-mode .bg-\[\#1e1e1e\],
         body.light-mode .bg-\[\#1a1a1a\],
         body.light-mode .bg-\[\#111\],
-        body.light-mode .bg-\[\#2a2a2a\] {
+        body.light-mode .bg-\[\#2a2a2a\],
+        body.light-mode .bg-\[\#0a0a0a\] {
             background-color: var(--bg-card) !important;
+            color: #0f172a !important;
         }
+        
         body.light-mode .hover\:bg-\[\#2a2a2a\]:hover,
         body.light-mode .hover\:bg-gray-800:hover,
         body.light-mode .hover\:bg-gray-700:hover {
             background-color: var(--bg-card-hover) !important;
-            color: var(--text-main) !important;
+            color: #000000 !important;
         }
+
         body.light-mode .text-white,
         body.light-mode .text-gray-200,
         body.light-mode .text-gray-300 {
-            color: var(--text-main) !important;
+            color: #0f172a !important;
         }
+
         body.light-mode .text-gray-400,
         body.light-mode .text-gray-500 {
             color: var(--text-muted) !important;
         }
+
         body.light-mode .border-gray-700,
         body.light-mode .border-gray-600 {
             border-color: var(--border-color) !important;
         }
+
         body.light-mode .bg-black\/80 {
-            background-color: rgba(255, 255, 255, 0.4) !important;
+            background-color: rgba(255, 255, 255, 0.75) !important;
         }
+
         body.light-mode input, 
         body.light-mode textarea {
-            color: var(--text-main) !important;
+            color: #000000 !important;
+        }
+        
+        body.light-mode input::placeholder, 
+        body.light-mode textarea::placeholder {
+            color: #64748b !important;
         }
 
         /* Active Session Styling - Theme Aware */
@@ -75,8 +88,8 @@
             font-weight: 500;
         }
         body.light-mode .active-session {
-            background-color: #e2e8f0 !important;
-            color: #1e40af !important;
+            background-color: #cbd5e1 !important;
+            color: #0f172a !important;
         }
 
         body { 
@@ -119,7 +132,7 @@
         
         .input-box:focus-within {
             border-color: var(--border-glow) !important;
-            box-shadow: 0 0 25px rgba(255, 255, 255, 0.04);
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.08);
         }
 
         button.bg-\[\#0a0a0a\]:hover, .model-card:hover { 
@@ -141,7 +154,10 @@
         }
         
         body.light-mode .user-msg {
-            background: linear-gradient(135deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.02) 100%);
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         
         .assistant-msg-container { display: flex; gap: 14px; width: 100%; margin: 20px 0; align-items: flex-start; }
@@ -153,12 +169,28 @@
             flex-shrink: 0; font-size: 13px; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
+        body.light-mode .assistant-avatar {
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        }
+        
         .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.92rem; line-height: 1.7; }
         .assistant-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
         .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
         .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
 
         code, pre { font-family: 'JetBrains Mono', monospace !important; }
+
+        body.light-mode .prose {
+            color: #0f172a !important;
+        }
+        body.light-mode .prose code {
+            background-color: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        body.light-mode .prose pre {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
 
         h1, h2, h3, h4, span.text-white, p.text-white { color: var(--text-main) !important; }
         span.text-gray-300, p.text-gray-400, i.text-gray-400, div.text-gray-400 { color: var(--text-muted) !important; }
@@ -186,7 +218,7 @@
         }
         
         body.light-mode .frost-shining {
-            background: linear-gradient(90deg, #64748b 0%, #0f172a 30%, #475569 50%, #0f172a 70%, #64748b 100%);
+            background: linear-gradient(90deg, #475569 0%, #000000 30%, #334155 50%, #000000 70%, #475569 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -203,14 +235,14 @@
         }
         
         body.light-mode .welcome-3d {
-            background: linear-gradient(135deg, #0f172a 0%, #64748b 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .model-card { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 16px; }
         .model-card:hover { border-color: var(--border-glow); background-color: var(--bg-card-hover); }
-        .model-card.active { border-color: var(--text-main) !important; background-color: var(--bg-card-hover) !important; box-shadow: 0 0 20px rgba(255,255,255,0.06); }
+        .model-card.active { border-color: var(--text-main) !important; background-color: var(--bg-card-hover) !important; box-shadow: 0 0 20px rgba(0,0,0,0.06); }
         
         .badge-tag { 
             background: rgba(255, 255, 255, 0.06); 
@@ -223,7 +255,8 @@
         }
         
         body.light-mode .badge-tag {
-            background: rgba(0, 0, 0, 0.04);
+            background: rgba(0, 0, 0, 0.05);
+            color: #0f172a;
         }
         
         .mobile-overlay { display: none; backdrop-filter: blur(5px); }
@@ -234,8 +267,8 @@
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
         
-        body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
-        body.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+        body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); }
+        body.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.4); }
 
         @media (max-width: 768px) {
             #left-sidebar {
@@ -985,7 +1018,6 @@
                         ? 'active-session'
                         : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
 
-                    // FIX: Wrapped ${s.id} in single quotes so it passes correctly as a string to the JS function
                     list.innerHTML += `
                         <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
                             <span class="truncate pr-2">${safeTitle}</span>
@@ -1220,4 +1252,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html>
+                            </html>
+    
