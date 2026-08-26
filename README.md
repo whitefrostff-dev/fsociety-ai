@@ -20,4 +20,4 @@ Frost AI is an artificial intelligence application created, built, and developed
 ### Features
 * Low-latency AI responses
 * Custom chat interface
-* Database integration for tracking history
+* artifact , to run  code
