@@ -190,7 +190,10 @@ async def get_current_user(request: Request):
 
 @app.get('/auth/login')
 async def login(request: Request):
-    redirect_uri = "https://fsociety-ai-production.up.railway.app/auth/callback"
+    # FIXED: Dynamically gets the scheme (http/https) and host from Render's proxy headers
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.url.netloc)
+    redirect_uri = f"{scheme}://{host}/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get('/auth/callback')
@@ -563,3 +566,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+                  
