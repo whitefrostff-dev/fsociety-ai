@@ -11,3 +11,4 @@ openai
 duckduckgo-search
 starlette
 supabase
+psycopg2-binary
