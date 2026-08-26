@@ -18,18 +18,61 @@ from google import genai
 from google.genai import types
 from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
-from supabase import create_client, Client
+import psycopg2
+import psycopg2.extras
 
 app = FastAPI()
 
-# --- SUPABASE DATABASE SETUP ---
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# --- POSTGRESQL DATABASE SETUP ---
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    print("WARNING: SUPABASE_URL or SUPABASE_KEY environment variable missing. Using persistent disk fallback.")
+def get_db_connection():
+    if DATABASE_URL:
+        try:
+            return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        except Exception as e:
+            print(f"Database connection error: {e}")
+    return None
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
+def init_db():
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS user_chats (
+                        user_email TEXT,
+                        chat_id TEXT,
+                        title TEXT,
+                        messages JSONB,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        PRIMARY KEY (user_email, chat_id)
+                    );
+                    CREATE TABLE IF NOT EXISTS gems (
+                        id SERIAL PRIMARY KEY,
+                        user_email TEXT,
+                        name TEXT,
+                        description TEXT,
+                        system_prompt TEXT,
+                        icon TEXT DEFAULT 'fa-robot'
+                    );
+                    CREATE TABLE IF NOT EXISTS assets (
+                        id SERIAL PRIMARY KEY,
+                        user_email TEXT,
+                        file_name TEXT,
+                        file_path TEXT,
+                        file_type TEXT
+                    );
+                """)
+                conn.commit()
+            conn.close()
+            print("PostgreSQL tables initialized successfully.")
+        except Exception as e:
+            print(f"Error initializing PostgreSQL tables: {e}")
+            if conn:
+                conn.close()
+
+init_db()
 
 # --- PERSISTENT FILE STORAGE & UPLOADS ---
 DATA_DIR = os.getenv("DATABASE_DIR", "/data" if os.path.exists("/data") else "./data")
@@ -40,7 +83,7 @@ CHATS_FILE = os.path.join(DATA_DIR, "chats.json")
 def load_local_chats():
     if os.path.exists(CHATS_FILE):
         try:
-            with open(CHATS_FILE, "r") as f:
+            with open(CHATS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return {}
@@ -48,7 +91,7 @@ def load_local_chats():
 
 def save_local_chats(data):
     try:
-        with open(CHATS_FILE, "w") as f:
+        with open(CHATS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
     except Exception as e:
         print(f"Error saving to disk: {e}")
@@ -57,7 +100,7 @@ UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# --- RAILWAY PROXY & SECURE SESSION FIX ---
+# --- PROXY & SECURE SESSION FIX ---
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     SessionMiddleware, 
@@ -111,21 +154,27 @@ def get_identifier(request: Request):
     guest_id = request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
 
-# --- DATABASE / FALLBACK HELPER FUNCTIONS ---
+# --- DATABASE HELPER FUNCTIONS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            res = supabase.table("user_chats").upsert({
-                "user_email": user_email,
-                "chat_id": str(chat_id),
-                "title": title,
-                "messages": messages
-            }, on_conflict="user_email,chat_id").execute()
-            return res.data
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO user_chats (user_email, chat_id, title, messages)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (user_email, chat_id) 
+                    DO UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages;
+                """, (user_email, str(chat_id), title, json.dumps(messages)))
+                conn.commit()
+            conn.close()
+            return True
         except Exception as e:
-            print(f"SUPABASE UPSERT ERROR: {e}")
+            print(f"DATABASE UPSERT ERROR: {e}")
+            if conn:
+                conn.close()
     
-    # Persistent disk fallback instead of MEMORY_CHATS
+    # Disk fallback
     local_chats = load_local_chats()
     if user_email not in local_chats:
         local_chats[user_email] = {}
@@ -136,7 +185,7 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
     save_local_chats(local_chats)
     return True
 
-# --- GOOGLE SEARCH CONSOLE VERIFICATION ROUTE ---
+# --- ROUTES ---
 @app.get("/google0b211ab21a1539ad.html", response_class=HTMLResponse)
 async def google_verification():
     return "google-site-verification: google0b211ab21a1539ad.html"
@@ -190,7 +239,6 @@ async def get_current_user(request: Request):
 
 @app.get('/auth/login')
 async def login(request: Request):
-    # FIXED: Dynamically gets the scheme (http/https) and host from Render's proxy headers
     scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host", request.url.netloc)
     redirect_uri = f"{scheme}://{host}/auth/callback"
@@ -227,13 +275,19 @@ async def switch_to_guest_mode(request: Request):
 @app.get("/api/sessions")
 async def get_user_sessions(request: Request):
     col, val = get_identifier(request)
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            res = supabase.table("user_chats").select("chat_id, title, created_at").eq("user_email", val).order("created_at", desc=True).execute()
-            if res.data:
-                return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in res.data]
+            with conn.cursor() as cur:
+                cur.execute("SELECT chat_id, title, created_at FROM user_chats WHERE user_email = %s ORDER BY created_at DESC", (val,))
+                rows = cur.fetchall()
+                conn.close()
+                if rows:
+                    return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in rows]
         except Exception as e:
-            print(f"SUPABASE FETCH SESSIONS ERROR: {e}")
+            print(f"DATABASE FETCH SESSIONS ERROR: {e}")
+            if conn:
+                conn.close()
     
     # Disk fallback
     local_chats = load_local_chats()
@@ -243,13 +297,20 @@ async def get_user_sessions(request: Request):
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: str):
     col, val = get_identifier(request)
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            res = supabase.table("user_chats").select("messages").eq("user_email", val).eq("chat_id", str(session_id)).execute()
-            if res.data and len(res.data) > 0:
-                return res.data[0].get("messages", [])
+            with conn.cursor() as cur:
+                cur.execute("SELECT messages FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
+                row = cur.fetchone()
+                conn.close()
+                if row and row.get("messages"):
+                    msgs = row["messages"]
+                    return msgs if isinstance(msgs, list) else json.loads(msgs)
         except Exception as e:
-            print(f"SUPABASE FETCH HISTORY ERROR: {e}")
+            print(f"DATABASE FETCH HISTORY ERROR: {e}")
+            if conn:
+                conn.close()
     
     # Disk fallback
     local_chats = load_local_chats()
@@ -268,11 +329,17 @@ async def create_new_session(request: Request):
 @app.delete("/api/delete-session/{session_id}")
 async def delete_session(request: Request, session_id: str):
     col, val = get_identifier(request)
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            supabase.table("user_chats").delete().eq("user_email", val).eq("chat_id", str(session_id)).execute()
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
+                conn.commit()
+            conn.close()
         except Exception as e:
-            print(f"SUPABASE DELETE ERROR: {e}")
+            print(f"DATABASE DELETE ERROR: {e}")
+            if conn:
+                conn.close()
             
     local_chats = load_local_chats()
     if val in local_chats and str(session_id) in local_chats[val]:
@@ -287,15 +354,21 @@ async def get_gems(request: Request):
     default_gems = [
         {"id": 1, "name": "Frost Core", "description": "Standard elite assistant created by Nwodili Yaemerie Covenant", "system_prompt": "You are Frost, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "icon": "fa-terminal"}
     ]
-    if not supabase:
+    conn = get_db_connection()
+    if not conn:
         return default_gems
 
     try:
-        res = supabase.table("gems").select("*").or_(f"user_email.eq.system,user_email.eq.{val}").execute()
-        if res.data:
-            return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in res.data]
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR user_email = %s", (val,))
+            rows = cur.fetchall()
+            conn.close()
+            if rows:
+                return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in rows]
     except Exception as e:
-        print(f"SUPABASE GEMS ERROR: {e}")
+        print(f"DATABASE GEMS ERROR: {e}")
+        if conn:
+            conn.close()
 
     return default_gems
 
@@ -308,30 +381,36 @@ async def create_gem(
     icon: str = Form("fa-robot")
 ):
     col, val = get_identifier(request)
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            supabase.table("gems").insert({
-                "user_email": val,
-                "name": name,
-                "description": description,
-                "system_prompt": system_prompt,
-                "icon": icon
-            }).execute()
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO gems (user_email, name, description, system_prompt, icon) VALUES (%s, %s, %s, %s, %s)", (val, name, description, system_prompt, icon))
+                conn.commit()
+            conn.close()
         except Exception as e:
             print(f"Error creating gem: {e}")
+            if conn:
+                conn.close()
     return {"status": "success"}
 
 @app.get("/api/assets")
 async def get_user_assets(request: Request):
     col, val = get_identifier(request)
-    if not supabase:
+    conn = get_db_connection()
+    if not conn:
         return []
     try:
-        res = supabase.table("assets").select("*").eq("user_email", val).order("id", desc=True).execute()
-        if res.data:
-            return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in res.data]
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, file_name, file_path, file_type FROM assets WHERE user_email = %s ORDER BY id DESC", (val,))
+            rows = cur.fetchall()
+            conn.close()
+            if rows:
+                return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in rows]
     except Exception as e:
-        print(f"SUPABASE ASSETS ERROR: {e}")
+        print(f"DATABASE ASSETS ERROR: {e}")
+        if conn:
+            conn.close()
     return []
 
 @app.post("/api/plugins/steps/save")
@@ -379,14 +458,21 @@ async def chat_with_assistant(
     existing_messages = []
     chat_title = "New Chat"
     
-    if supabase:
+    conn = get_db_connection()
+    if conn:
         try:
-            res = supabase.table("user_chats").select("messages, title").eq("user_email", val).eq("chat_id", str(session_id)).execute()
-            if res.data and len(res.data) > 0:
-                existing_messages = res.data[0].get("messages", []) or []
-                chat_title = res.data[0].get("title", "New Chat")
+            with conn.cursor() as cur:
+                cur.execute("SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
+                row = cur.fetchone()
+                conn.close()
+                if row:
+                    msgs = row.get("messages", [])
+                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
+                    chat_title = row.get("title", "New Chat")
         except Exception as e:
-            print(f"SUPABASE FETCH ERROR IN /api/chat: {e}")
+            print(f"DATABASE FETCH ERROR IN /api/chat: {e}")
+            if conn:
+                conn.close()
     else:
         local_chats = load_local_chats()
         user_data = local_chats.get(val, {}).get(str(session_id), {})
@@ -409,16 +495,17 @@ async def chat_with_assistant(
             f.write(file_bytes)
             
         rel_path = f"/uploads/{filename}"
-        if supabase:
+        conn_asset = get_db_connection()
+        if conn_asset:
             try:
-                supabase.table("assets").insert({
-                    "user_email": val,
-                    "file_name": file.filename,
-                    "file_path": rel_path,
-                    "file_type": mime_type
-                }).execute()
+                with conn_asset.cursor() as cur:
+                    cur.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)", (val, file.filename, rel_path, mime_type))
+                    conn_asset.commit()
+                conn_asset.close()
             except Exception as e:
                 print(f"Error saving asset to DB: {e}")
+                if conn_asset:
+                    conn_asset.close()
 
         display_message += f" [Attached File: {file.filename}]"
 
