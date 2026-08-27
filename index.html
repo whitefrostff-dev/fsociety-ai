@@ -82,7 +82,7 @@
             color: #0f172a !important;
         }
         
-        body.light-mode .hover\:bg-\[\#2a2a2a\].hover,
+        body.light-mode .hover\:bg-\[\#2a2a2a\]:hover,
         body.light-mode .hover\:bg-gray-800:hover,
         body.light-mode .hover\:bg-gray-700:hover {
             background-color: var(--bg-card-hover) !important;
@@ -476,6 +476,7 @@
                     <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white">Code</button>
                     <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Preview</button>
                     <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">My Stuff</button>
+                    <!-- NEW TABS -->
                     <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Architecture</button>
                     <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
                 </div>
@@ -493,6 +494,7 @@
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
+            <!-- NEW VIEWS -->
             <div id="artifact-architecture-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] bg-white hidden flex justify-center items-start">
                 <div id="mermaid-container" class="w-full h-full"></div>
             </div>
@@ -1245,6 +1247,7 @@
         }
 
         function extractCodeForArtifacts(markdownText) {
+            // Enhanced regex to catch the language tag
             const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
             let match;
             let codeExtracted = "";
@@ -1264,6 +1267,7 @@
                 }
             }
             
+            // Standard Code Processing
             if (codeExtracted.trim()) {
                 latestExtractedCode = codeExtracted.trim();
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
@@ -1272,6 +1276,7 @@
                 }
             }
 
+            // Architecture / Mermaid Processing
             if (mermaidExtracted.trim()) {
                 const container = document.getElementById('mermaid-container');
                 container.innerHTML = `<div class="mermaid">${mermaidExtracted.trim()}</div>`;
@@ -1288,6 +1293,7 @@
                 switchArtifactTab('architecture');
             }
 
+            // Cyber Security Logs Processing
             if (securityExtracted.trim()) {
                 document.getElementById('artifact-security-view').innerText = securityExtracted.trim();
                 
@@ -1299,6 +1305,7 @@
         }
 
         function switchArtifactTab(tab) {
+            // Reset all tabs
             const tabs = ['code', 'preview', 'assets', 'architecture', 'security'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}-btn`);
@@ -1307,20 +1314,21 @@
                 if (btn) btn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
                 if (view) {
                     view.classList.add('hidden');
-                    if (t === 'architecture') view.classList.remove('flex');
+                    if (t === 'architecture') view.classList.remove('flex'); // Ensure flex is removed if hidden
                 }
             });
             
             const debugBtn = document.getElementById('debug-code-btn');
             debugBtn.classList.add('hidden');
 
+            // Set active tab
             const activeBtn = document.getElementById(`tab-${tab}-btn`);
             const activeView = document.getElementById(`artifact-${tab}-view`);
             
             if (activeBtn) activeBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
             if (activeView) {
                 activeView.classList.remove('hidden');
-                if (tab === 'architecture') activeView.classList.add('flex');
+                if (tab === 'architecture') activeView.classList.add('flex'); // Keep it centered
             }
 
             if (tab === 'code' && latestExtractedCode) debugBtn.classList.remove('hidden');
