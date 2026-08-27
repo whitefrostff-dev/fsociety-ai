@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional
@@ -21,7 +22,23 @@ from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
 
-app = FastAPI()
+app = FastAPI(title="Frost AI Backend", version="2.5")
+
+# --- CORS & MIDDLEWARE SETUP ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key="frost_super_secret_session_string",
+    https_only=False,
+    same_site="lax"
+)
 
 # --- POSTGRESQL DATABASE SETUP ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -65,12 +82,11 @@ def init_db():
                     );
                 """)
                 conn.commit()
-            conn.close()
             print("PostgreSQL tables initialized successfully.")
         except Exception as e:
             print(f"Error initializing PostgreSQL tables: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
 
 init_db()
 
@@ -100,16 +116,7 @@ UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# --- PROXY & SECURE SESSION FIX ---
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key="frost_super_secret_session_string",
-    https_only=False,
-    same_site="lax"
-)
-
-# --- ENVIRONMENT VARIABLES ---
+# --- ENVIRONMENT VARIABLES & CLIENTS ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -119,7 +126,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
-# Init API Clients
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
 
@@ -164,15 +170,14 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
                     INSERT INTO user_chats (user_email, chat_id, title, messages)
                     VALUES (%s, %s, %s, %s)
                     ON CONFLICT (user_email, chat_id) 
-                    DO UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages;
+                    UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages;
                 """, (user_email, str(chat_id), title, json.dumps(messages)))
                 conn.commit()
-            conn.close()
             return True
         except Exception as e:
             print(f"DATABASE UPSERT ERROR: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
     
     # Disk fallback
     local_chats = load_local_chats()
@@ -281,13 +286,12 @@ async def get_user_sessions(request: Request):
             with conn.cursor() as cur:
                 cur.execute("SELECT chat_id, title, created_at FROM user_chats WHERE user_email = %s ORDER BY created_at DESC", (val,))
                 rows = cur.fetchall()
-                conn.close()
                 if rows:
                     return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in rows]
         except Exception as e:
             print(f"DATABASE FETCH SESSIONS ERROR: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
     
     # Disk fallback
     local_chats = load_local_chats()
@@ -303,14 +307,13 @@ async def get_session_history(request: Request, session_id: str):
             with conn.cursor() as cur:
                 cur.execute("SELECT messages FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
                 row = cur.fetchone()
-                conn.close()
                 if row and row.get("messages"):
                     msgs = row["messages"]
                     return msgs if isinstance(msgs, list) else json.loads(msgs)
         except Exception as e:
             print(f"DATABASE FETCH HISTORY ERROR: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
     
     # Disk fallback
     local_chats = load_local_chats()
@@ -335,11 +338,10 @@ async def delete_session(request: Request, session_id: str):
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
                 conn.commit()
-            conn.close()
         except Exception as e:
             print(f"DATABASE DELETE ERROR: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
             
     local_chats = load_local_chats()
     if val in local_chats and str(session_id) in local_chats[val]:
@@ -362,13 +364,12 @@ async def get_gems(request: Request):
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, description, system_prompt, icon FROM gems WHERE user_email = 'system' OR user_email = %s", (val,))
             rows = cur.fetchall()
-            conn.close()
             if rows:
                 return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in rows]
     except Exception as e:
         print(f"DATABASE GEMS ERROR: {e}")
-        if conn:
-            conn.close()
+    finally:
+        conn.close()
 
     return default_gems
 
@@ -387,11 +388,10 @@ async def create_gem(
             with conn.cursor() as cur:
                 cur.execute("INSERT INTO gems (user_email, name, description, system_prompt, icon) VALUES (%s, %s, %s, %s, %s)", (val, name, description, system_prompt, icon))
                 conn.commit()
-            conn.close()
         except Exception as e:
             print(f"Error creating gem: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
     return {"status": "success"}
 
 @app.get("/api/assets")
@@ -404,13 +404,12 @@ async def get_user_assets(request: Request):
         with conn.cursor() as cur:
             cur.execute("SELECT id, file_name, file_path, file_type FROM assets WHERE user_email = %s ORDER BY id DESC", (val,))
             rows = cur.fetchall()
-            conn.close()
             if rows:
                 return [{"id": r["id"], "file_name": r["file_name"], "file_path": r["file_path"], "file_type": r["file_type"]} for r in rows]
     except Exception as e:
         print(f"DATABASE ASSETS ERROR: {e}")
-        if conn:
-            conn.close()
+    finally:
+        conn.close()
     return []
 
 @app.post("/api/plugins/steps/save")
@@ -464,15 +463,14 @@ async def chat_with_assistant(
             with conn.cursor() as cur:
                 cur.execute("SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
                 row = cur.fetchone()
-                conn.close()
                 if row:
                     msgs = row.get("messages", [])
                     existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
                     chat_title = row.get("title", "New Chat")
         except Exception as e:
             print(f"DATABASE FETCH ERROR IN /api/chat: {e}")
-            if conn:
-                conn.close()
+        finally:
+            conn.close()
     else:
         local_chats = load_local_chats()
         user_data = local_chats.get(val, {}).get(str(session_id), {})
@@ -501,11 +499,10 @@ async def chat_with_assistant(
                 with conn_asset.cursor() as cur:
                     cur.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)", (val, file.filename, rel_path, mime_type))
                     conn_asset.commit()
-                conn_asset.close()
             except Exception as e:
                 print(f"Error saving asset to DB: {e}")
-                if conn_asset:
-                    conn_asset.close()
+            finally:
+                conn_asset.close()
 
         display_message += f" [Attached File: {file.filename}]"
 
@@ -545,8 +542,6 @@ async def chat_with_assistant(
             clean_prompt = clean_prompt.replace(kw, "")
         clean_prompt = clean_prompt.strip() or "cinematic cyberpunk hacking sequence"
         
-        # Uses a simulated generic placeholder since true AI video APIs require paid keys. 
-        # But this fulfills the frontend generation requirement seamlessly.
         ai_response = f"Here is the generated video sequence for **\"{clean_prompt}\"**:\n\n<video controls class='w-full rounded-xl border border-gray-700 mt-2 shadow-2xl'><source src='https://www.w3schools.com/html/mov_bbb.mp4' type='video/mp4'>Your browser does not support HTML video.</video>\n\n*(Note: True zero-auth Text-to-Video generation is restricted. Plug in a Runway or Replicate API key to stream dynamic live renders. Displaying placeholder stream for prompt: {clean_prompt})*"
         
         existing_messages.append({"role": "assistant", "content": ai_response})
