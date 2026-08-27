@@ -536,23 +536,6 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Video Generation Interceptor ---
-    video_keywords = ["generate video", "create video", "make a video", "generate a video", "create a video"]
-    
-    if any(keyword in lower_prompt for keyword in video_keywords):
-        clean_prompt = message
-        for kw in video_keywords:
-            clean_prompt = clean_prompt.replace(kw, "")
-        clean_prompt = clean_prompt.strip() or "cinematic cyberpunk hacking sequence"
-        
-        # Uses a simulated generic placeholder since true AI video APIs require paid keys. 
-        # But this fulfills the frontend generation requirement seamlessly.
-        ai_response = f"Here is the generated video sequence for **\"{clean_prompt}\"**:\n\n<video controls class='w-full rounded-xl border border-gray-700 mt-2 shadow-2xl'><source src='https://www.w3schools.com/html/mov_bbb.mp4' type='video/mp4'>Your browser does not support HTML video.</video>\n\n*(Note: True zero-auth Text-to-Video generation is restricted. Plug in a Runway or Replicate API key to stream dynamic live renders. Displaying placeholder stream for prompt: {clean_prompt})*"
-        
-        existing_messages.append({"role": "assistant", "content": ai_response})
-        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
-        return {"response": ai_response}
-
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
         "You are Frost, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
@@ -569,7 +552,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
