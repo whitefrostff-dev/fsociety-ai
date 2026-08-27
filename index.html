@@ -42,6 +42,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Mermaid.js for Architecture & Floor Plans -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -469,10 +472,13 @@
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden border-l">
         <div class="h-14 border-b border-[var(--border-color)] flex items-center justify-between px-4">
             <div class="flex items-center gap-2">
-                <div class="flex gap-1 p-1 rounded-lg border border-[var(--border-color)]">
-                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors">Code</button>
-                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors">Preview</button>
-                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors">My Stuff</button>
+                <div class="flex gap-1 p-1 rounded-lg border border-[var(--border-color)] flex-wrap">
+                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white">Code</button>
+                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Preview</button>
+                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">My Stuff</button>
+                    <!-- NEW TABS -->
+                    <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Architecture</button>
+                    <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
                 </div>
                 <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden">
                     <i class="fa-solid fa-bug"></i> Debug
@@ -487,6 +493,15 @@
             <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
+            
+            <!-- NEW VIEWS -->
+            <div id="artifact-architecture-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] bg-white hidden flex justify-center items-start">
+                <div id="mermaid-container" class="w-full h-full"></div>
+            </div>
+            
+            <div id="artifact-security-view" class="flex-1 overflow-auto p-4 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] text-green-400 font-mono text-xs hidden whitespace-pre-wrap leading-relaxed shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
+                No active security scans or reports parsed. Ask Frost to run a theoretical vulnerability scan or exploit log.
+            </div>
         </div>
     </aside>
 
@@ -682,6 +697,9 @@
     </div>
 
     <script>
+        // Init Mermaid for Architecture
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
         let currentSessionId = null;
         let selectedFile = null;
         let activeModelValue = "groq:llama-3.3-70b-versatile";
@@ -1229,59 +1247,93 @@
         }
 
         function extractCodeForArtifacts(markdownText) {
-            const codeBlockRegex = /```[\w]*\n([\s\S]*?)```/g;
+            // Enhanced regex to catch the language tag
+            const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
             let match;
-            let extracted = "";
+            let codeExtracted = "";
+            let securityExtracted = "";
+            let mermaidExtracted = "";
+
             while ((match = codeBlockRegex.exec(markdownText)) !== null) {
-                extracted += match[1] + "\n\n";
+                const lang = match[1].toLowerCase();
+                const content = match[2];
+
+                if (lang === 'mermaid') {
+                    mermaidExtracted += content + "\n\n";
+                } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
+                    securityExtracted += content + "\n\n";
+                } else {
+                    codeExtracted += content + "\n\n";
+                }
             }
-            if (extracted.trim()) {
-                latestExtractedCode = extracted.trim();
+            
+            // Standard Code Processing
+            if (codeExtracted.trim()) {
+                latestExtractedCode = codeExtracted.trim();
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
                 }
+            }
+
+            // Architecture / Mermaid Processing
+            if (mermaidExtracted.trim()) {
+                const container = document.getElementById('mermaid-container');
+                container.innerHTML = `<div class="mermaid">${mermaidExtracted.trim()}</div>`;
                 
-                const debugBtn = document.getElementById('debug-code-btn');
-                const codeView = document.getElementById('artifact-code-view');
-                if (!codeView.classList.contains('hidden')) {
-                    debugBtn.classList.remove('hidden');
+                try {
+                    mermaid.init(undefined, container.querySelectorAll('.mermaid'));
+                } catch(e) { 
+                    console.error("Mermaid Render Error:", e); 
                 }
+                
+                if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
+                    toggleArtifactPanel();
+                }
+                switchArtifactTab('architecture');
+            }
+
+            // Cyber Security Logs Processing
+            if (securityExtracted.trim()) {
+                document.getElementById('artifact-security-view').innerText = securityExtracted.trim();
+                
+                if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
+                    toggleArtifactPanel();
+                }
+                switchArtifactTab('security');
             }
         }
 
         function switchArtifactTab(tab) {
-            const codeBtn = document.getElementById('tab-code-btn');
-            const previewBtn = document.getElementById('tab-preview-btn');
-            const assetsBtn = document.getElementById('tab-assets-btn');
-            const debugBtn = document.getElementById('debug-code-btn');
+            // Reset all tabs
+            const tabs = ['code', 'preview', 'assets', 'architecture', 'security'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}-btn`);
+                const view = document.getElementById(`artifact-${t}-view`);
+                
+                if (btn) btn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
+                if (view) {
+                    view.classList.add('hidden');
+                    if (t === 'architecture') view.classList.remove('flex'); // Ensure flex is removed if hidden
+                }
+            });
             
-            const codeView = document.getElementById('artifact-code-view');
-            const previewView = document.getElementById('artifact-preview-view');
-            const assetsView = document.getElementById('artifact-assets-view');
-
-            codeBtn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
-            previewBtn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
-            assetsBtn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
-
-            codeView.classList.add('hidden');
-            previewView.classList.add('hidden');
-            assetsView.classList.add('hidden');
+            const debugBtn = document.getElementById('debug-code-btn');
             debugBtn.classList.add('hidden');
 
-            if (tab === 'code') {
-                codeBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
-                codeView.classList.remove('hidden');
-                if (latestExtractedCode) debugBtn.classList.remove('hidden');
-            } else if (tab === 'preview') {
-                previewBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
-                previewView.classList.remove('hidden');
-                if (latestExtractedCode) previewView.srcdoc = latestExtractedCode;
-            } else if (tab === 'assets') {
-                assetsBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
-                assetsView.classList.remove('hidden');
-                fetchAssets();
+            // Set active tab
+            const activeBtn = document.getElementById(`tab-${tab}-btn`);
+            const activeView = document.getElementById(`artifact-${tab}-view`);
+            
+            if (activeBtn) activeBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
+            if (activeView) {
+                activeView.classList.remove('hidden');
+                if (tab === 'architecture') activeView.classList.add('flex'); // Keep it centered
             }
+
+            if (tab === 'code' && latestExtractedCode) debugBtn.classList.remove('hidden');
+            if (tab === 'preview' && latestExtractedCode) activeView.srcdoc = latestExtractedCode;
+            if (tab === 'assets') fetchAssets();
         }
 
         document.addEventListener('DOMContentLoaded', init);
