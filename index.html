@@ -32,7 +32,7 @@
         "Linux System Administration",
         "Competitive Esports Strategy"
       ],
-      "description": "Nwodili Yaemerie Covenant is a Computer Science developer,  He is from Nigeria, belongs to the [Tribe] igbo, and practices Judaism.",
+      "description": "Nwodili Yaemerie Covenant is a Computer Science developer, He is from Nigeria, belongs to the [Tribe] igbo, and practices Judaism.",
       "sameAs": [
         "https://github.com/whitefrostff-dev"
       ]
@@ -699,6 +699,25 @@
     <script>
         // Init Mermaid for Architecture
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+        // Custom Marked Renderer for Inline Image Display
+        marked.use({
+            renderer: {
+                image(href, title, text) {
+                    const url = typeof href === 'object' ? href.href : href;
+                    const altText = typeof href === 'object' ? href.text : text;
+                    return `<img src="${url}" alt="${altText || 'Frost Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" />`;
+                },
+                link(href, title, text) {
+                    const url = typeof href === 'object' ? href.href : href;
+                    const linkText = typeof href === 'object' ? href.text : text;
+                    if (url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
+                        return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" />`;
+                    }
+                    return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
+                }
+            }
+        });
 
         let currentSessionId = null;
         let selectedFile = null;
