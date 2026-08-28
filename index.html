@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Frost - Shinny Black & White Edition</title>
     
-    <!-- JSON-LD Structured Data / Schema Metadata -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "Person",
-      "name": "Nwodili Yaemerie Covenant",
+      "name": "Nwodili Yaemerie Convenant",
       "alternateName": ["Frost", "whitefrostff-dev"],
       "nationality": {
         "@type": "Country",
@@ -32,7 +31,7 @@
         "Linux System Administration",
         "Competitive Esports Strategy"
       ],
-      "description": "Nwodili Yaemerie Covenant is a Computer Science developer, He is from Nigeria, belongs to the [Tribe] igbo, and practices Judaism.",
+      "description": "Nwodili Yaemerie Convenant is an 18-year-old Computer Science developer. He is from Nigeria, belongs to the [Tribe] igbo, and practices Judaism.",
       "sameAs": [
         "https://github.com/whitefrostff-dev"
       ]
@@ -42,7 +41,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Mermaid.js for Architecture & Floor Plans -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
     
     <style>
@@ -331,7 +329,6 @@
 
     <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
-    <!-- LEFT SIDEBAR -->
     <aside id="left-sidebar" class="sidebar h-full w-[300px] flex-shrink-0 flex-col justify-between p-3 flex">
         <div class="flex flex-col h-full overflow-hidden">
             
@@ -345,19 +342,16 @@
                 </div>
             </div>
 
-            <!-- Chat Search Bar -->
             <div class="relative mb-5 px-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-400 text-sm"></i>
                 <input type="text" id="chat-search" oninput="filterSessions(this.value)" placeholder="Search for chats" class="w-full rounded-full bg-[#1e1e1e] border-none text-sm pl-10 pr-4 py-2.5 focus:outline-none text-white focus:bg-[#2a2a2a] transition-colors">
             </div>
 
-            <!-- New Chat Button -->
             <button onclick="createNewSession()" class="w-full mb-4 text-sm py-2 px-3 rounded-full flex items-center justify-between hover:bg-[#2a2a2a] text-gray-200 transition-colors">
                 <span class="flex items-center gap-3 font-medium"><i class="fa-regular fa-pen-to-square text-lg"></i> New chat</span>
                 <div class="p-1.5 rounded-full border border-gray-600 text-gray-400"><i class="fa-regular fa-window-restore text-xs"></i></div>
             </button>
 
-            <!-- Navigation Links -->
             <div class="space-y-1 mb-6 px-1">
                 <button onclick="toggleArtifactPanel()" class="w-full text-sm py-2.5 px-3 rounded-xl flex items-center justify-between hover:bg-[#2a2a2a] text-gray-200 transition-colors">
                     <span class="font-medium text-[15px]">My stuff</span>
@@ -369,16 +363,13 @@
                 </button>
             </div>
 
-            <!-- Chats Header -->
             <div class="px-4 mb-2">
                 <h3 class="text-sm font-medium text-white">Chats</h3>
             </div>
 
-            <!-- Session List -->
             <div id="session-list" class="space-y-1 overflow-y-auto flex-1 pr-1 px-1"></div>
         </div>
 
-        <!-- Bottom User Profile Area -->
         <div class="space-y-3 pt-3 mt-2 border-t border-[var(--border-color)]">
             <div id="user-profile" class="flex items-center justify-between p-2 hover:bg-[#2a2a2a] rounded-xl transition-colors cursor-pointer" onclick="openAccountModal()">
                 <div class="flex items-center gap-3 truncate">
@@ -390,7 +381,6 @@
         </div>
     </aside>
 
-    <!-- CENTER CHAT INTERFACE -->
     <main class="flex-1 flex flex-col h-full relative min-w-0">
         <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-4 md:px-6 flex-shrink-0 relative">
             <div class="flex items-center z-10 gap-3">
@@ -420,7 +410,6 @@
 
         <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             
-            <!-- Attachment Preview Box -->
             <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)] max-w-fit">
                 <img id="attachment-preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg border border-gray-700">
                 <div class="flex flex-col pr-2">
@@ -436,13 +425,11 @@
                 
                 <div class="flex items-center justify-between pt-1 px-1">
                     <div class="flex items-center gap-1 md:gap-2">
-                        <!-- Direct Native Camera Button -->
                         <button type="button" onclick="triggerNativeCamera()" class="p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Take Photo">
                             <i class="fa-solid fa-camera"></i>
                         </button>
                         <input id="native-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
 
-                        <!-- Gallery / File Upload Button -->
                         <label for="file-upload" class="cursor-pointer p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload from Gallery">
                             <i class="fa-solid fa-image"></i>
                         </label>
@@ -463,12 +450,11 @@
             </form>
             
             <div class="text-center mt-3">
-                <span class="text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Covenant.</span>
+                <span class="text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
             </div>
         </div>
     </main>
 
-    <!-- RIGHT PANEL: ARTIFACTS -->
     <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden border-l">
         <div class="h-14 border-b border-[var(--border-color)] flex items-center justify-between px-4">
             <div class="flex items-center gap-2">
@@ -476,7 +462,6 @@
                     <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white">Code</button>
                     <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Preview</button>
                     <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">My Stuff</button>
-                    <!-- NEW TABS -->
                     <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Architecture</button>
                     <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
                 </div>
@@ -494,7 +479,6 @@
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
-            <!-- NEW VIEWS -->
             <div id="artifact-architecture-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] bg-white hidden flex justify-center items-start">
                 <div id="mermaid-container" class="w-full h-full"></div>
             </div>
@@ -505,7 +489,6 @@
         </div>
     </aside>
 
-    <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 input-box">
             <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
@@ -537,7 +520,6 @@
         </div>
     </div>
 
-    <!-- PLUGINS MODAL -->
     <div id="plugins-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] input-box overflow-y-auto">
             <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3 flex-shrink-0">
@@ -606,7 +588,6 @@
         </div>
     </div>
 
-    <!-- GEMS MODAL -->
     <div id="gems-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-md max-h-[90vh] rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 overflow-y-auto input-box">
             <div class="flex items-center justify-between flex-shrink-0">
@@ -628,7 +609,6 @@
         </div>
     </div>
 
-    <!-- MODEL SELECTION MODAL -->
     <div id="model-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] overflow-y-auto input-box">
             <div class="flex items-center gap-4 flex-shrink-0">
@@ -677,7 +657,6 @@
         </div>
     </div>
 
-    <!-- ACCOUNT MODAL -->
     <div id="account-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
         <div class="w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 input-box">
             <div class="flex items-center justify-between">
@@ -1113,7 +1092,7 @@
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
                         Hi ${currentUserName}, Where should we start?
                     </h1>
-                    <p class="text-xs text-gray-400">Engineered by Nwodili Yaemerie Covenant with maximum class and humanoid precision.</p>
+                    <p class="text-xs text-gray-400">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
                 </div>
             `;
         }
