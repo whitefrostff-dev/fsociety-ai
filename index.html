@@ -981,7 +981,7 @@
                     container.innerHTML += `
                         <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
                             <div>
-                                <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
+                                <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon || 'fa-gem'} text-amber-400"></i> ${g.name}</h4>
                                 <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
                             </div>
                             <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
@@ -1012,7 +1012,7 @@
             document.getElementById('gem-name').value = '';
             document.getElementById('gem-desc').value = '';
             document.getElementById('gem-prompt').value = '';
-            fetchGems();
+            await fetchGems();
         }
 
         async function fetchAssets() {
