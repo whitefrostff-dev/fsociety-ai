@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Frost - Shinny Black & White Edition</title>
+    <title>Ranen - Shinny Black & White Edition</title>
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "Person",
       "name": "Nwodili Yaemerie Convenant",
-      "alternateName": ["Frost", "whitefrostff-dev"],
+      "alternateName": ["Ranen", "whitefrostff-dev"],
       "nationality": {
         "@type": "Country",
         "name": "Nigeria"
@@ -217,7 +217,7 @@
             100% { background-position: 200% center; }
         }
         
-        .frost-shining {
+        .ranen-shining {
             background: linear-gradient(90deg, #a3a3a3 0%, #ffffff 30%, #e2e8f0 50%, #ffffff 70%, #a3a3a3 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
@@ -228,7 +228,7 @@
             letter-spacing: -0.5px;
         }
         
-        body.light-mode .frost-shining {
+        body.light-mode .ranen-shining {
             background: linear-gradient(90deg, #475569 0%, #000000 30%, #334155 50%, #000000 70%, #475569 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
@@ -298,7 +298,6 @@
             }
             #artifact-sidebar.mobile-open { transform: translateX(0); }
             
-            /* Add some padding for the bottom of the message container on mobile */
             #messages-container { padding-bottom: 2rem; }
         }
 
@@ -376,7 +375,7 @@
             </div>
             
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="frost-shining select-none pointer-events-auto cursor-pointer" onclick="createNewSession()">Frost</div>
+                <div class="ranen-shining select-none pointer-events-auto cursor-pointer" onclick="createNewSession()">Ranen</div>
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
@@ -406,7 +405,7 @@
 
             <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-2.5 md:p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
                 
-                <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
+                <textarea id="user-input" rows="1" placeholder="Ask Ranen..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
                 <div class="flex items-center justify-between pt-1 px-1">
                     <div class="flex items-center gap-1 md:gap-2">
@@ -435,7 +434,7 @@
             </form>
             
             <div class="text-center mt-2 md:mt-3">
-                <span class="text-[9px] md:text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
+                <span class="text-[9px] md:text-[10px] text-gray-500">Ranen can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
             </div>
         </div>
     </main>
@@ -460,7 +459,7 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
-            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
+            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Ranen to write code or build an app to inspect it here.</div>
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
@@ -469,7 +468,7 @@
             </div>
             
             <div id="artifact-security-view" class="flex-1 overflow-auto p-3 md:p-4 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] text-green-400 font-mono text-[11px] md:text-xs hidden whitespace-pre-wrap leading-relaxed shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
-                No active security scans or reports parsed. Ask Frost to run a theoretical vulnerability scan or exploit log.
+                No active security scans or reports parsed. Ask Ranen to run a theoretical vulnerability scan or exploit log.
             </div>
         </div>
     </aside>
@@ -510,7 +509,7 @@
             <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3 flex-shrink-0">
                 <div>
                     <h3 class="text-base md:text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
-                    <p class="text-[10px] md:text-xs text-gray-400">Connect external tools & utilities to Frost.</p>
+                    <p class="text-[10px] md:text-xs text-gray-400">Connect external tools & utilities to Ranen.</p>
                 </div>
                 <button onclick="closePluginsModal()" class="text-lg hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -668,7 +667,7 @@
                 image(href, title, text) {
                     const url = typeof href === 'object' ? href.href : href;
                     const altText = typeof href === 'object' ? href.text : text;
-                    return `<img src="${url}" alt="${altText || 'Frost Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
+                    return `<img src="${url}" alt="${altText || 'Ranen Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                 },
                 link(href, title, text) {
                     const url = typeof href === 'object' ? href.href : href;
@@ -691,7 +690,7 @@
 
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
-        let calEvents = JSON.parse(localStorage.getItem('frost_cal_events') || '{}');
+        let calEvents = JSON.parse(localStorage.getItem('ranen_cal_events') || '{}');
 
         function toggleLeftSidebar() {
             const sidebar = document.getElementById('left-sidebar');
@@ -730,7 +729,7 @@
         }
 
         async function init() {
-            if (localStorage.getItem('frost_theme') === 'light') setTheme('light');
+            if (localStorage.getItem('ranen_theme') === 'light') setTheme('light');
 
             await checkUserStatus();
             await fetchSessions();
@@ -797,10 +796,10 @@
         function setTheme(theme) {
             if (theme === 'light') {
                 document.body.classList.add('light-mode');
-                localStorage.setItem('frost_theme', 'light');
+                localStorage.setItem('ranen_theme', 'light');
             } else {
                 document.body.classList.remove('light-mode');
-                localStorage.setItem('frost_theme', 'dark');
+                localStorage.setItem('ranen_theme', 'dark');
             }
         }
 
@@ -927,13 +926,13 @@
             const dateKey = calSelectedDate.toISOString().split('T')[0];
             if (!calEvents[dateKey]) calEvents[dateKey] = [];
             calEvents[dateKey].push(title);
-            localStorage.setItem('frost_cal_events', JSON.stringify(calEvents));
+            localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
             renderCalendarEvents();
         }
 
         function removeCalendarEvent(dateKey, idx) {
             calEvents[dateKey].splice(idx, 1);
-            localStorage.setItem('frost_cal_events', JSON.stringify(calEvents));
+            localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
             renderCalendarEvents();
         }
 
