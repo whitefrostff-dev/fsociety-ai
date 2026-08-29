@@ -421,7 +421,7 @@
                         <input id="file-upload" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                         
                         <button type="button" onclick="openModelModal()" class="flex items-center gap-1 text-[10px] md:text-[11px] px-2 py-1 md:py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[120px] sm:max-w-[140px] md:max-w-none">
-                            <span id="current-model-label" class="truncate font-medium">Llama 3.3 70B (Groq)</span>
+                            <span id="current-model-label" class="truncate font-medium">Frost 3.3 (Groq)</span>
                             <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
                         </button>
                     </div>
@@ -603,16 +603,16 @@
                 <h3 class="text-lg md:text-xl font-bold">Select Model Engine</h3>
             </div>
             <div class="space-y-2 md:space-y-3 overflow-y-auto pr-1">
-                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
+                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Frost 3.3 (Groq)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
                     <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Llama 3.3 70B</span>
-                        <span class="badge-tag hidden sm:inline-block">Groq • Ultra Fast</span>
+                        <span class="text-[13px] md:text-base font-semibold">Frost 3.3</span>
+                        <span class="badge-tag hidden sm:inline-block">Frost Ultra Fast</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
+                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Frost 3.3 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
                     <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Llama 3.3 70B</span>
+                        <span class="text-[13px] md:text-base font-semibold">Frost 3.3</span>
                         <span class="badge-tag hidden sm:inline-block">OpenRouter • Free</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
@@ -624,10 +624,10 @@
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('google:gemini-3.6-flash', 'Gemini 3.6 Flash (Vision)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
+                <div onclick="selectModel('google:gemini-3.6-flash', 'Frost 3.6 (Vision)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
                     <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Gemini 3.6 Flash</span>
-                        <span class="badge-tag hidden sm:inline-block">Google • Vision</span>
+                        <span class="text-[13px] md:text-base font-semibold">Frost 3.6</span>
+                        <span class="badge-tag hidden sm:inline-block">Ranen Vision</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
