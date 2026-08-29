@@ -190,6 +190,28 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
 async def google_verification():
     return "google-site-verification: google0b211ab21a1539ad.html"
 
+@app.get("/sitemap.xml", response_class=HTMLResponse)
+async def sitemap():
+    sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://ranen.duckdns.org/</loc>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>https://ranen.duckdns.org/terms</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.3</priority>
+    </url>
+    <url>
+        <loc>https://ranen.duckdns.org/privacy</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.3</priority>
+    </url>
+</urlset>"""
+    return Response(content=sitemap_content, media_type="application/xml")
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
     html_path = os.path.join("..", "app", "index.html")
