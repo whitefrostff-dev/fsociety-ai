@@ -104,7 +104,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     SessionMiddleware, 
-    secret_key="frost_super_secret_session_string",
+    secret_key="ranen_super_secret_session_string",
     https_only=False,
     same_site="lax"
 )
@@ -211,10 +211,10 @@ async def serve_frontend(request: Request):
 @app.get("/terms", response_class=HTMLResponse)
 async def terms_page():
     return """
-    <html><head><title>Terms of Service - Frost</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Terms of Service for Frost</h2>
+    <html><head><title>Terms of Service - Ranen</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Terms of Service for Ranen</h2>
     <p>1. <b>Acceptable Use:</b> Do not use the service for malicious activities, prompt injection, or illegal content generation.<br>
-    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Frost for critical medical, legal, or financial advice.<br>
+    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Ranen for critical medical, legal, or financial advice.<br>
     3. <b>Content Ownership:</b> You retain rights to your inputs; we retain rights to the platform UI/UX.<br>
     4. <b>Liability:</b> Service is provided "as is". We are not responsible for downtime or damages.</p></body></html>
     """
@@ -222,8 +222,8 @@ async def terms_page():
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_page():
     return """
-    <html><head><title>Privacy Policy - Frost</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Privacy Policy for Frost</h2>
+    <html><head><title>Privacy Policy - Ranen</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
+    <body><h2>Privacy Policy for Ranen</h2>
     <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs to provide the service.<br>
     2. <b>Third-Party Providers:</b> Your prompts and images are processed securely via external APIs (e.g., Groq, Google Gemini) to generate responses.<br>
     3. <b>Data Sales:</b> We do not sell your personal data or chat histories to third-party advertisers.<br>
@@ -352,7 +352,7 @@ async def delete_session(request: Request, session_id: str):
 async def get_gems(request: Request):
     col, val = get_identifier(request)
     default_gems = [
-        {"id": 1, "name": "Frost Core", "description": "Standard elite assistant created by Nwodili Yaemerie Covenant", "system_prompt": "You are Frost, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "icon": "fa-terminal"}
+        {"id": 1, "name": "Ranen Core", "description": "Standard elite assistant created by Nwodili Yaemerie Covenant", "system_prompt": "You are Ranen, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "icon": "fa-terminal"}
     ]
     conn = get_db_connection()
     if not conn:
@@ -538,7 +538,7 @@ async def chat_with_assistant(
 
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
-        "You are Frost, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
+        "You are Ranen, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
         "CORE BEHAVIORAL DIRECTIVES:\n"
         "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks. Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
         "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary, and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
