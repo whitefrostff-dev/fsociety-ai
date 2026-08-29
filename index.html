@@ -31,7 +31,7 @@
         "Linux System Administration",
         "Competitive Esports Strategy"
       ],
-      "description": "Nwodili Yaemerie Convenant is an 18-year-old Computer Science developer. He is from Nigeria, belongs to the [Tribe] igbo, and practices Judaism.",
+      "description": "Nwodili Yaemerie Convenant is an 18-year-old Computer Science developer. He is from Nigeria, belongs to the igbo tribe, and practices Judaism.",
       "sameAs": [
         "https://github.com/whitefrostff-dev"
       ]
@@ -70,7 +70,6 @@
             --accent-glow: rgba(0, 0, 0, 0.03);
         }
 
-        /* LIGHT MODE OVERRIDES FOR HARDCODED TAILWIND COLORS */
         body.light-mode .bg-\[\#1e1e1e\],
         body.light-mode .bg-\[\#1a1a1a\],
         body.light-mode .bg-\[\#111\],
@@ -89,35 +88,19 @@
 
         body.light-mode .text-white,
         body.light-mode .text-gray-200,
-        body.light-mode .text-gray-300 {
-            color: #0f172a !important;
-        }
+        body.light-mode .text-gray-300 { color: #0f172a !important; }
 
         body.light-mode .text-gray-400,
-        body.light-mode .text-gray-500 {
-            color: var(--text-muted) !important;
-        }
+        body.light-mode .text-gray-500 { color: var(--text-muted) !important; }
 
         body.light-mode .border-gray-700,
-        body.light-mode .border-gray-600 {
-            border-color: var(--border-color) !important;
-        }
+        body.light-mode .border-gray-600 { border-color: var(--border-color) !important; }
 
-        body.light-mode .bg-black\/80 {
-            background-color: rgba(255, 255, 255, 0.75) !important;
-        }
+        body.light-mode .bg-black\/80 { background-color: rgba(255, 255, 255, 0.75) !important; }
 
-        body.light-mode input, 
-        body.light-mode textarea {
-            color: #000000 !important;
-        }
-        
-        body.light-mode input::placeholder, 
-        body.light-mode textarea::placeholder {
-            color: #64748b !important;
-        }
+        body.light-mode input, body.light-mode textarea { color: #000000 !important; }
+        body.light-mode input::placeholder, body.light-mode textarea::placeholder { color: #64748b !important; }
 
-        /* Active Session Styling - Theme Aware */
         .active-session {
             background-color: #283145 !important;
             color: #bfdbfe !important;
@@ -156,6 +139,7 @@
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
             border-color: var(--border-color); 
+            transition: transform 0.3s ease-in-out;
         }
 
         .input-box, .model-card, aside div.bg-\[\#0a0a0a\], button.bg-\[\#0a0a0a\], div.bg-\[\#0a0a0a\] { 
@@ -183,10 +167,11 @@
             border: 1px solid var(--border-glow); 
             color: var(--text-main); 
             border-radius: 20px 20px 4px 20px; 
-            padding: 14px 20px; 
-            max-width: 80%; 
+            padding: 12px 16px; 
+            max-width: 90%; 
             font-size: 0.9rem; 
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            word-wrap: break-word;
         }
         
         body.light-mode .user-msg {
@@ -196,37 +181,27 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         
-        .assistant-msg-container { display: flex; gap: 14px; width: 100%; margin: 20px 0; align-items: flex-start; }
+        .assistant-msg-container { display: flex; gap: 12px; width: 100%; margin: 20px 0; align-items: flex-start; max-width: 100%; overflow: hidden;}
         .assistant-avatar { 
-            width: 34px; height: 34px; border-radius: 10px; 
+            width: 32px; height: 32px; border-radius: 10px; 
             background: linear-gradient(135deg, #262626 0%, #0f0f0f 100%); 
             border: 1px solid var(--border-glow); 
             display: flex; align-items: center; justify-content: center; 
             flex-shrink: 0; font-size: 13px; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        body.light-mode .assistant-avatar {
-            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        }
+        body.light-mode .assistant-avatar { background: linear-gradient(135deg, #0f172a 0%, #334155 100%); }
         
-        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.92rem; line-height: 1.7; }
+        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.9rem; line-height: 1.6; max-width: 100%; overflow-x: auto; }
         .assistant-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
         .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
         .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
 
-        code, pre { font-family: 'JetBrains Mono', monospace !important; }
+        code, pre { font-family: 'JetBrains Mono', monospace !important; max-width: 100%; overflow-x: auto; }
 
-        body.light-mode .prose {
-            color: #0f172a !important;
-        }
-        body.light-mode .prose code {
-            background-color: #e2e8f0 !important;
-            color: #0f172a !important;
-        }
-        body.light-mode .prose pre {
-            background-color: #1e293b !important;
-            color: #f8fafc !important;
-        }
+        body.light-mode .prose { color: #0f172a !important; }
+        body.light-mode .prose code { background-color: #e2e8f0 !important; color: #0f172a !important; }
+        body.light-mode .prose pre { background-color: #1e293b !important; color: #f8fafc !important; }
 
         h1, h2, h3, h4, span.text-white, p.text-white { color: var(--text-main) !important; }
         span.text-gray-300, p.text-gray-400, i.text-gray-400, div.text-gray-400 { color: var(--text-muted) !important; }
@@ -268,6 +243,7 @@
             -webkit-text-fill-color: transparent;
             font-weight: 800;
             letter-spacing: -1px;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
         }
         
         body.light-mode .welcome-3d {
@@ -290,10 +266,7 @@
             border-radius: 20px; 
         }
         
-        body.light-mode .badge-tag {
-            background: rgba(0, 0, 0, 0.05);
-            color: #0f172a;
-        }
+        body.light-mode .badge-tag { background: rgba(0, 0, 0, 0.05); color: #0f172a; }
         
         .mobile-overlay { display: none; backdrop-filter: blur(5px); }
         .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; }
@@ -315,6 +288,18 @@
                 transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
             }
             #left-sidebar.mobile-open { transform: translateX(0); }
+            
+            #artifact-sidebar {
+                position: fixed;
+                right: 0; top: 0; bottom: 0;
+                z-index: 45;
+                width: 100%;
+                transform: translateX(100%);
+            }
+            #artifact-sidebar.mobile-open { transform: translateX(0); }
+            
+            /* Add some padding for the bottom of the message container on mobile */
+            #messages-container { padding-bottom: 2rem; }
         }
 
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
@@ -329,7 +314,7 @@
 
     <div id="mobile-backdrop" class="mobile-overlay" onclick="closeAllPanels()"></div>
 
-    <aside id="left-sidebar" class="sidebar h-full w-[300px] flex-shrink-0 flex-col justify-between p-3 flex">
+    <aside id="left-sidebar" class="sidebar h-full w-[280px] md:w-[300px] flex-shrink-0 flex-col justify-between p-3 flex">
         <div class="flex flex-col h-full overflow-hidden">
             
             <div class="flex items-center justify-between mb-4 px-2 mt-2">
@@ -382,123 +367,123 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full relative min-w-0">
-        <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-4 md:px-6 flex-shrink-0 relative">
+        <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-3 md:px-6 flex-shrink-0 relative">
             <div class="flex items-center z-10 gap-3">
-                <button onclick="toggleLeftSidebar()" class="text-2xl p-1 text-gray-200 hover:text-white transition-colors">
+                <button onclick="toggleLeftSidebar()" class="text-xl p-1 text-gray-200 hover:text-white transition-colors">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                <span id="current-chat-title" class="text-xs font-semibold text-gray-400 hidden md:inline truncate max-w-[150px]">New Chat</span>
+                <span id="current-chat-title" class="text-xs font-semibold text-gray-400 hidden sm:inline truncate max-w-[120px] md:max-w-[200px]">New Chat</span>
             </div>
             
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div class="frost-shining select-none pointer-events-auto cursor-pointer" onclick="createNewSession()">Frost</div>
             </div>
             
-            <div class="flex items-center z-10 gap-3">
-                <button onclick="toggleArtifactPanel()" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
+            <div class="flex items-center z-10 gap-2 md:gap-3">
+                <button onclick="toggleArtifactPanel()" class="flex items-center gap-1.5 text-xs font-semibold px-2 md:px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
                     <i class="fa-solid fa-layer-group text-blue-400"></i> 
-                    <span>Artifacts</span>
+                    <span class="hidden sm:inline">Artifacts</span>
                 </button>
                 
-                <div id="header-user-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-lg font-medium bg-[#00838F] text-white cursor-pointer hover:opacity-90 transition-opacity border border-gray-700" onclick="openAccountModal()">
+                <div id="header-user-avatar" class="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-sm md:text-lg font-medium bg-[#00838F] text-white cursor-pointer hover:opacity-90 transition-opacity border border-gray-700" onclick="openAccountModal()">
                     G
                 </div>
             </div>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-3xl mx-auto w-full"></div>
+        <div id="messages-container" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 max-w-4xl mx-auto w-full"></div>
 
         <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             
             <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)] max-w-fit">
                 <img id="attachment-preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg border border-gray-700">
                 <div class="flex flex-col pr-2">
-                    <span id="attachment-name" class="text-xs text-white font-medium truncate max-w-[150px]"></span>
-                    <span class="text-[10px] text-gray-400">Ready to send</span>
+                    <span id="attachment-name" class="text-[10px] md:text-xs text-white font-medium truncate max-w-[120px] md:max-w-[150px]"></span>
+                    <span class="text-[9px] md:text-[10px] text-gray-400">Ready to send</span>
                 </div>
                 <button type="button" onclick="clearAttachment()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
 
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-2.5 md:p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
                 
-                <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-3 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
+                <textarea id="user-input" rows="1" placeholder="Ask Frost..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
                 <div class="flex items-center justify-between pt-1 px-1">
                     <div class="flex items-center gap-1 md:gap-2">
-                        <button type="button" onclick="triggerNativeCamera()" class="p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Take Photo">
+                        <button type="button" onclick="triggerNativeCamera()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Take Photo">
                             <i class="fa-solid fa-camera"></i>
                         </button>
                         <input id="native-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
 
-                        <label for="file-upload" class="cursor-pointer p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload from Gallery">
+                        <label for="file-upload" class="cursor-pointer p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload from Gallery">
                             <i class="fa-solid fa-image"></i>
                         </label>
                         <input id="file-upload" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                         
-                        <button type="button" onclick="openModelModal()" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[140px] md:max-w-none">
+                        <button type="button" onclick="openModelModal()" class="flex items-center gap-1 text-[10px] md:text-[11px] px-2 py-1 md:py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[120px] sm:max-w-[140px] md:max-w-none">
                             <span id="current-model-label" class="truncate font-medium">Llama 3.3 70B (Groq)</span>
                             <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
                         </button>
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <button id="send-btn" type="submit" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
+                        <button id="send-btn" type="submit" class="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
                             <i class="fa-solid fa-arrow-up text-sm"></i>
                         </button>
                     </div>
                 </div>
             </form>
             
-            <div class="text-center mt-3">
-                <span class="text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
+            <div class="text-center mt-2 md:mt-3">
+                <span class="text-[9px] md:text-[10px] text-gray-500">Frost can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
             </div>
         </div>
     </main>
 
-    <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden border-l">
-        <div class="h-14 border-b border-[var(--border-color)] flex items-center justify-between px-4">
-            <div class="flex items-center gap-2">
-                <div class="flex gap-1 p-1 rounded-lg border border-[var(--border-color)] flex-wrap">
-                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white">Code</button>
-                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Preview</button>
-                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">My Stuff</button>
-                    <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Architecture</button>
-                    <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
+    <aside id="artifact-sidebar" class="artifact-panel absolute right-0 z-50 h-full w-full md:w-96 flex-shrink-0 flex-col hidden border-l border-r-0 md:border-r">
+        <div class="h-14 border-b border-[var(--border-color)] flex items-center justify-between px-3 md:px-4">
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar w-full">
+                <div class="flex gap-1 p-1 rounded-lg border border-[var(--border-color)] flex-nowrap min-w-max">
+                    <button onclick="switchArtifactTab('code')" id="tab-code-btn" class="text-[11px] md:text-xs px-2 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white">Code</button>
+                    <button onclick="switchArtifactTab('preview')" id="tab-preview-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Preview</button>
+                    <button onclick="switchArtifactTab('assets')" id="tab-assets-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Assets</button>
+                    <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Blueprint</button>
+                    <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
                 </div>
-                <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden">
-                    <i class="fa-solid fa-bug"></i> Debug
+                <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
+                    <i class="fa-solid fa-bug"></i> Fix
                 </button>
             </div>
-            <button onclick="toggleArtifactPanel()" class="text-lg ml-2 hover:text-white transition-colors">
+            <button onclick="toggleArtifactPanel()" class="text-lg ml-2 hover:text-white transition-colors pl-2 shrink-0">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         
-        <div class="flex-1 overflow-hidden flex flex-col p-4">
-            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
+        <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
+            <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Frost to write code or build an app to inspect it here.</div>
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
             <div id="artifact-architecture-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] bg-white hidden flex justify-center items-start">
-                <div id="mermaid-container" class="w-full h-full"></div>
+                <div id="mermaid-container" class="w-full h-full text-black"></div>
             </div>
             
-            <div id="artifact-security-view" class="flex-1 overflow-auto p-4 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] text-green-400 font-mono text-xs hidden whitespace-pre-wrap leading-relaxed shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
+            <div id="artifact-security-view" class="flex-1 overflow-auto p-3 md:p-4 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] text-green-400 font-mono text-[11px] md:text-xs hidden whitespace-pre-wrap leading-relaxed shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
                 No active security scans or reports parsed. Ask Frost to run a theoretical vulnerability scan or exploit log.
             </div>
         </div>
     </aside>
 
     <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 input-box">
+        <div class="w-full max-w-md rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 md:gap-5 input-box">
             <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-                <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gear"></i> Settings</h3>
+                <h3 class="text-base md:text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-gear"></i> Settings</h3>
                 <button onclick="closeSettingsModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="space-y-4">
                 <div>
-                    <p class="text-sm font-semibold mb-2">Appearance</p>
+                    <p class="text-[13px] md:text-sm font-semibold mb-2">Appearance</p>
                     <div class="flex gap-2">
                         <button onclick="setTheme('dark')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition-colors">Dark Mode</button>
                         <button onclick="setTheme('light')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-100 text-black bg-white transition-colors">Light Mode</button>
@@ -506,7 +491,7 @@
                 </div>
 
                 <div class="pt-2">
-                    <p class="text-sm font-semibold mb-2">About & Legal</p>
+                    <p class="text-[13px] md:text-sm font-semibold mb-2">About & Legal</p>
                     <div class="space-y-2">
                         <a href="/terms" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
                             <span>Terms of Service</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -521,48 +506,48 @@
     </div>
 
     <div id="plugins-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] input-box overflow-y-auto">
+        <div class="w-full max-w-lg rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 md:gap-5 max-h-[85vh] input-box overflow-y-auto">
             <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3 flex-shrink-0">
                 <div>
-                    <h3 class="text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
-                    <p class="text-xs text-gray-400">Connect external tools & utilities to Frost.</p>
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2"><i class="fa-solid fa-plug text-blue-400"></i> Plugin Store & Tools</h3>
+                    <p class="text-[10px] md:text-xs text-gray-400">Connect external tools & utilities to Frost.</p>
                 </div>
                 <button onclick="closePluginsModal()" class="text-lg hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div class="space-y-3 pr-2">
+            <div class="space-y-3 pr-1 md:pr-2">
                 <div class="flex items-center justify-between p-3 border border-gray-700 bg-[#1e1e1e] rounded-xl">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black text-lg"><i class="fa-brands fa-github"></i></div>
+                        <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white flex items-center justify-center text-black text-sm md:text-lg"><i class="fa-brands fa-github"></i></div>
                         <div>
-                            <p class="text-sm font-bold text-white">GitHub Integration</p>
-                            <p class="text-[10px] text-gray-400">Triage PRs, issues, CI, and publish flows</p>
+                            <p class="text-[13px] md:text-sm font-bold text-white">GitHub Integration</p>
+                            <p class="text-[9px] md:text-[10px] text-gray-400">Triage PRs, issues, CI, and publish flows</p>
                         </div>
                     </div>
-                    <button onclick="window.location.href='/auth/github-plugin'" class="border border-gray-600 hover:bg-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Install</button>
+                    <button onclick="window.location.href='/auth/github-plugin'" class="border border-gray-600 hover:bg-gray-700 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold transition-colors">Install</button>
                 </div>
 
                 <div class="flex items-center justify-between p-3 border border-gray-700 bg-[#1e1e1e] rounded-xl">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center text-white text-lg"><i class="fa-solid fa-shoe-prints"></i></div>
+                        <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-green-500 flex items-center justify-center text-white text-sm md:text-lg"><i class="fa-solid fa-shoe-prints"></i></div>
                         <div>
-                            <p class="text-sm font-bold text-white">Live Step Counter</p>
-                            <p class="text-[10px] text-gray-400">Steps: <span id="nav-step-count" class="font-bold">0</span></p>
+                            <p class="text-[13px] md:text-sm font-bold text-white">Live Step Counter</p>
+                            <p class="text-[9px] md:text-[10px] text-gray-400">Steps: <span id="nav-step-count" class="font-bold">0</span></p>
                         </div>
                     </div>
-                    <button id="enable-steps-btn" onclick="initStepCounter()" class="border border-gray-600 hover:bg-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Enable Motion</button>
+                    <button id="enable-steps-btn" onclick="initStepCounter()" class="border border-gray-600 hover:bg-gray-700 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold transition-colors">Enable Motion</button>
                 </div>
 
                 <div class="p-3 border border-gray-700 bg-[#1e1e1e] rounded-xl space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-lg"><i class="fa-regular fa-calendar"></i></div>
+                            <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white text-sm md:text-lg"><i class="fa-regular fa-calendar"></i></div>
                             <div>
-                                <p class="text-sm font-bold text-white">Responsive Calendar</p>
-                                <p class="text-[10px] text-gray-400">Schedule and track your personal agenda</p>
+                                <p class="text-[13px] md:text-sm font-bold text-white">Responsive Calendar</p>
+                                <p class="text-[9px] md:text-[10px] text-gray-400">Schedule and track your personal agenda</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 text-xs">
+                        <div class="flex items-center gap-1 text-[10px] md:text-xs">
                             <button onclick="changeCalendarMonth(-1)" class="p-1 border border-gray-600 rounded hover:bg-gray-700"><i class="fa-solid fa-chevron-left"></i></button>
                             <span id="cal-month-year" class="font-bold px-1 text-gray-200"></span>
                             <button onclick="changeCalendarMonth(1)" class="p-1 border border-gray-600 rounded hover:bg-gray-700"><i class="fa-solid fa-chevron-right"></i></button>
@@ -578,8 +563,8 @@
 
                     <div class="pt-2 border-t border-gray-700 flex flex-col gap-2">
                         <div class="flex items-center justify-between text-xs">
-                            <span class="font-semibold text-gray-200" id="cal-selected-date-label">Selected Date Agenda</span>
-                            <button onclick="addCalendarEvent()" class="text-[10px] px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors">+ Add Event</button>
+                            <span class="font-semibold text-gray-200 text-[10px] md:text-xs" id="cal-selected-date-label">Selected Date Agenda</span>
+                            <button onclick="addCalendarEvent()" class="text-[9px] md:text-[10px] px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors">+ Add Event</button>
                         </div>
                         <div id="cal-events-list" class="space-y-1 text-xs max-h-24 overflow-y-auto"></div>
                     </div>
@@ -598,58 +583,58 @@
             <div id="gems-list" class="space-y-2 max-h-[35vh] overflow-y-auto pr-1 flex-shrink-0"></div>
             
             <div class="border-t border-[var(--border-color)] pt-3 flex-shrink-0">
-                <p class="text-xs mb-2 font-semibold text-gray-300">Create Custom Gem</p>
+                <p class="text-[11px] md:text-xs mb-2 font-semibold text-gray-300">Create Custom Gem</p>
                 <div class="space-y-2">
                     <input type="text" id="gem-name" placeholder="Persona Name (e.g., Python Expert)" class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
                     <input type="text" id="gem-desc" placeholder="Short Description" class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 focus:outline-none bg-[#1e1e1e] text-white">
                     <textarea id="gem-prompt" placeholder="System Prompt Instructions..." class="w-full border border-[var(--border-color)] rounded-xl text-xs p-2.5 h-20 resize-none focus:outline-none bg-[#1e1e1e] text-white"></textarea>
-                    <button onclick="createCustomGem()" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2.5 rounded-xl text-xs font-bold transition-colors">Save Custom Gem</button>
+                    <button onclick="createCustomGem()" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2 md:py-2.5 rounded-xl text-[11px] md:text-xs font-bold transition-colors">Save Custom Gem</button>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="model-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-5 max-h-[85vh] overflow-y-auto input-box">
-            <div class="flex items-center gap-4 flex-shrink-0">
-                <button onclick="closeModelModal()" class="text-lg">
+        <div class="w-full max-w-md rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 md:gap-5 max-h-[85vh] overflow-y-auto input-box">
+            <div class="flex items-center gap-3 md:gap-4 flex-shrink-0">
+                <button onclick="closeModelModal()" class="text-base md:text-lg">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
-                <h3 class="text-xl font-bold">Select Model Engine</h3>
+                <h3 class="text-lg md:text-xl font-bold">Select Model Engine</h3>
             </div>
-            <div class="space-y-3 overflow-y-auto pr-1">
-                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">Llama 3.3 70B</span>
-                        <span class="badge-tag">Groq • Ultra Fast</span>
+            <div class="space-y-2 md:space-y-3 overflow-y-auto pr-1">
+                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Llama 3.3 70B (Groq)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <span class="text-[13px] md:text-base font-semibold">Llama 3.3 70B</span>
+                        <span class="badge-tag hidden sm:inline-block">Groq • Ultra Fast</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">Llama 3.3 70B</span>
-                        <span class="badge-tag">OpenRouter • Free</span>
+                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <span class="text-[13px] md:text-base font-semibold">Llama 3.3 70B</span>
+                        <span class="badge-tag hidden sm:inline-block">OpenRouter • Free</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-deepseek">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">DeepSeek R1</span>
-                        <span class="badge-tag">OpenRouter • Free</span>
+                <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-deepseek">
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <span class="text-[13px] md:text-base font-semibold">DeepSeek R1</span>
+                        <span class="badge-tag hidden sm:inline-block">OpenRouter • Free</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('google:gemini-2.5-flash', 'Gemini 2.5 Flash (Vision)')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">Gemini 2.5 Flash</span>
-                        <span class="badge-tag">Google • Vision</span>
+                <div onclick="selectModel('google:gemini-3.6-flash', 'Gemini 3.6 Flash (Vision)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <span class="text-[13px] md:text-base font-semibold">Gemini 3.6 Flash</span>
+                        <span class="badge-tag hidden sm:inline-block">Google • Vision</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-silicon-qwen">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base font-semibold">Qwen 2.5 7B</span>
-                        <span class="badge-tag">SiliconFlow</span>
+                <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-silicon-qwen">
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <span class="text-[13px] md:text-base font-semibold">Qwen 2.5 7B</span>
+                        <span class="badge-tag hidden sm:inline-block">SiliconFlow</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
@@ -658,17 +643,17 @@
     </div>
 
     <div id="account-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 input-box">
+        <div class="w-full max-w-sm rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 input-box">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold">Account & Guest Settings</h3>
+                <h3 class="text-base md:text-lg font-bold">Account & Guest Settings</h3>
                 <button onclick="closeAccountModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
+            <p class="text-[10px] md:text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
             <div class="space-y-2 pt-2">
-                <a href="/auth/login" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
+                <a href="/auth/login" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs flex items-center justify-center gap-2 transition-colors">
                     <i class="fa-brands fa-google"></i> Sign in with Google
                 </a>
-                <button onclick="switchToGuestMode()" class="w-full py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 border border-[var(--border-color)] hover:bg-gray-800 transition-colors">
+                <button onclick="switchToGuestMode()" class="w-full py-2 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs flex items-center justify-center gap-2 border border-[var(--border-color)] hover:bg-gray-800 transition-colors">
                     <i class="fa-solid fa-user-secret"></i> Continue as Guest User
                 </button>
             </div>
@@ -676,22 +661,20 @@
     </div>
 
     <script>
-        // Init Mermaid for Architecture
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
 
-        // Custom Marked Renderer for Inline Image Display
         marked.use({
             renderer: {
                 image(href, title, text) {
                     const url = typeof href === 'object' ? href.href : href;
                     const altText = typeof href === 'object' ? href.text : text;
-                    return `<img src="${url}" alt="${altText || 'Frost Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" />`;
+                    return `<img src="${url}" alt="${altText || 'Frost Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                 },
                 link(href, title, text) {
                     const url = typeof href === 'object' ? href.href : href;
                     const linkText = typeof href === 'object' ? href.text : text;
                     if (url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
-                        return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" />`;
+                        return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                     }
                     return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
                 }
@@ -727,11 +710,13 @@
             if (panel.classList.contains('hidden')) {
                 panel.classList.remove('hidden');
                 panel.classList.add('flex');
+                panel.classList.add('mobile-open');
                 backdrop.classList.add('active');
                 fetchAssets();
             } else {
                 panel.classList.add('hidden');
                 panel.classList.remove('flex');
+                panel.classList.remove('mobile-open');
                 backdrop.classList.remove('active');
             }
         }
@@ -740,6 +725,7 @@
             document.getElementById('left-sidebar').classList.remove('mobile-open');
             document.getElementById('artifact-sidebar').classList.add('hidden');
             document.getElementById('artifact-sidebar').classList.remove('flex');
+            document.getElementById('artifact-sidebar').classList.remove('mobile-open');
             document.getElementById('mobile-backdrop').classList.remove('active');
         }
 
@@ -975,12 +961,14 @@
                 'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
                 'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
                 'groq:llama-3.3-70b-versatile': 'm-groq-llama',
-                'google:gemini-2.5-flash': 'm-google-flash',
+                'google:gemini-3.6-flash': 'm-google-flash',
                 'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
             };
             const activeCard = document.getElementById(cardMap[activeModelValue]);
-            activeCard?.classList.add('active', 'border-blue-500');
-            activeCard?.querySelector('.check-icon')?.classList.remove('hidden');
+            if (activeCard) {
+                activeCard.classList.add('active', 'border-blue-500');
+                activeCard.querySelector('.check-icon')?.classList.remove('hidden');
+            }
         }
 
         async function fetchGems() {
@@ -993,10 +981,10 @@
                     container.innerHTML += `
                         <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
                             <div>
-                                <h4 class="text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
-                                <p class="text-[10px] text-gray-400">${g.description}</p>
+                                <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon} text-amber-400"></i> ${g.name}</h4>
+                                <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
                             </div>
-                            <i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>
+                            <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
                         </div>
                     `;
                 });
@@ -1040,7 +1028,7 @@
                 assets.forEach(a => {
                     container.innerHTML += `
                         <div class="p-2.5 border border-gray-700 bg-[#1e1e1e] rounded-xl flex items-center justify-between text-xs">
-                            <span class="truncate w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${a.file_name}</span>
+                            <span class="truncate w-32 md:w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${a.file_name}</span>
                             <a href="${a.file_path}" target="_blank" class="hover:bg-gray-700 text-[10px] px-2 py-1 rounded border border-gray-600 transition-colors">View</a>
                         </div>
                     `;
@@ -1092,7 +1080,7 @@
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
                         Hi ${currentUserName}, Where should we start?
                     </h1>
-                    <p class="text-xs text-gray-400">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
+                    <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
                 </div>
             `;
         }
@@ -1304,7 +1292,7 @@
                 const btn = document.getElementById(`tab-${t}-btn`);
                 const view = document.getElementById(`artifact-${t}-view`);
                 
-                if (btn) btn.className = "text-xs px-2.5 py-1 rounded transition-colors text-gray-400 hover:text-white";
+                if (btn) btn.className = "text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white";
                 if (view) {
                     view.classList.add('hidden');
                     if (t === 'architecture') view.classList.remove('flex');
@@ -1317,7 +1305,7 @@
             const activeBtn = document.getElementById(`tab-${tab}-btn`);
             const activeView = document.getElementById(`artifact-${tab}-view`);
             
-            if (activeBtn) activeBtn.className = "text-xs px-2.5 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
+            if (activeBtn) activeBtn.className = "text-[11px] md:text-xs px-2 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
             if (activeView) {
                 activeView.classList.remove('hidden');
                 if (tab === 'architecture') activeView.classList.add('flex');
