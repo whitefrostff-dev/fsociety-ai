@@ -190,7 +190,7 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
 async def google_verification():
     return "google-site-verification: google0b211ab21a1539ad.html"
 
-@app.get("/sitemap.xml", response_class=HTMLResponse)
+@app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
