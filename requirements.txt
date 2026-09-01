@@ -12,3 +12,4 @@ duckduckgo-search
 starlette
 supabase
 psycopg2-binary
+duckduckgo_search
