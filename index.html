@@ -726,6 +726,17 @@
             highlightActiveModelCard();
             renderCalendar();
             
+            // Add Enter-to-submit listener for the textarea input
+            const userInputArea = document.getElementById('user-input');
+            if (userInputArea) {
+                userInputArea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(new Event('submit'));
+                    }
+                });
+            }
+
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
             }
@@ -1039,7 +1050,7 @@
             list.innerHTML = '';
             if (sessions.length > 0) {
                 sessions.forEach(s => {
-                    const safeTitle = s.title || 'New Chat'; 
+                    const safeTitle = (s.title || 'New Chat').replace(/"/g, '&quot;'); 
                     const isActive = currentSessionId === s.id;
                     const activeClasses = isActive 
                         ? 'active-session'
@@ -1047,7 +1058,7 @@
 
                     list.innerHTML += `
                         <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
-                            <span class="truncate pr-2">${safeTitle}</span>
+                            <span class="truncate pr-2">${s.title || 'New Chat'}</span>
                         </div>
                     `;
                 });
