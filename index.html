@@ -1276,12 +1276,10 @@
                 switchArtifactTab('architecture');
             }
 
-            // --- FIXED SECURITY BLOCK PARSING ---
             if (securityExtracted.trim()) {
                 const secView = document.getElementById('artifact-security-view');
                 const content = securityExtracted.trim();
                 
-                // If it contains image syntax, render as markdown. Else, output as raw monospace text.
                 if (content.includes('![') || content.includes('<img')) {
                     secView.innerHTML = marked.parse(content);
                     secView.classList.remove('whitespace-pre-wrap', 'text-green-400', 'font-mono');
