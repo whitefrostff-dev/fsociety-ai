@@ -553,7 +553,6 @@ async def chat_with_assistant(
         encoded_prompt = urllib.parse.quote(clean_prompt)
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
         
-        # Wrapped in a security block to trigger the artifact UI on the frontend
         ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n```security\n![Generated Image]({image_url})\n```"
         
         existing_messages.append({"role": "assistant", "content": ai_response})
