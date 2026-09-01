@@ -125,12 +125,12 @@ genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
 
 silicon_client = AsyncOpenAI(
     api_key=SILICONFLOW_API_KEY,
-    base_url="https://api.siliconflow.cn/v1"
+    base_url="[https://api.siliconflow.cn/v1](https://api.siliconflow.cn/v1)"
 ) if SILICONFLOW_API_KEY else None
 
 openrouter_client = AsyncOpenAI(
     api_key=OPENROUTER_API_KEY,
-    base_url="https://openrouter.ai/api/v1"
+    base_url="[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)"
 ) if OPENROUTER_API_KEY else None
 
 # --- GOOGLE OAUTH SETUP ---
@@ -139,7 +139,7 @@ oauth.register(
     name='google',
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    server_metadata_url='[https://accounts.google.com/.well-known/openid-configuration](https://accounts.google.com/.well-known/openid-configuration)',
     client_kwargs={'scope': 'openid email profile'}
 )
 
@@ -193,19 +193,19 @@ async def google_verification():
 @app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="[http://www.sitemaps.org/schemas/sitemap/0.9](http://www.sitemaps.org/schemas/sitemap/0.9)">
     <url>
-        <loc>https://ranen.duckdns.org/</loc>
+        <loc>[https://ranen.duckdns.org/](https://ranen.duckdns.org/)</loc>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
-        <loc>https://ranen.duckdns.org/terms</loc>
+        <loc>[https://ranen.duckdns.org/terms](https://ranen.duckdns.org/terms)</loc>
         <changefreq>monthly</changefreq>
         <priority>0.3</priority>
     </url>
     <url>
-        <loc>https://ranen.duckdns.org/privacy</loc>
+        <loc>[https://ranen.duckdns.org/privacy](https://ranen.duckdns.org/privacy)</loc>
         <changefreq>monthly</changefreq>
         <priority>0.3</priority>
     </url>
@@ -443,14 +443,14 @@ async def save_user_steps(request: Request, payload: StepSyncRequest):
 async def github_plugin_login():
     if not GITHUB_CLIENT_ID:
         return RedirectResponse(url="/?error=github_keys_missing")
-    github_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo,user"
+    github_url = f"[https://github.com/login/oauth/authorize?client_id=](https://github.com/login/oauth/authorize?client_id=){GITHUB_CLIENT_ID}&scope=repo,user"
     return RedirectResponse(github_url)
 
 @app.get("/auth/github/callback")
 async def github_plugin_callback(request: Request, code: str):
     async with httpx.AsyncClient() as client:
         res = await client.post(
-            "https://github.com/login/oauth/access_token",
+            "[https://github.com/login/oauth/access_token](https://github.com/login/oauth/access_token)",
             headers={"Accept": "application/json"},
             data={
                 "client_id": GITHUB_CLIENT_ID,
@@ -551,8 +551,10 @@ async def chat_with_assistant(
         
         clean_prompt = clean_prompt.strip() or "cyberpunk hacktivist matrix art"
         encoded_prompt = urllib.parse.quote(clean_prompt)
-        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
-        ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n![Generated Image]({image_url})"
+        image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){encoded_prompt}?nologo=true"
+        
+        # Wrapped in a security block to trigger the artifact UI on the frontend
+        ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n```security\n![Generated Image]({image_url})\n```"
         
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
