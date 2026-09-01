@@ -8,7 +8,7 @@
     
     <script type="application/ld+json">
     {
-      "@context": "https://schema.org",
+      "@context": "[https://schema.org](https://schema.org)",
       "@type": "Person",
       "name": "Nwodili Yaemerie Convenant",
       "alternateName": ["Ranen", "whitefrostff-dev"],
@@ -34,18 +34,18 @@
       ],
       "description": "Nwodili Yaemerie Convenant is an 18-year-old Computer Science developer. He is from Nigeria, belongs to the igbo tribe, and practices Judaism.",
       "sameAs": [
-        "https://github.com/whitefrostff-dev"
+        "[https://github.com/whitefrostff-dev](https://github.com/whitefrostff-dev)"
       ]
     }
     </script>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
+    <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js](https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js)"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('[https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap](https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap)');
 
         :root {
             --bg-main: #030305;
@@ -1276,8 +1276,21 @@
                 switchArtifactTab('architecture');
             }
 
+            // --- FIXED SECURITY BLOCK PARSING ---
             if (securityExtracted.trim()) {
-                document.getElementById('artifact-security-view').innerText = securityExtracted.trim();
+                const secView = document.getElementById('artifact-security-view');
+                const content = securityExtracted.trim();
+                
+                // If it contains image syntax, render as markdown. Else, output as raw monospace text.
+                if (content.includes('![') || content.includes('<img')) {
+                    secView.innerHTML = marked.parse(content);
+                    secView.classList.remove('whitespace-pre-wrap', 'text-green-400', 'font-mono');
+                    secView.classList.add('prose', 'prose-invert', 'max-w-none');
+                } else {
+                    secView.innerText = content;
+                    secView.classList.add('whitespace-pre-wrap', 'text-green-400', 'font-mono');
+                    secView.classList.remove('prose', 'prose-invert', 'max-w-none');
+                }
                 
                 if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
                     toggleArtifactPanel();
