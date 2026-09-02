@@ -23,7 +23,7 @@ import psycopg2.extras
 
 # DuckDuckGo Image Search Dependency Check
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
     HAS_DDGS = True
 except ImportError:
     HAS_DDGS = False
