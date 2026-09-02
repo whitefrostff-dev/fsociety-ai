@@ -21,7 +21,7 @@ from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
 
-# DuckDuckGo Image Search Dependency Check
+# DuckDuckGo Web & Image Search Dependency Check
 try:
     from ddgs import DDGS
     HAS_DDGS = True
@@ -560,7 +560,6 @@ async def chat_with_assistant(
         
         if HAS_DDGS:
             try:
-                # Max results = 1 to just grab the top image match
                 results = DDGS().images(clean_prompt, max_results=1)
                 if results:
                     image_url = results[0]['image']
@@ -571,11 +570,25 @@ async def chat_with_assistant(
             except Exception as e:
                 ai_response = f"DuckDuckGo Search Error: {str(e)}"
         else:
-             ai_response = "**System Error:** DuckDuckGo feature requires the `duckduckgo-search` package. Please run `pip install duckduckgo-search` on the server."
+             ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
         
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
+
+    # --- Live Web Search Interceptor (DuckDuckGo text search for current info / news) ---
+    web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
+    effective_message = message
+    
+    if HAS_DDGS and any(kw in lower_prompt for kw in web_search_keywords):
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(message, max_results=3))
+                if results:
+                    snippets = "\n".join([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
+                    effective_message = f"{message}\n\n[Real-Time Web Search Context]:\n{snippets}"
+        except Exception as e:
+            print(f"Web search execution error: {e}")
 
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
@@ -611,12 +624,12 @@ async def chat_with_assistant(
                     messages_payload.append({
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": message or "Analyze this file."},
+                            {"type": "text", "text": effective_message or "Analyze this file."},
                             {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
                         ]
                     })
                 else:
-                    messages_payload.append({"role": "user", "content": message})
+                    messages_payload.append({"role": "user", "content": effective_message})
 
                 res = await openrouter_client.chat.completions.create(
                     model=actual_model,
@@ -638,7 +651,7 @@ async def chat_with_assistant(
                     image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
                     contents.append(image_part)
                 
-                contents.append(message)
+                contents.append(effective_message)
 
                 config = types.GenerateContentConfig(
                     system_instruction=system_prompt,
@@ -657,8 +670,9 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `SILICONFLOW_API_KEY` is missing."
             else:
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                for msg in recent_history:
+                for msg in recent_history[:-1]:
                     messages_payload.append({"role": msg["role"], "content": msg["content"]})
+                messages_payload.append({"role": "user", "content": effective_message})
                 
                 response = await silicon_client.chat.completions.create(
                     model=actual_model,
@@ -677,8 +691,9 @@ async def chat_with_assistant(
                     actual_model = "openai/gpt-oss-20b"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                for msg in recent_history:
+                for msg in recent_history[:-1]:
                     messages_payload.append({"role": msg["role"], "content": msg["content"]})
+                messages_payload.append({"role": "user", "content": effective_message})
 
                 chat_completion = groq_client.chat.completions.create(
                     model=actual_model,
