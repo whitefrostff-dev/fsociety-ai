@@ -8,7 +8,7 @@ itsdangerous
 httpx
 google-genai
 openai
-duckduckgo-search
+ddgs
 starlette
 supabase
 psycopg2-binary
