@@ -23,7 +23,7 @@ import psycopg2.extras
 
 # DuckDuckGo Web & Image Search Dependency Check
 try:
-    from duckduckgo_search import AsyncDDGS
+    from ddgs import AsyncDDGS
     HAS_DDGS = True
 except ImportError:
     try:
