@@ -22,7 +22,7 @@ import psycopg2
 import psycopg2.extras
 
 # DuckDuckGo Web & Image Search Dependency Check
-from ddgs import AsyncDDGS, DDGS
+from ddgs import DDGS
 HAS_DDGS = True
 
 app = FastAPI()
