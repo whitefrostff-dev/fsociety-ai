@@ -153,11 +153,12 @@ def get_identifier(request: Request):
         return ("user_email", user['email'])
     
     guest_id = request.cookies.get("guest_id")
-    return ("guest_id", guest_id if guest_id else "unknown_guest")
+    if not guest_id:
+        guest_id = "default_guest"
+    return ("guest_id", guest_id)
 
 # --- DUCKDUCKGO WEB SEARCH HELPER ---
 def search_duckduckgo(query: str, max_results: int = 4):
-    """Searches DuckDuckGo and returns formatted markdown context strings."""
     try:
         with DDGS() as ddgs:
             results = [r for r in ddgs.text(query, max_results=max_results)]
@@ -345,9 +346,12 @@ async def get_session_history(request: Request, session_id: str):
                 cur.execute("SELECT messages FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
                 row = cur.fetchone()
                 conn.close()
-                if row and row.get("messages"):
+                if row and row.get("messages") is not None:
                     msgs = row["messages"]
-                    return msgs if isinstance(msgs, list) else json.loads(msgs)
+                    if isinstance(msgs, list):
+                        return msgs
+                    elif isinstance(msgs, str):
+                        return json.loads(msgs)
         except Exception as e:
             print(f"DATABASE FETCH HISTORY ERROR: {e}")
             if conn:
@@ -490,7 +494,7 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -507,7 +511,10 @@ async def chat_with_assistant(
                 conn.close()
                 if row:
                     msgs = row.get("messages", [])
-                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
+                    if isinstance(msgs, list):
+                        existing_messages = msgs
+                    elif isinstance(msgs, str):
+                        existing_messages = json.loads(msgs)
                     chat_title = row.get("title", "New Chat")
         except Exception as e:
             print(f"DATABASE FETCH ERROR IN /api/chat: {e}")
@@ -602,7 +609,7 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -680,11 +687,6 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
-                    actual_model = "openai/gpt-oss-120b"
-                elif "8b" in actual_model:
-                    actual_model = "openai/gpt-oss-20b"
-
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history:
                     messages_payload.append({"role": msg["role"], "content": msg["content"]})
@@ -707,4 +709,4 @@ async def chat_with_assistant(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
