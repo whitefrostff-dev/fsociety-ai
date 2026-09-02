@@ -22,15 +22,8 @@ import psycopg2
 import psycopg2.extras
 
 # DuckDuckGo Web & Image Search Dependency Check
-try:
-    from ddgs import AsyncDDGS
-    HAS_DDGS = True
-except ImportError:
-    try:
-        from ddgs import DDGS
-        HAS_DDGS = True
-    except ImportError:
-        HAS_DDGS = False
+from ddgs import AsyncDDGS, DDGS
+HAS_DDGS = True
 
 app = FastAPI()
 
