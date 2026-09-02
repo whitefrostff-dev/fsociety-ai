@@ -668,621 +668,630 @@
         </div>
     </div>
 
-    <script>
-        let currentSessionId = null;
-        let selectedFile = null;
-        let activeModelValue = "groq:llama-3.3-70b-versatile";
-        let activeGemPrompt = null;
-        let latestExtractedCode = "";
-        let allSessions = [];
-        let currentUserName = "Guest User";
+   <script>
+    let currentSessionId = null;
+    let selectedFile = null;
+    let activeModelValue = "groq:llama-3.3-70b-versatile";
+    let activeGemPrompt = null;
+    let latestExtractedCode = "";
+    let allSessions = [];
+    let currentUserName = "Guest User";
 
-        let calCurrentDate = new Date();
-        let calSelectedDate = new Date();
-        let calEvents = JSON.parse(localStorage.getItem('ranen_cal_events') || '{}');
+    let calCurrentDate = new Date();
+    let calSelectedDate = new Date();
+    let calEvents = JSON.parse(localStorage.getItem('ranen_cal_events') || '{}');
 
-        function toggleLeftSidebar() {
-            const sidebar = document.getElementById('left-sidebar');
-            const backdrop = document.getElementById('mobile-backdrop');
-            sidebar.classList.toggle('mobile-open');
-            if (sidebar.classList.contains('mobile-open')) {
-                backdrop.classList.add('active');
-            } else {
-                backdrop.classList.remove('active');
-            }
+    function toggleLeftSidebar() {
+        const sidebar = document.getElementById('left-sidebar');
+        const backdrop = document.getElementById('mobile-backdrop');
+        sidebar.classList.toggle('mobile-open');
+        if (sidebar.classList.contains('mobile-open')) {
+            backdrop.classList.add('active');
+        } else {
+            backdrop.classList.remove('active');
         }
+    }
 
-        function toggleArtifactPanel() {
-            const panel = document.getElementById('artifact-sidebar');
-            const backdrop = document.getElementById('mobile-backdrop');
-            if (panel.classList.contains('hidden')) {
-                panel.classList.remove('hidden');
-                panel.classList.add('flex');
-                panel.classList.add('mobile-open');
-                backdrop.classList.add('active');
-                fetchAssets();
-            } else {
-                panel.classList.add('hidden');
-                panel.classList.remove('flex');
-                panel.classList.remove('mobile-open');
-                backdrop.classList.remove('active');
-            }
+    function toggleArtifactPanel() {
+        const panel = document.getElementById('artifact-sidebar');
+        const backdrop = document.getElementById('mobile-backdrop');
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            panel.classList.add('flex');
+            panel.classList.add('mobile-open');
+            backdrop.classList.add('active');
+            fetchAssets();
+        } else {
+            panel.classList.add('hidden');
+            panel.classList.remove('flex');
+            panel.classList.remove('mobile-open');
+            backdrop.classList.remove('active');
         }
+    }
 
-        function closeAllPanels() {
-            document.getElementById('left-sidebar').classList.remove('mobile-open');
-            document.getElementById('artifact-sidebar').classList.add('hidden');
-            document.getElementById('artifact-sidebar').classList.remove('flex');
-            document.getElementById('artifact-sidebar').classList.remove('mobile-open');
-            document.getElementById('mobile-backdrop').classList.remove('active');
-        }
+    function closeAllPanels() {
+        document.getElementById('left-sidebar').classList.remove('mobile-open');
+        document.getElementById('artifact-sidebar').classList.add('hidden');
+        document.getElementById('artifact-sidebar').classList.remove('flex');
+        document.getElementById('artifact-sidebar').classList.remove('mobile-open');
+        document.getElementById('mobile-backdrop').classList.remove('active');
+    }
 
-        async function init() {
-            if (localStorage.getItem('ranen_theme') === 'light') setTheme('light');
+    window.addEventListener('DOMContentLoaded', init);
 
-            await checkUserStatus();
-            await fetchSessions();
-            await fetchGems();
-            highlightActiveModelCard();
-            renderCalendar();
-            
-            // Add Enter-to-submit listener for the textarea input
-            const userInputArea = document.getElementById('user-input');
-            if (userInputArea) {
-                userInputArea.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage(new Event('submit'));
-                    }
-                });
-            }
+    async function init() {
+        if (localStorage.getItem('ranen_theme') === 'light') setTheme('light');
 
-            if (allSessions.length > 0 && !currentSessionId) {
-                loadSession(allSessions[0].id, allSessions[0].title);
-            }
-        }
-
-        async function checkUserStatus() {
-            try {
-                const res = await fetch('/api/user');
-                if (res.ok) {
-                    const user = await res.json();
-                    const nameDisplay = document.getElementById('user-display-name');
-                    const initials = document.getElementById('user-initials');
-                    const authBtn = document.getElementById('auth-btn');
-                    const headerAvatar = document.getElementById('header-user-avatar');
-
-                    if (user && user.logged_in) {
-                        currentUserName = user.name || user.email;
-                        nameDisplay.innerText = currentUserName;
-                        initials.innerText = currentUserName[0].toUpperCase();
-                        if (headerAvatar) headerAvatar.innerText = currentUserName[0].toUpperCase();
-                        authBtn.innerText = 'Logout';
-                        authBtn.href = '/auth/logout';
-                    } else {
-                        currentUserName = 'Guest User';
-                        nameDisplay.innerText = currentUserName;
-                        initials.innerText = 'G';
-                        if (headerAvatar) headerAvatar.innerText = 'G';
-                        authBtn.innerText = 'Login';
-                        authBtn.href = '/auth/login';
-                    }
-                    if (document.getElementById('welcome-screen')) {
-                        renderEmptyState();
-                    }
-                }
-            } catch (e) {
-                console.log("User status check error");
-            }
-        }
-
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-        function openPluginsModal() { document.getElementById('plugins-modal').classList.remove('hidden'); }
-        function closePluginsModal() { document.getElementById('plugins-modal').classList.add('hidden'); }
+        await checkUserStatus();
+        await fetchSessions();
+        await fetchGems();
+        highlightActiveModelCard();
+        renderCalendar();
         
-        function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); }
-        function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); }
-        function openAccountModal() { document.getElementById('account-modal').classList.remove('hidden'); }
-        function closeAccountModal() { document.getElementById('account-modal').classList.add('hidden'); }
-        function openGemsModal() { document.getElementById('gems-modal').classList.remove('hidden'); }
-        function closeGemsModal() { document.getElementById('gems-modal').classList.add('hidden'); }
-
-        async function switchToGuestMode() {
-            await fetch('/api/guest-mode', { method: 'POST' });
-            window.location.reload();
-        }
-
-        function setTheme(theme) {
-            if (theme === 'light') {
-                document.body.classList.add('light-mode');
-                localStorage.setItem('ranen_theme', 'light');
-            } else {
-                document.body.classList.remove('light-mode');
-                localStorage.setItem('ranen_theme', 'dark');
-            }
-        }
-
-        let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
-        let lastAccelMagnitude = 0;
-        let isStepCounterActive = false;
-
-        async function initStepCounter() {
-            const stepDisplay = document.getElementById("nav-step-count");
-            const stepBtn = document.getElementById("enable-steps-btn");
-
-            if (isStepCounterActive) return;
-
-            if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
-                try {
-                    const permission = await DeviceMotionEvent.requestPermission();
-                    if (permission !== "granted") {
-                        alert("Motion sensor permission denied.");
-                        return;
-                    }
-                } catch(e) { console.error(e); }
-            }
-
-            window.addEventListener("devicemotion", (event) => {
-                let acc = event.accelerationIncludingGravity || event.acceleration;
-                if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return;
-                
-                let magnitude = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
-                let delta = Math.abs(magnitude - lastAccelMagnitude);
-                
-                if (delta > 1.5) {
-                    stepCount++;
-                    if (stepDisplay) stepDisplay.innerText = stepCount;
-                    localStorage.setItem("daily_steps", stepCount);
-                    
-                    if (stepCount % 25 === 0) {
-                        fetch('/api/plugins/steps/save', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ steps: stepCount })
-                        });
-                    }
+        const userInputArea = document.getElementById('user-input');
+        if (userInputArea) {
+            userInputArea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(e);
                 }
-                lastAccelMagnitude = magnitude;
             });
+        }
 
-            isStepCounterActive = true;
-            if (stepBtn) {
-                stepBtn.innerText = "Active";
-                stepBtn.classList.add("text-green-400", "border-green-500");
-                stepBtn.classList.remove("border-gray-600");
+        if (allSessions.length > 0 && !currentSessionId) {
+            loadSession(allSessions[0].id, allSessions[0].title);
+        }
+    }
+
+    async function checkUserStatus() {
+        try {
+            const res = await fetch('/api/user');
+            if (res.ok) {
+                const user = await res.json();
+                const nameDisplay = document.getElementById('user-display-name');
+                const initials = document.getElementById('user-initials');
+                const authBtn = document.getElementById('auth-btn');
+                const headerAvatar = document.getElementById('header-user-avatar');
+
+                if (user && user.logged_in) {
+                    currentUserName = user.name || user.email;
+                    nameDisplay.innerText = currentUserName;
+                    initials.innerText = currentUserName[0].toUpperCase();
+                    if (headerAvatar) headerAvatar.innerText = currentUserName[0].toUpperCase();
+                    authBtn.innerText = 'Logout';
+                    authBtn.href = '/auth/logout';
+                } else {
+                    currentUserName = 'Guest User';
+                    nameDisplay.innerText = currentUserName;
+                    initials.innerText = 'G';
+                    if (headerAvatar) headerAvatar.innerText = 'G';
+                    authBtn.innerText = 'Login';
+                    authBtn.href = '/auth/login';
+                }
+                if (document.getElementById('welcome-screen')) {
+                    renderEmptyState();
+                }
             }
-            alert("Step Counter Active. Keep the app open as you walk.");
+        } catch (e) {
+            console.log("User status check error", e);
         }
+    }
 
-        function renderCalendar() {
-            const monthYearLabel = document.getElementById('cal-month-year');
-            const calendarDays = document.getElementById('calendar-days');
-            if (!monthYearLabel || !calendarDays) return;
+    function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+    function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+    function openPluginsModal() { document.getElementById('plugins-modal').classList.remove('hidden'); }
+    function closePluginsModal() { document.getElementById('plugins-modal').classList.add('hidden'); }
+    function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); }
+    function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); }
+    function openAccountModal() { document.getElementById('account-modal').classList.remove('hidden'); }
+    function closeAccountModal() { document.getElementById('account-modal').classList.add('hidden'); }
+    function openGemsModal() { document.getElementById('gems-modal').classList.remove('hidden'); }
+    function closeGemsModal() { document.getElementById('gems-modal').classList.add('hidden'); }
 
-            const year = calCurrentDate.getFullYear();
-            const month = calCurrentDate.getMonth();
+    async function switchToGuestMode() {
+        await fetch('/api/guest-mode', { method: 'POST' });
+        window.location.reload();
+    }
 
-            monthYearLabel.innerText = calCurrentDate.toLocaleString('default', { month: 'short', year: 'numeric' });
-            
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const today = new Date();
-
-            calendarDays.innerHTML = '';
-
-            for (let i = 0; i < firstDay; i++) {
-                calendarDays.innerHTML += `<div class="calendar-cell"></div>`;
-            }
-
-            for (let d = 1; d <= daysInMonth; d++) {
-                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
-                const isSelected = calSelectedDate.getDate() === d && calSelectedDate.getMonth() === month && calSelectedDate.getFullYear() === year;
-                
-                let classes = 'calendar-cell text-gray-300';
-                if (isToday) classes += ' today rounded-full';
-                else if (isSelected) classes += ' active-day border-gray-500 rounded-full';
-
-                calendarDays.innerHTML += `<div class="${classes}" onclick="selectCalendarDate(${year}, ${month}, ${d})">${d}</div>`;
-            }
-            renderCalendarEvents();
+    function setTheme(theme) {
+        if (theme === 'light') {
+            document.body.classList.add('light-mode');
+            localStorage.setItem('ranen_theme', 'light');
+        } else {
+            document.body.classList.remove('light-mode');
+            localStorage.setItem('ranen_theme', 'dark');
         }
+    }
 
-        function changeCalendarMonth(delta) {
-            calCurrentDate.setMonth(calCurrentDate.getMonth() + delta);
-            renderCalendar();
-        }
+    let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
+    let lastAccelMagnitude = 0;
+    let isStepCounterActive = false;
 
-        function selectCalendarDate(y, m, d) {
-            calSelectedDate = new Date(y, m, d);
-            renderCalendar();
-        }
+    async function initStepCounter() {
+        const stepDisplay = document.getElementById("nav-step-count");
+        const stepBtn = document.getElementById("enable-steps-btn");
 
-        function renderCalendarEvents() {
-            const dateKey = calSelectedDate.toISOString().split('T')[0];
-            const label = document.getElementById('cal-selected-date-label');
-            const container = document.getElementById('cal-events-list');
-            if (label) label.innerText = `Agenda: ${calSelectedDate.toDateString()}`;
+        if (isStepCounterActive) return;
 
-            const events = calEvents[dateKey] || [];
-            if (!container) return;
-
-            if (events.length === 0) {
-                container.innerHTML = `<span class="text-[10px] text-gray-500 italic">No events logged.</span>`;
-                return;
-            }
-
-            container.innerHTML = events.map((ev, idx) => `
-                <div class="flex items-center justify-between p-1.5 border border-gray-700 bg-[#2a2a2a] rounded">
-                    <span class="text-gray-200">${ev}</span>
-                    <button onclick="removeCalendarEvent('${dateKey}', ${idx})" class="text-[10px] text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            `).join('');
-        }
-
-        function addCalendarEvent() {
-            const title = prompt("Enter event title:");
-            if (!title) return;
-            const dateKey = calSelectedDate.toISOString().split('T')[0];
-            if (!calEvents[dateKey]) calEvents[dateKey] = [];
-            calEvents[dateKey].push(title);
-            localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
-            renderCalendarEvents();
-        }
-
-        function removeCalendarEvent(dateKey, idx) {
-            calEvents[dateKey].splice(idx, 1);
-            localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
-            renderCalendarEvents();
-        }
-
-        function debugArtifactCode() {
-            if (!latestExtractedCode) return;
-            const debugPrompt = `Please analyze, debug, and fix the following code. Explain what went wrong and provide the corrected version:\n\n\`\`\`\n${latestExtractedCode}\n\`\`\``;
-            if (window.innerWidth < 768) { toggleArtifactPanel(); }
-            document.getElementById('user-input').value = debugPrompt;
-            sendMessage(new Event('submit'));
-        }
-
-        function selectModel(modelValue, labelName) {
-            activeModelValue = modelValue;
-            document.getElementById('current-model-label').innerText = labelName;
-            highlightActiveModelCard();
-            closeModelModal();
-        }
-
-        function highlightActiveModelCard() {
-            document.querySelectorAll('.model-card').forEach(card => {
-                card.classList.remove('active', 'border-blue-500');
-                card.querySelector('.check-icon')?.classList.add('hidden');
-            });
-            const cardMap = {
-                'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
-                'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
-                'groq:llama-3.3-70b-versatile': 'm-groq-llama',
-                'google:gemini-3.6-flash': 'm-google-flash',
-                'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
-            };
-            const activeCard = document.getElementById(cardMap[activeModelValue]);
-            if (activeCard) {
-                activeCard.classList.add('active', 'border-blue-500');
-                activeCard.querySelector('.check-icon')?.classList.remove('hidden');
-            }
-        }
-
-        async function fetchGems() {
+        if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
             try {
-                const res = await fetch('/api/gems');
-                const gems = await res.json();
-                const container = document.getElementById('gems-list');
-                container.innerHTML = '';
-                gems.forEach(g => {
-                    container.innerHTML += `
-                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
-                            <div>
-                                <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon || 'fa-gem'} text-amber-400"></i> ${g.name}</h4>
-                                <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
-                            </div>
-                            <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
-                        </div>
-                    `;
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        function setGem(prompt, name) {
-            activeGemPrompt = prompt;
-            alert(`Persona active: ${name}`);
-            closeGemsModal();
-        }
-
-        async function createCustomGem() {
-            const name = document.getElementById('gem-name').value;
-            const description = document.getElementById('gem-desc').value;
-            const system_prompt = document.getElementById('gem-prompt').value;
-            if (!name || !system_prompt) return;
-
-            const fd = new FormData();
-            fd.append('name', name);
-            fd.append('description', description);
-            fd.append('system_prompt', system_prompt);
-
-            await fetch('/api/gems', { method: 'POST', body: fd });
-            document.getElementById('gem-name').value = '';
-            document.getElementById('gem-desc').value = '';
-            document.getElementById('gem-prompt').value = '';
-            await fetchGems();
-        }
-
-        async function fetchAssets() {
-            try {
-                const res = await fetch('/api/assets');
-                const assets = await res.json();
-                const container = document.getElementById('artifact-assets-view');
-                container.innerHTML = '';
-                if (assets.length === 0) {
-                    container.innerHTML = `<div class="text-xs text-center py-4 text-gray-400">No uploaded files found.</div>`;
+                const permission = await DeviceMotionEvent.requestPermission();
+                if (permission !== "granted") {
+                    alert("Motion sensor permission denied.");
                     return;
                 }
-                assets.forEach(a => {
-                    container.innerHTML += `
-                        <div class="p-2.5 border border-gray-700 bg-[#1e1e1e] rounded-xl flex items-center justify-between text-xs">
-                            <span class="truncate w-32 md:w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${a.file_name}</span>
-                            <a href="${a.file_path}" target="_blank" class="hover:bg-gray-700 text-[10px] px-2 py-1 rounded border border-gray-600 transition-colors">View</a>
-                        </div>
-                    `;
-                });
-            } catch (e) { console.error(e); }
+            } catch(e) { console.error(e); }
         }
 
-        async function fetchSessions() {
-            try {
-                const res = await fetch('/api/sessions');
-                allSessions = await res.json();
-                renderSessionList(allSessions);
-            } catch (e) {
-                console.error(e);
+        window.addEventListener("devicemotion", (event) => {
+            let acc = event.accelerationIncludingGravity || event.acceleration;
+            if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return;
+            
+            let magnitude = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
+            let delta = Math.abs(magnitude - lastAccelMagnitude);
+            
+            if (delta > 1.5) {
+                stepCount++;
+                if (stepDisplay) stepDisplay.innerText = stepCount;
+                localStorage.setItem("daily_steps", stepCount);
+                
+                if (stepCount % 25 === 0) {
+                    fetch('/api/plugins/steps/save', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ steps: stepCount })
+                    });
+                }
             }
+            lastAccelMagnitude = magnitude;
+        });
+
+        isStepCounterActive = true;
+        if (stepBtn) {
+            stepBtn.innerText = "Active";
+            stepBtn.classList.add("text-green-400", "border-green-500");
+            stepBtn.classList.remove("border-gray-600");
+        }
+        alert("Step Counter Active. Keep the app open as you walk.");
+    }
+
+    function renderCalendar() {
+        const monthYearLabel = document.getElementById('cal-month-year');
+        const calendarDays = document.getElementById('calendar-days');
+        if (!monthYearLabel || !calendarDays) return;
+
+        const year = calCurrentDate.getFullYear();
+        const month = calCurrentDate.getMonth();
+
+        monthYearLabel.innerText = calCurrentDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+
+        calendarDays.innerHTML = '';
+
+        for (let i = 0; i < firstDay; i++) {
+            calendarDays.innerHTML += `<div class="calendar-cell"></div>`;
         }
 
-        function renderSessionList(sessions) {
-            const list = document.getElementById('session-list');
-            list.innerHTML = '';
-            if (sessions.length > 0) {
-                sessions.forEach(s => {
-                    const safeTitle = (s.title || 'New Chat').replace(/"/g, '&quot;'); 
-                    const isActive = currentSessionId === s.id;
-                    const activeClasses = isActive 
-                        ? 'active-session'
-                        : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+            const isSelected = calSelectedDate.getDate() === d && calSelectedDate.getMonth() === month && calSelectedDate.getFullYear() === year;
+            
+            let classes = 'calendar-cell text-gray-300';
+            if (isToday) classes += ' today rounded-full';
+            else if (isSelected) classes += ' active-day border-gray-500 rounded-full';
 
-                    list.innerHTML += `
-                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
-                            <span class="truncate pr-2">${s.title || 'New Chat'}</span>
+            calendarDays.innerHTML += `<div class="${classes}" onclick="selectCalendarDate(${year}, ${month}, ${d})">${d}</div>`;
+        }
+        renderCalendarEvents();
+    }
+
+    function changeCalendarMonth(delta) {
+        calCurrentDate.setMonth(calCurrentDate.getMonth() + delta);
+        renderCalendar();
+    }
+
+    function selectCalendarDate(y, m, d) {
+        calSelectedDate = new Date(y, m, d);
+        renderCalendar();
+    }
+
+    function renderCalendarEvents() {
+        const dateKey = calSelectedDate.toISOString().split('T')[0];
+        const label = document.getElementById('cal-selected-date-label');
+        const container = document.getElementById('cal-events-list');
+        if (label) label.innerText = `Agenda: ${calSelectedDate.toDateString()}`;
+
+        const events = calEvents[dateKey] || [];
+        if (!container) return;
+
+        if (events.length === 0) {
+            container.innerHTML = `<span class="text-[10px] text-gray-500 italic">No events logged.</span>`;
+            return;
+        }
+
+        container.innerHTML = events.map((ev, idx) => `
+            <div class="flex items-center justify-between p-1.5 border border-gray-700 bg-[#2a2a2a] rounded">
+                <span class="text-gray-200">${ev}</span>
+                <button onclick="removeCalendarEvent('${dateKey}', ${idx})" class="text-[10px] text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `).join('');
+    }
+
+    function addCalendarEvent() {
+        const title = prompt("Enter event title:");
+        if (!title) return;
+        const dateKey = calSelectedDate.toISOString().split('T')[0];
+        if (!calEvents[dateKey]) calEvents[dateKey] = [];
+        calEvents[dateKey].push(title);
+        localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
+        renderCalendarEvents();
+    }
+
+    function removeCalendarEvent(dateKey, idx) {
+        calEvents[dateKey].splice(idx, 1);
+        localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
+        renderCalendarEvents();
+    }
+
+    function debugArtifactCode() {
+        if (!latestExtractedCode) return;
+        const debugPrompt = `Please analyze, debug, and fix the following code. Explain what went wrong and provide the corrected version:\n\n\`\`\`\n${latestExtractedCode}\n\`\`\``;
+        if (window.innerWidth < 768) { toggleArtifactPanel(); }
+        document.getElementById('user-input').value = debugPrompt;
+        sendMessage(new Event('submit'));
+    }
+
+    function selectModel(modelValue, labelName) {
+        activeModelValue = modelValue;
+        document.getElementById('current-model-label').innerText = labelName;
+        highlightActiveModelCard();
+        closeModelModal();
+    }
+
+    function highlightActiveModelCard() {
+        document.querySelectorAll('.model-card').forEach(card => {
+            card.classList.remove('active', 'border-blue-500');
+            card.querySelector('.check-icon')?.classList.add('hidden');
+        });
+        const cardMap = {
+            'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
+            'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
+            'groq:llama-3.3-70b-versatile': 'm-groq-llama',
+            'google:gemini-3.6-flash': 'm-google-flash',
+            'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
+        };
+        const activeCard = document.getElementById(cardMap[activeModelValue]);
+        if (activeCard) {
+            activeCard.classList.add('active', 'border-blue-500');
+            activeCard.querySelector('.check-icon')?.classList.remove('hidden');
+        }
+    }
+
+    async function fetchGems() {
+        try {
+            const res = await fetch('/api/gems');
+            const gems = await res.json();
+            const container = document.getElementById('gems-list');
+            if (!container) return;
+            container.innerHTML = '';
+            gems.forEach(g => {
+                container.innerHTML += `
+                    <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
+                        <div>
+                            <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon || 'fa-gem'} text-amber-400"></i> ${g.name}</h4>
+                            <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
                         </div>
-                    `;
-                });
-            } else {
-                list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No past chats yet.</div>`;
+                        <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
+                    </div>
+                `;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    function setGem(prompt, name) {
+        activeGemPrompt = prompt;
+        alert(`Persona active: ${name}`);
+        closeGemsModal();
+    }
+
+    async function createCustomGem() {
+        const name = document.getElementById('gem-name').value;
+        const description = document.getElementById('gem-desc').value;
+        const system_prompt = document.getElementById('gem-prompt').value;
+        if (!name || !system_prompt) return;
+
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('description', description);
+        fd.append('system_prompt', system_prompt);
+
+        await fetch('/api/gems', { method: 'POST', body: fd });
+        document.getElementById('gem-name').value = '';
+        document.getElementById('gem-desc').value = '';
+        document.getElementById('gem-prompt').value = '';
+        await fetchGems();
+    }
+
+    async function fetchAssets() {
+        try {
+            const res = await fetch('/api/assets');
+            const assets = await res.json();
+            const container = document.getElementById('artifact-assets-view');
+            if (!container) return;
+            container.innerHTML = '';
+            if (assets.length === 0) {
+                container.innerHTML = `<div class="text-xs text-center py-4 text-gray-400">No uploaded files found.</div>`;
+                return;
             }
+            assets.forEach(a => {
+                container.innerHTML += `
+                    <div class="p-2.5 border border-gray-700 bg-[#1e1e1e] rounded-xl flex items-center justify-between text-xs">
+                        <span class="truncate w-32 md:w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${a.file_name}</span>
+                        <a href="${a.file_path}" target="_blank" class="hover:bg-gray-700 text-[10px] px-2 py-1 rounded border border-gray-600 transition-colors">View</a>
+                    </div>
+                `;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    async function fetchSessions() {
+        try {
+            const res = await fetch('/api/sessions');
+            allSessions = await res.json();
+            renderSessionList(allSessions);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderSessionList(sessions) {
+        const list = document.getElementById('session-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (sessions.length > 0) {
+            sessions.forEach(s => {
+                const safeTitle = (s.title || 'New Chat').replace(/"/g, '&quot;'); 
+                const isActive = currentSessionId === s.id;
+                const activeClasses = isActive 
+                    ? 'active-session'
+                    : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
+
+                list.innerHTML += `
+                    <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
+                        <span class="truncate pr-2">${s.title || 'New Chat'}</span>
+                    </div>
+                `;
+            });
+        } else {
+            list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No past chats yet.</div>`;
+        }
+    }
+
+    function filterSessions(query) {
+        const filtered = allSessions.filter(s => s.title.toLowerCase().includes(query.toLowerCase()));
+        renderSessionList(filtered);
+    }
+
+    function renderEmptyState() {
+        const container = document.getElementById('messages-container');
+        if (!container) return;
+        container.innerHTML = `
+            <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
+                <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
+                    Hi ${currentUserName}, Where should we start?
+                </h1>
+                <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
+            </div>
+        `;
+    }
+
+    async function createNewSession() {
+        const res = await fetch('/api/new-session', { method: 'POST' });
+        const data = await res.json();
+        currentSessionId = data.session_id;
+        renderEmptyState();
+        const titleEl = document.getElementById('current-chat-title');
+        if (titleEl) titleEl.innerText = 'New Chat';
+        await fetchSessions();
+        closeAllPanels();
+    }
+
+    async function loadSession(id, title) {
+        currentSessionId = id;
+        const titleEl = document.getElementById('current-chat-title');
+        if (titleEl) titleEl.innerText = title;
+        const res = await fetch(`/api/history/${id}`);
+        const messages = await res.json();
+        const container = document.getElementById('messages-container');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        if (!Array.isArray(messages) || messages.length === 0) {
+            renderEmptyState();
+        } else {
+            messages.forEach(m => renderMessage(m.role, m.content, false));
+            container.scrollTop = container.scrollHeight;
+        }
+        fetchSessions();
+        closeAllPanels();
+    }
+
+    function triggerNativeCamera() {
+        document.getElementById('native-camera-input').click();
+    }
+
+    function handleFileSelect(e) {
+        selectedFile = e.target.files[0];
+        if (selectedFile) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('attachment-preview-img').src = evt.target.result;
+                document.getElementById('attachment-name').innerText = selectedFile.name;
+                document.getElementById('attachment-preview-container').classList.remove('hidden');
+                document.getElementById('attachment-preview-container').classList.add('flex');
+            };
+            reader.readAsDataURL(selectedFile);
+        }
+    }
+
+    function clearAttachment() {
+        selectedFile = null;
+        document.getElementById('native-camera-input').value = '';
+        document.getElementById('file-upload').value = '';
+        document.getElementById('attachment-preview-container').classList.add('hidden');
+        document.getElementById('attachment-preview-container').classList.remove('flex');
+    }
+
+    async function sendMessage(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const input = document.getElementById('user-input');
+        const text = input.value.trim();
+        if (!text && !selectedFile) return;
+
+        if (!currentSessionId) {
+            const newRes = await fetch('/api/new-session', { method: 'POST' });
+            const newData = await newRes.json();
+            currentSessionId = newData.session_id;
         }
 
-        function filterSessions(query) {
-            const filtered = allSessions.filter(s => s.title.toLowerCase().includes(query.toLowerCase()));
-            renderSessionList(filtered);
-        }
+        renderMessage('user', text + (selectedFile ? ` [Captured Photo/File: ${selectedFile.name}]` : ''), true);
+        
+        const formData = new FormData();
+        formData.append('session_id', currentSessionId);
+        formData.append('message', text);
+        formData.append('model_choice', activeModelValue);
+        if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
+        if (selectedFile) formData.append('file', selectedFile);
 
-        function renderEmptyState() {
-            const container = document.getElementById('messages-container');
-            container.innerHTML = `
-                <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
-                    <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
-                        Hi ${currentUserName}, Where should we start?
-                    </h1>
-                    <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
+        input.value = '';
+        clearAttachment();
+
+        const sendBtn = document.getElementById('send-btn');
+        const originalBtnHTML = sendBtn.innerHTML;
+        sendBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-lg"></i>`;
+        sendBtn.disabled = true;
+        sendBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+        try {
+            const res = await fetch('/api/chat', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+            const data = await res.json();
+            renderMessage('assistant', data.response, true);
+            await fetchSessions();
+        } catch (error) {
+            renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
+        } finally {
+            sendBtn.innerHTML = originalBtnHTML;
+            sendBtn.disabled = false;
+            sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+    }
+
+    function renderMessage(role, content, shouldScroll = true) {
+        const container = document.getElementById('messages-container');
+        if (!container) return;
+        const welcomeScreen = document.getElementById('welcome-screen');
+        if (welcomeScreen) welcomeScreen.remove();
+
+        const isUser = role === 'user';
+        const formattedContent = marked.parse(content || '');
+        if (!isUser) extractCodeForArtifacts(content || '');
+
+        let msgHtml = "";
+        if (isUser) {
+            msgHtml = `
+                <div class="user-msg-container">
+                    <div class="user-msg">
+                        ${formattedContent}
+                    </div>
+                </div>
+            `;
+        } else {
+            msgHtml = `
+                <div class="assistant-msg-container">
+                    <div class="assistant-avatar">
+                        <i class="fa-solid fa-sparkles text-white"></i>
+                    </div>
+                    <div class="assistant-content">
+                        <div class="prose prose-invert text-sm leading-relaxed">${formattedContent}</div>
+                        <div class="assistant-actions">
+                            <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
+                            <button onclick="createNewSession()" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             `;
         }
 
-        async function createNewSession() {
-            const res = await fetch('/api/new-session', { method: 'POST' });
-            const data = await res.json();
-            currentSessionId = data.session_id;
-            renderEmptyState();
-            const titleEl = document.getElementById('current-chat-title');
-            if (titleEl) titleEl.innerText = 'New Chat';
-            await fetchSessions();
-            closeAllPanels();
-        }
+        container.innerHTML += msgHtml;
 
-        async function loadSession(id, title) {
-            currentSessionId = id;
-            const titleEl = document.getElementById('current-chat-title');
-            if (titleEl) titleEl.innerText = title;
-            const res = await fetch(`/api/history/${id}`);
-            const messages = await res.json();
-            const container = document.getElementById('messages-container');
-            container.innerHTML = '';
-            
-            if (messages.length === 0) {
-                renderEmptyState();
+        container.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+
+        if (shouldScroll) container.scrollTop = container.scrollHeight;
+    }
+
+    function copyToClipboard(btn) {
+        const text = btn.closest('.assistant-content').querySelector('.prose').innerText;
+        navigator.clipboard.writeText(text);
+        btn.innerHTML = `<i class="fa-solid fa-check text-green-400"></i>`;
+        setTimeout(() => { btn.innerHTML = `<i class="fa-regular fa-copy"></i>`; }, 2000);
+    }
+
+    function extractCodeForArtifacts(markdownText) {
+        const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+        let match;
+        let codeExtracted = "";
+        let securityExtracted = "";
+        let mermaidExtracted = "";
+
+        while ((match = codeBlockRegex.exec(markdownText)) !== null) {
+            const lang = match[1].toLowerCase();
+            const content = match[2];
+
+            if (lang === 'mermaid') {
+                mermaidExtracted += content + "\n\n";
+            } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
+                securityExtracted += content + "\n\n";
             } else {
-                messages.forEach(m => renderMessage(m.role, m.content, false));
-                container.scrollTop = container.scrollHeight;
+                codeExtracted += content + "\n\n";
             }
-            fetchSessions();
-            closeAllPanels();
         }
-
-        function triggerNativeCamera() {
-            document.getElementById('native-camera-input').click();
-        }
-
-        function handleFileSelect(e) {
-            selectedFile = e.target.files[0];
-            if (selectedFile) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    document.getElementById('attachment-preview-img').src = evt.target.result;
-                    document.getElementById('attachment-name').innerText = selectedFile.name;
-                    document.getElementById('attachment-preview-container').classList.remove('hidden');
-                    document.getElementById('attachment-preview-container').classList.add('flex');
-                };
-                reader.readAsDataURL(selectedFile);
+        
+        if (codeExtracted.trim()) {
+            latestExtractedCode = codeExtracted.trim();
+            const codeView = document.getElementById('artifact-code-view');
+            if (codeView) codeView.innerText = latestExtractedCode;
+            if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
+                const previewView = document.getElementById('artifact-preview-view');
+                if (previewView) previewView.srcdoc = latestExtractedCode;
             }
         }
 
-        function clearAttachment() {
-            selectedFile = null;
-            document.getElementById('native-camera-input').value = '';
-            document.getElementById('file-upload').value = '';
-            document.getElementById('attachment-preview-container').classList.add('hidden');
-            document.getElementById('attachment-preview-container').classList.remove('flex');
-        }
-
-        async function sendMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('user-input');
-            const text = input.value.trim();
-            if (!text && !selectedFile) return;
-
-            if (!currentSessionId) {
-                const newRes = await fetch('/api/new-session', { method: 'POST' });
-                const newData = await newRes.json();
-                currentSessionId = newData.session_id;
-            }
-
-            renderMessage('user', text + (selectedFile ? ` [Captured Photo/File: ${selectedFile.name}]` : ''), true);
-            
-            const formData = new FormData();
-            formData.append('session_id', currentSessionId);
-            formData.append('message', text);
-            formData.append('model_choice', activeModelValue);
-            if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
-            if (selectedFile) formData.append('file', selectedFile);
-
-            input.value = '';
-            clearAttachment();
-
-            const sendBtn = document.getElementById('send-btn');
-            const originalBtnHTML = sendBtn.innerHTML;
-            sendBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-lg"></i>`;
-            sendBtn.disabled = true;
-            sendBtn.classList.add("opacity-50", "cursor-not-allowed");
-
-            try {
-                const res = await fetch('/api/chat', { method: 'POST', body: formData });
-                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-                const data = await res.json();
-                renderMessage('assistant', data.response, true);
-                await fetchSessions();
-            } catch (error) {
-                renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
-            } finally {
-                sendBtn.innerHTML = originalBtnHTML;
-                sendBtn.disabled = false;
-                sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
-            }
-        }
-
-        function renderMessage(role, content, shouldScroll = true) {
-            const container = document.getElementById('messages-container');
-            const welcomeScreen = document.getElementById('welcome-screen');
-            if (welcomeScreen) welcomeScreen.remove();
-
-            const isUser = role === 'user';
-            const formattedContent = marked.parse(content);
-            if (!isUser) extractCodeForArtifacts(content);
-
-            let msgHtml = "";
-            if (isUser) {
-                msgHtml = `
-                    <div class="user-msg-container">
-                        <div class="user-msg">
-                            ${formattedContent}
-                        </div>
-                    </div>
-                `;
-            } else {
-                msgHtml = `
-                    <div class="assistant-msg-container">
-                        <div class="assistant-avatar">
-                            <i class="fa-solid fa-sparkles text-white"></i>
-                        </div>
-                        <div class="assistant-content">
-                            <div class="prose prose-invert text-sm leading-relaxed">${formattedContent}</div>
-                            <div class="assistant-actions">
-                                <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
-                                <button onclick="createNewSession()" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            container.innerHTML += msgHtml;
-
-            // Highlight code blocks and initialize interactive components dynamically
-            container.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
-
-            if (shouldScroll) container.scrollTop = container.scrollHeight;
-        }
-
-        function copyToClipboard(btn) {
-            const text = btn.closest('.assistant-content').querySelector('.prose').innerText;
-            navigator.clipboard.writeText(text);
-            btn.innerHTML = `<i class="fa-solid fa-check text-green-400"></i>`;
-            setTimeout(() => { btn.innerHTML = `<i class="fa-regular fa-copy"></i>`; }, 2000);
-        }
-
-        function extractCodeForArtifacts(markdownText) {
-            const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-            let match;
-            let codeExtracted = "";
-            let securityExtracted = "";
-            let mermaidExtracted = "";
-
-            while ((match = codeBlockRegex.exec(markdownText)) !== null) {
-                const lang = match[1].toLowerCase();
-                const content = match[2];
-
-                if (lang === 'mermaid') {
-                    mermaidExtracted += content + "\n\n";
-                } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
-                    securityExtracted += content + "\n\n";
-                } else {
-                    codeExtracted += content + "\n\n";
-                }
-            }
-            
-            if (codeExtracted.trim()) {
-                latestExtractedCode = codeExtracted.trim();
-                document.getElementById('artifact-code-view').innerText = latestExtractedCode;
-                if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
-                    document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
-                }
-            }
-
-            if (mermaidExtracted.trim()) {
-                const container = document.getElementById('mermaid-container');
+        if (mermaidExtracted.trim()) {
+            const container = document.getElementById('mermaid-container');
+            if (container) {
                 container.innerHTML = `<div class="mermaid">${mermaidExtracted.trim()}</div>`;
-                
                 try {
                     mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
                 } catch(e) { 
                     console.error("Mermaid Render Error:", e); 
                 }
-                
-                if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
-                    toggleArtifactPanel();
-                }
-                switchArtifactTab('architecture');
             }
+            
+            if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
+                toggleArtifactPanel();
+            }
+            switchArtifactTab('architecture');
+        }
 
-            if (securityExtracted.trim()) {
-                const secView = document.getElementById('artifact-security-view');
+        if (securityExtracted.trim()) {
+            const secView = document.getElementById('artifact-security-view');
+            if (secView) {
                 const content = securityExtracted.trim();
                 
                 if (content.includes('![') || content.includes('<img')) {
@@ -1294,45 +1303,31 @@
                     secView.classList.add('whitespace-pre-wrap', 'text-green-400', 'font-mono');
                     secView.classList.remove('prose', 'prose-invert', 'max-w-none');
                 }
-                
-                if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
-                    toggleArtifactPanel();
-                }
-                switchArtifactTab('security');
             }
-        }
-
-        function switchArtifactTab(tab) {
-            const tabs = ['code', 'preview', 'assets', 'architecture', 'security'];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-${t}-btn`);
-                const view = document.getElementById(`artifact-${t}-view`);
-                
-                if (btn) btn.className = "text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white";
-                if (view) {
-                    view.classList.add('hidden');
-                    if (t === 'architecture') view.classList.remove('flex');
-                }
-            });
             
-            const debugBtn = document.getElementById('debug-code-btn');
-            debugBtn.classList.add('hidden');
-
-            const activeBtn = document.getElementById(`tab-${tab}-btn`);
-            const activeView = document.getElementById(`artifact-${tab}-view`);
-            
-            if (activeBtn) activeBtn.className = "text-[11px] md:text-xs px-2 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
-            if (activeView) {
-                activeView.classList.remove('hidden');
-                if (tab === 'architecture') activeView.classList.add('flex');
+            if (document.getElementById('artifact-sidebar').classList.contains('hidden') && window.innerWidth >= 768) {
+                toggleArtifactPanel();
             }
-
-            if (tab === 'code' && latestExtractedCode) debugBtn.classList.remove('hidden');
-            if (tab === 'preview' && latestExtractedCode) activeView.srcdoc = latestExtractedCode;
-            if (tab === 'assets') fetchAssets();
+            switchArtifactTab('security');
         }
+    }
 
-        document.addEventListener('DOMContentLoaded', init);
-    </script>
+    function switchArtifactTab(tab) {
+        const tabs = ['code', 'preview', 'assets', 'architecture', 'security'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tab-${t}-btn`);
+            const view = document.getElementById(`artifact-${t}-view`);
+            
+            if (btn) btn.className = "text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white";
+            if (view) view.classList.add('hidden');
+        });
+
+        const activeBtn = document.getElementById(`tab-${tab}-btn`);
+        const activeView = document.getElementById(`artifact-${tab}-view`);
+
+        if (activeBtn) activeBtn.className = "text-[11px] md:text-xs px-2 py-1 rounded font-semibold transition-colors border border-gray-600 bg-[#2a2a2a] text-white";
+        if (activeView) activeView.classList.remove('hidden');
+    }
+</script>
 </body>
 </html>
