@@ -20,7 +20,6 @@ from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
-from duckduckgo_search import DDGS
 
 app = FastAPI()
 
@@ -153,28 +152,7 @@ def get_identifier(request: Request):
         return ("user_email", user['email'])
     
     guest_id = request.cookies.get("guest_id")
-    if not guest_id:
-        guest_id = "default_guest"
-    return ("guest_id", guest_id)
-
-# --- DUCKDUCKGO WEB SEARCH HELPER ---
-def search_duckduckgo(query: str, max_results: int = 4):
-    try:
-        with DDGS() as ddgs:
-            results = [r for r in ddgs.text(query, max_results=max_results)]
-            if not results:
-                return "No relevant web search results found."
-            
-            formatted_context = "Live Web Search Results:\n"
-            for idx, r in enumerate(results, 1):
-                title = r.get("title", "Untitled")
-                href = r.get("href", "#")
-                body = r.get("body", "")
-                formatted_context += f"{idx}. [{title}]({href})\n   Snippet: {body}\n\n"
-            return formatted_context
-    except Exception as e:
-        print(f"DuckDuckGo search error: {e}")
-        return "Web search temporarily unavailable."
+    return ("guest_id", guest_id if guest_id else "unknown_guest")
 
 # --- DATABASE HELPER FUNCTIONS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
@@ -196,6 +174,7 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
             if conn:
                 conn.close()
     
+    # Disk fallback
     local_chats = load_local_chats()
     if user_email not in local_chats:
         local_chats[user_email] = {}
@@ -332,6 +311,7 @@ async def get_user_sessions(request: Request):
             if conn:
                 conn.close()
     
+    # Disk fallback
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
@@ -346,17 +326,15 @@ async def get_session_history(request: Request, session_id: str):
                 cur.execute("SELECT messages FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
                 row = cur.fetchone()
                 conn.close()
-                if row and row.get("messages") is not None:
+                if row and row.get("messages"):
                     msgs = row["messages"]
-                    if isinstance(msgs, list):
-                        return msgs
-                    elif isinstance(msgs, str):
-                        return json.loads(msgs)
+                    return msgs if isinstance(msgs, list) else json.loads(msgs)
         except Exception as e:
             print(f"DATABASE FETCH HISTORY ERROR: {e}")
             if conn:
                 conn.close()
     
+    # Disk fallback
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     if str(session_id) in user_data:
@@ -494,7 +472,7 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
+    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -511,10 +489,7 @@ async def chat_with_assistant(
                 conn.close()
                 if row:
                     msgs = row.get("messages", [])
-                    if isinstance(msgs, list):
-                        existing_messages = msgs
-                    elif isinstance(msgs, str):
-                        existing_messages = json.loads(msgs)
+                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
                     chat_title = row.get("title", "New Chat")
         except Exception as e:
             print(f"DATABASE FETCH ERROR IN /api/chat: {e}")
@@ -584,12 +559,6 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- DuckDuckGo Web Search Auto-Trigger ---
-    search_keywords = ["search", "latest", "news", "current", "who is", "what is", "weather", "price", "update"]
-    search_context = ""
-    if any(kw in lower_prompt for kw in search_keywords) and len(message.strip()) > 3:
-        search_context = search_duckduckgo(message)
-
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
         "You are Ranen, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
@@ -603,13 +572,10 @@ async def chat_with_assistant(
         "7. **Identity:** If asked who built you, state clearly: 'Nwodili Yaemerie Covenant made me.'"
     )
 
-    if search_context:
-        system_prompt += f"\n\nREAL-TIME WEB CONTEXT:\n{search_context}\nUse this live context to accurately answer the user's latest prompt."
-
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-2.5-flash"
+        actual_model = "gemini-3.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -687,6 +653,11 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
+                if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
+                    actual_model = "openai/gpt-oss-120b"
+                elif "8b" in actual_model:
+                    actual_model = "openai/gpt-oss-20b"
+
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history:
                     messages_payload.append({"role": msg["role"], "content": msg["content"]})
@@ -709,4 +680,4 @@ async def chat_with_assistant(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+    uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
