@@ -23,10 +23,14 @@ import psycopg2.extras
 
 # DuckDuckGo Web & Image Search Dependency Check
 try:
-    from ddgs import DDGS
+    from duckduckgo_search import AsyncDDGS
     HAS_DDGS = True
 except ImportError:
-    HAS_DDGS = False
+    try:
+        from ddgs import DDGS
+        HAS_DDGS = True
+    except ImportError:
+        HAS_DDGS = False
 
 app = FastAPI()
 
@@ -546,7 +550,7 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Image Search Interceptor (DuckDuckGo Update) ---
+    # --- Image Search Interceptor (Asynchronous DuckDuckGo Update) ---
     image_keywords = ["search image", "find image", "search picture", "find picture", "search pic", "find pic", "duckduckgo", "get image", "generate image", "create image"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
@@ -558,32 +562,32 @@ async def chat_with_assistant(
         
         clean_prompt = clean_prompt.strip() or "cyberpunk matrix art"
         
+        ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
         if HAS_DDGS:
             try:
-                results = DDGS().images(clean_prompt, max_results=1)
-                if results:
-                    image_url = results[0]['image']
-                    title = results[0].get('title', 'DuckDuckGo Image')
-                    ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
-                else:
-                    ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
+                async with AsyncDDGS() as ddgs:
+                    results = [r async for r in ddgs.images(clean_prompt, max_results=1)]
+                    if results:
+                        image_url = results[0].get('image')
+                        title = results[0].get('title', 'DuckDuckGo Image')
+                        ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
             except Exception as e:
-                ai_response = f"DuckDuckGo Search Error: {str(e)}"
+                ai_response = f"DuckDuckGo Image Search Error: {str(e)}"
         else:
-             ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
+             ai_response = "**System Error:** DuckDuckGo feature requires the `duckduckgo_search` package."
         
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Live Web Search Interceptor (DuckDuckGo text search for current info / news) ---
+    # --- Live Web Search Interceptor (Asynchronous text search for current info / news) ---
     web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
     effective_message = message
     
     if HAS_DDGS and any(kw in lower_prompt for kw in web_search_keywords):
         try:
-            with DDGS() as ddgs:
-                results = list(ddgs.text(message, max_results=3))
+            async with AsyncDDGS() as ddgs:
+                results = [r async for r in ddgs.text(message, max_results=3)]
                 if results:
                     snippets = "\n".join([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
                     effective_message = f"{message}\n\n[Real-Time Web Search Context]:\n{snippets}"
