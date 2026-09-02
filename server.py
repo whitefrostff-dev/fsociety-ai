@@ -21,6 +21,13 @@ from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
 
+# DuckDuckGo Image Search Dependency Check
+try:
+    from duckduckgo_search import DDGS
+    HAS_DDGS = True
+except ImportError:
+    HAS_DDGS = False
+
 app = FastAPI()
 
 # --- POSTGRESQL DATABASE SETUP ---
@@ -539,21 +546,32 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Image Generation Interceptor ---
-    image_keywords = ["generate image", "create image", "draw an image", "make an image", "generate picture", "draw a", "generate pic", "generate pics", "draw pics"]
+    # --- Image Search Interceptor (DuckDuckGo Update) ---
+    image_keywords = ["search image", "find image", "search picture", "find picture", "search pic", "find pic", "duckduckgo", "get image", "generate image", "create image"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
         clean_prompt = message
         for kw in image_keywords:
-            clean_prompt = clean_prompt.replace(kw, "")
+            clean_prompt = clean_prompt.lower().replace(kw, "")
         for noise in ["for me", "of a", "of", "a", "picture", "pics", "pic"]:
             clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
         
-        clean_prompt = clean_prompt.strip() or "cyberpunk hacktivist matrix art"
-        encoded_prompt = urllib.parse.quote(clean_prompt)
-        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true"
+        clean_prompt = clean_prompt.strip() or "cyberpunk matrix art"
         
-        ai_response = f"Here is the generated image for **\"{clean_prompt}\"**:\n\n```security\n![Generated Image]({image_url})\n```"
+        if HAS_DDGS:
+            try:
+                # Max results = 1 to just grab the top image match
+                results = DDGS().images(clean_prompt, max_results=1)
+                if results:
+                    image_url = results[0]['image']
+                    title = results[0].get('title', 'DuckDuckGo Image')
+                    ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
+                else:
+                    ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
+            except Exception as e:
+                ai_response = f"DuckDuckGo Search Error: {str(e)}"
+        else:
+             ai_response = "**System Error:** DuckDuckGo feature requires the `duckduckgo-search` package. Please run `pip install duckduckgo-search` on the server."
         
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
