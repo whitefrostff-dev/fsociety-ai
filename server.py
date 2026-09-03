@@ -574,7 +574,7 @@ async def chat_with_assistant(
         clean_prompt = message
         # Remove common verbs/action words/noise to isolate the actual subject
         for noise in ["search", "saerch", "find", "get", "show", "generate", "create", "duckduckgo", "for me", "of a", "of", "a", "picture", "pictures", "pic", "pics", "image", "images", "photo", "photos"]:
-            clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=rc := re.IGNORECASE)
+            clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
         
         clean_prompt = clean_prompt.strip() or message
         
