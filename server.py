@@ -12,6 +12,8 @@ import urllib.parse
 import shutil
 import httpx
 import json
+import time
+import asyncio
 from pydantic import BaseModel
 from groq import Groq
 from google import genai
@@ -29,6 +31,23 @@ except ImportError:
     HAS_DDGS = False
 
 app = FastAPI()
+
+# --- SEARCH CACHING & RATE-LIMIT PREVENTION SETUP ---
+search_cache = {}
+CACHE_TTL = 3600  # Cache search results for 1 hour
+search_lock = asyncio.Lock()
+
+def get_cached_search(query: str, search_type: str = "text"):
+    cache_key = f"{search_type}:{query.strip().lower()}"
+    if cache_key in search_cache:
+        data, timestamp = search_cache[cache_key]
+        if time.time() - timestamp < CACHE_TTL:
+            return data
+    return None
+
+def set_cached_search(query: str, results, search_type: str = "text"):
+    cache_key = f"{search_type}:{query.strip().lower()}"
+    search_cache[cache_key] = (results, time.time())
 
 # --- POSTGRESQL DATABASE SETUP ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -193,18 +212,9 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
     return True
 
 # --- ROUTES ---
-@app.get("/google{token}.html", response_class=HTMLResponse)
-async def google_verification(token: str):
-    # Dynamically handle ANY Google verification file so it never fails again
-    filename = f"google{token}.html"
-    
-    # If the file actually exists on disk, read and serve it
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-            
-    # If the file hasn't synced from GitHub yet, spoof the success response instantly
-    return f"google-site-verification: {filename}"
+@app.get("/google0b211ab21a1539ad.html", response_class=HTMLResponse)
+async def google_verification():
+    return "google-site-verification: google0b211ab21a1539ad.html"
 
 @app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
@@ -555,7 +565,7 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Image Search Interceptor (Synchronous DuckDuckGo Fix) ---
+    # --- Image Search Interceptor (With Caching & Concurrency Lock) ---
     image_keywords = ["search image", "find image", "search picture", "find picture", "search pic", "find pic", "duckduckgo", "get image", "generate image", "create image"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
@@ -569,15 +579,24 @@ async def chat_with_assistant(
         
         ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
         if HAS_DDGS:
-            try:
-                with DDGS() as ddgs:
-                    results = list(ddgs.images(clean_prompt, max_results=1))
-                    if results:
-                        image_url = results[0].get('image')
-                        title = results[0].get('title', 'DuckDuckGo Image')
-                        ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
-            except Exception as e:
-                ai_response = f"DuckDuckGo Image Search Error: {str(e)}"
+            cached_img_results = get_cached_search(clean_prompt, search_type="image")
+            if cached_img_results is not None:
+                results = cached_img_results
+            else:
+                async with search_lock:
+                    try:
+                        await asyncio.sleep(0.5) # Gentle spacing to prevent rapid-fire blocking
+                        with DDGS() as ddgs:
+                            results = list(ddgs.images(clean_prompt, max_results=1))
+                            set_cached_search(clean_prompt, results, search_type="image")
+                    except Exception as e:
+                        results = []
+                        print(f"Image search throttle/error: {e}")
+
+            if results:
+                image_url = results[0].get('image')
+                title = results[0].get('title', 'DuckDuckGo Image')
+                ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
         else:
              ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
         
@@ -585,19 +604,28 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Live Web Search Interceptor (Synchronous text search for current info / news) ---
+    # --- Live Web Search Interceptor (With Caching & Concurrency Lock) ---
     web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
     effective_message = message
     
     if HAS_DDGS and any(kw in lower_prompt for kw in web_search_keywords):
-        try:
-            with DDGS() as ddgs:
-                results = list(ddgs.text(message, max_results=3))
-                if results:
-                    snippets = "\n".join([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
-                    effective_message = f"{message}\n\n[Real-Time Web Search Context]:\n{snippets}"
-        except Exception as e:
-            print(f"Web search execution error: {e}")
+        cached_text_results = get_cached_search(message, search_type="text")
+        if cached_text_results is not None:
+            results = cached_text_results
+        else:
+            async with search_lock:
+                try:
+                    await asyncio.sleep(0.5) # Space out concurrent requests smoothly
+                    with DDGS() as ddgs:
+                        results = list(ddgs.text(message, max_results=3))
+                        set_cached_search(message, results, search_type="text")
+                except Exception as e:
+                    results = []
+                    print(f"Web search execution error: {e}")
+
+        if results:
+            snippets = "\n".join([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
+            effective_message = f"{message}\n\n[Real-Time Web Search Context]:\n{snippets}"
 
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
