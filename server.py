@@ -564,17 +564,21 @@ async def chat_with_assistant(
                 with DDGS() as ddgs:
                     # Fetch up to 5 results to ensure we find a valid image URL
                     results = list(ddgs.images(clean_prompt, max_results=5))
-                    valid_image = None
-                    valid_title = 'DuckDuckGo Image'
-                    
-                    for res in results:
-                        candidate_url = res.get('image', '')
-                        # Strip any query parameters for the extension check
-                        base_url = candidate_url.split('?')[0].lower()
-                        if base_url.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-                            valid_image = candidate_url
-                            valid_title = res.get('title', 'DuckDuckGo Image')
-                            break
+        valid_image = None
+        valid_title = 'DuckDuckGo Image'
+
+        for res in results:
+            candidate_url = res.get('image', '')
+            base_url = candidate_url.split('?')[0].lower()
+            
+            # This must be indented inside the loop
+            if base_url.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                valid_image = candidate_url
+                valid_title = res.get('title', 'DuckDuckGo Image')
+                break
+        
+        if valid_image:
+            # Output the markdown directly...       
 
                     if valid_image:
                         # Output the markdown directly, without wrapping it in a code block
