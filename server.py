@@ -566,7 +566,7 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Image Search Interceptor (Renders standard Markdown image in the main chat feed) ---
+    # --- Image Search Interceptor (Using raw HTML img tag to avoid artifact pane routing) ---
     image_keywords = ["search image", "find image", "search picture", "find picture", "search pic", "find pic", "duckduckgo", "get image", "generate image", "create image"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
@@ -597,8 +597,8 @@ async def chat_with_assistant(
             if results:
                 image_url = results[0].get('image')
                 title = results[0].get('title', 'DuckDuckGo Image')
-                # Rendered cleanly using standard markdown image syntax so it stays in the main chat stream
-                ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n![{title}]({image_url})"
+                # Using direct HTML image tag so the client frontend code-block / artifact parser completely ignores it
+                ai_response = f'Here is the image I found for **"{clean_prompt}"** via DuckDuckGo Search:<br><br><img src="{image_url}" alt="{title}" style="max-width:100%; border-radius:8px; margin-top:10px;" />'
         else:
              ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
         
