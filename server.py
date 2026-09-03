@@ -566,7 +566,7 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Image Search Interceptor (With Caching & Concurrency Lock) ---
+    # --- Image Search Interceptor (Renders standard Markdown image in the main chat feed) ---
     image_keywords = ["search image", "find image", "search picture", "find picture", "search pic", "find pic", "duckduckgo", "get image", "generate image", "create image"]
     
     if any(keyword in lower_prompt for keyword in image_keywords):
@@ -586,7 +586,7 @@ async def chat_with_assistant(
             else:
                 async with search_lock:
                     try:
-                        await asyncio.sleep(0.5) # Gentle spacing to prevent rapid-fire blocking
+                        await asyncio.sleep(0.5) 
                         with DDGS() as ddgs:
                             results = list(ddgs.images(clean_prompt, max_results=1))
                             set_cached_search(clean_prompt, results, search_type="image")
@@ -597,7 +597,8 @@ async def chat_with_assistant(
             if results:
                 image_url = results[0].get('image')
                 title = results[0].get('title', 'DuckDuckGo Image')
-                ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n```security\n![{title}]({image_url})\n```"
+                # Rendered cleanly using standard markdown image syntax so it stays in the main chat stream
+                ai_response = f"Here is the image I found for **\"{clean_prompt}\"** via DuckDuckGo Search:\n\n![{title}]({image_url})"
         else:
              ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
         
@@ -616,7 +617,7 @@ async def chat_with_assistant(
         else:
             async with search_lock:
                 try:
-                    await asyncio.sleep(0.5) # Space out concurrent requests smoothly
+                    await asyncio.sleep(0.5) 
                     with DDGS() as ddgs:
                         results = list(ddgs.text(message, max_results=3))
                         set_cached_search(message, results, search_type="text")
@@ -693,8 +694,8 @@ async def chat_with_assistant(
                     contents.append(f"{role_prefix}: {msg['content']}")
 
                 if is_image and file_bytes:
-                    image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-                    contents.append(image_part)
+                    image_path = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
+                    contents.append(image_path)
                 
                 contents.append(effective_message)
 
