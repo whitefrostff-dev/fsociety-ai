@@ -14,6 +14,7 @@ import httpx
 import json
 import time
 import asyncio
+from datetime import datetime
 from pydantic import BaseModel
 from groq import Groq
 from google import genai
@@ -624,8 +625,15 @@ async def chat_with_assistant(
                     print(f"Web search execution error: {e}")
 
         if results:
-            snippets = "\n".join([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
-            effective_message = f"{message}\n\n[Real-Time Web Search Context]:\n{snippets}"
+            snippets = "\n".join([f"- Title: {r.get('title')}\n  Snippet: {r.get('body')}\n  Source URL: {r.get('href')}" for r in results])
+            current_date_str = datetime.now().strftime("%A, %B %d, %Y")
+            effective_message = (
+                f"{message}\n\n"
+                f"[Live Web Search Context - Current Date: {current_date_str}]:\n"
+                f"{snippets}\n\n"
+                f"Instructions: Use the real-time search context above to answer the user's question directly. "
+                f"Do not claim you lack live access or real-time web capabilities; you have been provided live web results above."
+            )
 
     # --- Standard AI Chat Processing ---
     system_prompt = gem_prompt or (
