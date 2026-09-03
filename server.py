@@ -572,12 +572,28 @@ async def chat_with_assistant(
     
     if has_image_intent:
         clean_prompt = message
-        # Remove common verbs/action words/noise to isolate the actual subject
-        for noise in ["search", "saerch", "find", "get", "show", "generate", "create", "duckduckgo", "for me", "of a", "of", "a", "picture", "pictures", "pic", "pics", "image", "images", "photo", "photos"]:
+        
+        # 1. Try to extract the actual subject after the trigger words (e.g., "show me a picture of X" -> "X")
+        match = re.search(r'(?:picture|pic|image|photo)s?\s+(?:of\s+)?(.*)', message, re.IGNORECASE)
+        if match and match.group(1).strip():
+            clean_prompt = match.group(1).strip()
+            
+        # 2. Strip remaining conversational noise words that confuse DuckDuckGo
+        noise_words = [
+            "search", "find", "get", "show", "me", "generate", "create", 
+            "duckduckgo", "can you", "please", "i want", "a", "an", "the", "some"
+        ]
+        
+        # We process noise words safely so we don't accidentally ruin target searches
+        for noise in noise_words:
             clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
+            
+        # 3. Clean up extra whitespace
+        clean_prompt = ' '.join(clean_prompt.split()).strip()
         
-        clean_prompt = clean_prompt.strip() or message
-        
+        # Fallback to the original message if we accidentally stripped everything
+        clean_prompt = clean_prompt or message
+
         ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
         if HAS_DDGS:
             cached_img_results = get_cached_search(clean_prompt, search_type="image")
