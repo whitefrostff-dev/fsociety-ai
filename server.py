@@ -665,7 +665,7 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # FIXED: Updated Google model string to gemini-2.5-flash or gemini-1.5-flash to avoid 404
+    # FIXED: Updated Google model string to gemini-1.5-flash to avoid 404
     if provider == "google":
         actual_model = "gemini-3.6-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
@@ -750,7 +750,7 @@ async def chat_with_assistant(
                 if actual_model in ["llama3-70b-8192", "llama3-8b-8192"]:
                     actual_model = "llama-3.1-8b-instant"
                 elif "70b" in actual_model:
-                    actual_model = "llama-3.3-70b-versatile"
+                    actual_model = "llama3-70b-8192"
                 elif "8b" in actual_model or not actual_model:
                     actual_model = "llama-3.1-8b-instant"
 
@@ -769,18 +769,7 @@ async def chat_with_assistant(
 
     except Exception as e:
         print(f"[{provider.upper()} API ERROR]: {str(e)}")
-        safe_prompt = message.replace("'", "\\'").replace('"', '&quot;')
-        
-        ai_response = (
-            f"**API Error Details:** `{str(e)}`<br><br>"
-            "Render is throwing a model mismatch error. Hit try again once updated:<br><br>"
-            f"<button type='button' onclick=\""
-            f"const input = document.querySelector('input[name=\\'message\\'], textarea'); "
-            f"if(input) {{ input.value='{safe_prompt}'; document.querySelector('form, button[type=\\'submit\\']').click(); }}"
-            f"\" style='padding: 8px 16px; background-color: #4da6ff; color: #000; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 5px;'>"
-            "🔄 Try Again"
-            "</button>"
-        )
+        ai_response = "Whoops, looks like the AI provider hit a snag. Please try sending your message again!"
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
@@ -790,4 +779,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-        
+                  
