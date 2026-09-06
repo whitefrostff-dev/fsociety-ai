@@ -747,12 +747,11 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
                 # Map active production Groq models correctly
-                if actual_model in ["llama3-70b-8192", "llama3-8b-8192"]:
-                    actual_model = "llama-3.1-8b-instant"
-                elif "70b" in actual_model:
-                    actual_model = "llama3-70b-8192"
-                elif "8b" in actual_model or not actual_model:
-                    actual_model = "llama-3.1-8b-instant"
+                if actual_model not in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
+                    if "8b" in actual_model or not actual_model:
+                        actual_model = "llama-3.1-8b-instant"
+                    else:
+                        actual_model = "llama-3.3-70b-versatile"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
@@ -779,4 +778,3 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-                  
