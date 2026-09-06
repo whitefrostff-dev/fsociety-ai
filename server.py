@@ -400,8 +400,15 @@ async def delete_session(request: Request, session_id: str):
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
+    # UPDATED: Base system prompt matches your exact personality specs
     default_gems = [
-        {"id": 1, "name": "Ranen Core", "description": "Standard elite assistant created by Nwodili Yaemerie Covenant", "system_prompt": "You are Ranen, a sharp, casual, and universally fluent tech assistant created and owned by Nwodili Yaemerie Covenant. Comprehend and reply naturally in any language the user speaks. Avoid all robotic corporate jargon, keep answers direct, and speak like a real developer.", "icon": "fa-terminal"}
+        {
+            "id": 1, 
+            "name": "Ranen Core", 
+            "description": "Standard elite assistant created by Nwodili Yaemerie Convenant", 
+            "system_prompt": "You are Ranen, an elite, humanoid AI assistant created by Nwodili Yaemerie Convenant. Be exceptionally smart, matching the logic and depth of Sonnet 3.5. Act completely natural and humanoid. BE CONCISE. Do not yap. Answer directly and keep it brief unless a technical breakdown is needed. Never use robotic fluff.", 
+            "icon": "fa-terminal"
+        }
     ]
     conn = get_db_connection()
     if not conn:
@@ -413,7 +420,9 @@ async def get_gems(request: Request):
             rows = cur.fetchall()
             conn.close()
             if rows:
-                return [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in rows]
+                # FIXED: Properly combines default gem with database gems
+                custom_gems = [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in rows]
+                return default_gems + custom_gems
     except Exception as e:
         print(f"DATABASE GEMS ERROR: {e}")
         if conn:
@@ -499,7 +508,7 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -566,35 +575,28 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
     
-    # --- Robust Image Search Interceptor (Catches any request asking for pics, photos, images, or search) ---
+    # --- Robust Image Search Interceptor ---
     image_trigger_words = ["pic", "pics", "picture", "pictures", "image", "images", "photo", "photos"]
     has_image_intent = any(w in lower_prompt for w in image_trigger_words)
     
     if has_image_intent:
         clean_prompt = message
-        
-        # 1. Try to extract the actual subject after the trigger words (e.g., "show me a picture of X" -> "X")
         match = re.search(r'(?:picture|pic|image|photo)s?\s+(?:of\s+)?(.*)', message, re.IGNORECASE)
         if match and match.group(1).strip():
             clean_prompt = match.group(1).strip()
             
-        # 2. Strip remaining conversational noise words that confuse DuckDuckGo
         noise_words = [
             "search", "find", "get", "show", "me", "generate", "create", 
             "duckduckgo", "can you", "please", "i want", "a", "an", "the", "some"
         ]
         
-        # We process noise words safely so we don't accidentally ruin target searches
         for noise in noise_words:
             clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
             
-        # 3. Clean up extra whitespace
         clean_prompt = ' '.join(clean_prompt.split()).strip()
-        
-        # Fallback to the original message if we accidentally stripped everything
         clean_prompt = clean_prompt or message
 
-        ai_response = f"I couldn't find any images for **\"{clean_prompt}\"** on DuckDuckGo."
+        ai_response = f"Ah, my bad bro. I tried pulling up a picture of **\"{clean_prompt}\"**, but my search is acting up. Give it another try in a bit!"
         if HAS_DDGS:
             cached_img_results = get_cached_search(clean_prompt, search_type="image")
             if cached_img_results is not None:
@@ -613,15 +615,17 @@ async def chat_with_assistant(
             if results:
                 image_url = results[0].get('image')
                 title = results[0].get('title', 'DuckDuckGo Image')
-                ai_response = f'Here is the image I found for **"{clean_prompt}"** via DuckDuckGo Search:<br><br><img src="{image_url}" alt="{title}" style="max-width:100%; border-radius:8px; margin-top:10px;" />'
+                ai_response = f'Here is the image I found for **"{clean_prompt}"**:<br><br><img src="{image_url}" alt="{title}" style="max-width:100%; border-radius:8px; margin-top:10px;" />'
+            else:
+                ai_response = f"Man, I scoured the web for **\"{clean_prompt}\"** but couldn't grab a good image right now. Try asking me again later!"
         else:
-             ai_response = "**System Error:** DuckDuckGo feature requires the `ddgs` package."
+             ai_response = "I'd love to show you a picture, but my image search engine isn't wired up right now. We need the `ddgs` package!"
         
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Live Web Search Interceptor (With Caching & Concurrency Lock) ---
+    # --- Live Web Search Interceptor ---
     web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
     effective_message = message
     
@@ -647,27 +651,26 @@ async def chat_with_assistant(
                 f"{message}\n\n"
                 f"[Live Web Search Context - Current Date: {current_date_str}]:\n"
                 f"{snippets}\n\n"
-                f"Instructions: Use the real-time search context above to answer the user's question directly. "
-                f"Do not claim you lack live access or real-time web capabilities; you have been provided live web results above."
+                f"Instructions: Use the real-time search context above to answer the user's question directly."
             )
 
     # --- Standard AI Chat Processing ---
-    system_prompt = gem_prompt or (
-        "You are Ranen, an elite, highly intelligent, and razor-sharp tech assistant created and owned by Nwodili Yaemerie Covenant. "
-        "CORE BEHAVIORAL DIRECTIVES:\n"
-        "1. **Universal Fluency & Mirroring:** Comprehend and communicate fluently in any human language or programming language natively. Instantly reply in whatever language the user speaks. Never narrate, translate, or explain that you are switching languages; just match their language and vibe seamlessly.\n"
-        "2. **Zero Robotic Fluff:** Eliminate all corporate customer-service jargon, meta-commentary, and over-polite filler. Be direct, concise, and conversational—speak like a sharp developer or hacker peer.\n"
-        "3. **Adaptive Depth:** Keep casual chat brief and punchy. Reserve detailed breakdowns and structured formatting strictly for technical or complex questions.\n"
-        "4. **Code Standards:** Always wrap code snippets in clean markdown code blocks with syntax highlighting.\n"
-        "5. **Architecture & Design:** If asked to sketch an architecture diagram or build a house plan, output valid Mermaid.js code wrapped in ```mermaid blocks. Make sure the code is structurally sound so it renders properly.\n"
-        "6. **Cybersecurity:** If asked to display vulnerability scans, terminal output, or security reports, wrap the output inside ```security blocks for proper artifact rendering.\n"
-        "7. **Identity:** If asked who built you, state clearly: 'Nwodili Yaemerie Covenant made me.'"
+    # UPDATED: Enforces humanoid, concise logic + specific creator identity
+    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or (
+        "You are Ranen, an elite, humanoid AI assistant created by Nwodili Yaemerie Convenant. "
+        "CORE DIRECTIVES:\n"
+        "1. Be exceptionally smart, matching the logic and analytical depth of Sonnet 3.5.\n"
+        "2. Act natural and humanoid. Speak like a real developer/peer, not a machine.\n"
+        "3. BE CONCISE. Do not yap. Keep answers extremely brief and straight to the point unless a detailed technical breakdown is specifically requested.\n"
+        "4. Eliminate all robotic filler, meta-commentary, and polite fluff.\n"
+        "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'"
     )
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
+    # FIXED: Reverted fake 3.5 model back to 2.5
     if provider == "google":
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-2.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -746,10 +749,11 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
-                    actual_model = "openai/gpt-oss-120b"
+                # FIXED: Force use actual groq models to avoid Chatgpt fallback
+                if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192", "openai/gpt-oss-120b"]:
+                    actual_model = "llama-3.3-70b-versatile"
                 elif "8b" in actual_model:
-                    actual_model = "openai/gpt-oss-20b"
+                    actual_model = "llama-3.1-8b-instant"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
@@ -765,7 +769,19 @@ async def chat_with_assistant(
                 ai_response = chat_completion.choices[0].message.content
 
     except Exception as e:
-        ai_response = f"**{provider.upper()} API Error:** `{str(e)}`"
+        # FIXED: Catch all API traffic errors silently and output the UI Try Again Button
+        print(f"[{provider.upper()} API ERROR]: {str(e)}")
+        safe_prompt = message.replace("'", "\\'").replace('"', '&quot;')
+        
+        ai_response = (
+            "Man, there's some heavy traffic on the AI right now. Give it a few seconds and try again!<br><br>"
+            f"<button type='button' onclick=\""
+            f"const input = document.querySelector('input[name=\\'message\\'], textarea'); "
+            f"if(input) {{ input.value='{safe_prompt}'; document.querySelector('form, button[type=\\'submit\\']').click(); }}"
+            f"\" style='padding: 8px 16px; background-color: #4da6ff; color: #000; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 5px;'>"
+            "🔄 Try Again"
+            "</button>"
+        )
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
@@ -775,3 +791,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+            
