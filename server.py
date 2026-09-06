@@ -667,7 +667,7 @@ async def chat_with_assistant(
 
     # FIXED: Updated Google model string to gemini-2.5-flash or gemini-1.5-flash to avoid 404
     if provider == "google":
-        actual_model = "gemini-1.5-flash"
+        actual_model = "gemini-3.6-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
