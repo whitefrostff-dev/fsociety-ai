@@ -506,7 +506,7 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.1-8b-instant"), 
+    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -747,11 +747,12 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
                 # Map active production Groq models correctly
-                if actual_model not in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]:
-                    if "8b" in actual_model or not actual_model:
-                        actual_model = "llama-3.1-8b-instant"
-                    else:
-                        actual_model = "llama-3.3-70b-versatile"
+                if "70b" in actual_model or "versatile" in actual_model:
+                    actual_model = "openai/gpt-oss-120b"
+                elif "8b" in actual_model or "instant" in actual_model or not actual_model:
+                    actual_model = "openai/gpt-oss-20b"
+                else:
+                    actual_model = "openai/gpt-oss-120b"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
@@ -768,7 +769,7 @@ async def chat_with_assistant(
 
     except Exception as e:
         print(f"[{provider.upper()} API ERROR]: {str(e)}")
-        ai_response = "Whoops, looks like the AI provider hit a snag. Please try sending your message again!"
+        ai_response = f"Whoops, looks like the AI provider hit a snag: {str(e)}"
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
