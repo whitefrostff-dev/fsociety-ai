@@ -746,11 +746,14 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # FIXED: Map deprecated models to currently active Groq production models
-                if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192", "openai/gpt-oss-120b"]:
-                    actual_model = "llama-3.1-8b-instant"
-                elif "8b" in actual_model:
-                    actual_model = "llama-3.1-8b-instant"
+                # Map active production Groq models correctly
+         if actual_model in ["llama3-70b-8192", "llama3-8b-8192"]:
+         actual_model = "llama-3.1-8b-instant"
+         elif "70b" in actual_model:
+         actual_model = "llama-3.3-70b-versatile"
+         elif "8b" in actual_model or not actual_model:
+         actual_model = "llama-3.1-8b-instant"
+    
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
