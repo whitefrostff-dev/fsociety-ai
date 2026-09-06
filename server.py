@@ -400,7 +400,6 @@ async def delete_session(request: Request, session_id: str):
 @app.get("/api/gems")
 async def get_gems(request: Request):
     col, val = get_identifier(request)
-    # UPDATED: Base system prompt matches your exact personality specs
     default_gems = [
         {
             "id": 1, 
@@ -420,7 +419,6 @@ async def get_gems(request: Request):
             rows = cur.fetchall()
             conn.close()
             if rows:
-                # FIXED: Properly combines default gem with database gems
                 custom_gems = [{"id": r["id"], "name": r["name"], "description": r["description"], "system_prompt": r["system_prompt"], "icon": r.get("icon", "fa-robot")} for r in rows]
                 return default_gems + custom_gems
     except Exception as e:
@@ -508,7 +506,7 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
+    model_choice: str = Form("groq:llama-3.1-8b-instant"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -655,7 +653,6 @@ async def chat_with_assistant(
             )
 
     # --- Standard AI Chat Processing ---
-    # UPDATED: Enforces humanoid, concise logic + specific creator identity
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or (
         "You are Ranen, an elite, humanoid AI assistant created by Nwodili Yaemerie Convenant. "
         "CORE DIRECTIVES:\n"
@@ -668,9 +665,9 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # FIXED: Reverted fake 3.5 model back to 2.5
+    # FIXED: Updated Google model string to gemini-2.5-flash or gemini-1.5-flash to avoid 404
     if provider == "google":
-        actual_model = "gemini-2.5-flash"
+        actual_model = "gemini-1.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -749,9 +746,9 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # FIXED: Force use actual groq models to avoid Chatgpt fallback
+                # FIXED: Map deprecated models to currently active Groq production models
                 if actual_model in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192", "openai/gpt-oss-120b"]:
-                    actual_model = "llama-3.3-70b-versatile"
+                    actual_model = "llama-3.1-8b-instant"
                 elif "8b" in actual_model:
                     actual_model = "llama-3.1-8b-instant"
 
@@ -769,12 +766,12 @@ async def chat_with_assistant(
                 ai_response = chat_completion.choices[0].message.content
 
     except Exception as e:
-        # FIXED: Catch all API traffic errors silently and output the UI Try Again Button
         print(f"[{provider.upper()} API ERROR]: {str(e)}")
         safe_prompt = message.replace("'", "\\'").replace('"', '&quot;')
         
         ai_response = (
-            "Man, there's some heavy traffic on the AI right now. Give it a few seconds and try again!<br><br>"
+            f"**API Error Details:** `{str(e)}`<br><br>"
+            "Render is throwing a model mismatch error. Hit try again once updated:<br><br>"
             f"<button type='button' onclick=\""
             f"const input = document.querySelector('input[name=\\'message\\'], textarea'); "
             f"if(input) {{ input.value='{safe_prompt}'; document.querySelector('form, button[type=\\'submit\\']').click(); }}"
@@ -791,4 +788,3 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-            
