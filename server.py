@@ -746,7 +746,7 @@ async def chat_with_assistant(
             else:
                 # Use the actual model passed from the frontend, ensuring we don't map to hallucinated IDs
                 if not actual_model:
-                    actual_model = "llama-3.3-70b-versatile"
+                actual_model = "openai/gpt-oss-120b"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
