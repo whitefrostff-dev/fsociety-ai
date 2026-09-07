@@ -7,6 +7,7 @@ from typing import Optional
 import uuid
 import os
 import re
+import io
 import base64
 import urllib.parse
 import shutil
@@ -23,6 +24,13 @@ from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
+
+# PDF text extraction dependency check
+try:
+    from pypdf import PdfReader
+    HAS_PYPDF = True
+except ImportError:
+    HAS_PYPDF = False
 
 # DuckDuckGo Web & Image Search Dependency Check
 try:
@@ -180,6 +188,47 @@ def get_identifier(request: Request):
     
     guest_id = request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
+
+# --- FILE TEXT EXTRACTION HELPER ---
+# Caps how much extracted text we stuff into the model context so a huge
+# PDF doesn't blow past the model's context window / your max_tokens budget.
+MAX_FILE_CHARS = 12000
+
+def extract_pdf_text(file_bytes: bytes) -> str:
+    if not HAS_PYPDF:
+        return "[PDF text extraction unavailable — `pypdf` is not installed on the server]"
+    try:
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages_text = []
+        for page in reader.pages:
+            try:
+                pages_text.append(page.extract_text() or "")
+            except Exception:
+                continue
+        text = "\n".join(pages_text).strip()
+        if not text:
+            return "[PDF appears to be scanned/image-based — no extractable text found. OCR would be needed.]"
+        return text
+    except Exception as e:
+        print(f"PDF extraction error: {e}")
+        return "[Could not extract text from this PDF — it may be corrupted or encrypted]"
+
+def extract_file_text(file_bytes: bytes, filename: str, mime_type: str) -> str:
+    """Return best-effort plain text for a non-image upload, truncated to a safe size."""
+    is_pdf = (mime_type == "application/pdf") or filename.lower().endswith(".pdf")
+
+    if is_pdf:
+        text = extract_pdf_text(file_bytes)
+    else:
+        try:
+            text = file_bytes.decode('utf-8', errors='ignore')
+        except Exception:
+            text = "[Binary or unreadable file content]"
+
+    if len(text) > MAX_FILE_CHARS:
+        text = text[:MAX_FILE_CHARS] + f"\n\n[... truncated — file was longer than {MAX_FILE_CHARS} characters ...]"
+
+    return text
 
 # --- DATABASE HELPER FUNCTIONS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
@@ -561,12 +610,9 @@ async def chat_with_assistant(
                 if conn_asset:
                     conn_asset.close()
 
-        # --- Read Text / Code Files Directly into Context ---
+        # --- Extract text from non-image files (PDF-aware) ---
         if not is_image:
-            try:
-                file_text_content = file_bytes.decode('utf-8', errors='ignore')
-            except Exception:
-                file_text_content = "[Binary or unreadable file content]"
+            file_text_content = extract_file_text(file_bytes, file.filename, mime_type)
 
         display_message += f" [Attached File: {file.filename}]"
 
@@ -791,3 +837,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
+    
