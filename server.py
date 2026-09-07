@@ -665,11 +665,9 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # FIXED: Updated Google model string to gemini-1.5-flash to avoid 404
+    # Correct Google Model fallback 
     if provider == "google":
         actual_model = "gemini-3.6-flash"
-    elif provider == "openrouter" and actual_model.endswith(":free"):
-        actual_model = actual_model.replace(":free", "")
 
     try:
         if provider == "openrouter":
@@ -746,13 +744,9 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Map active production Groq models correctly
-                if "70b" in actual_model or "versatile" in actual_model:
-                    actual_model = "openai/gpt-oss-120b"
-                elif "8b" in actual_model or "instant" in actual_model or not actual_model:
-                    actual_model = "openai/gpt-oss-20b"
-                else:
-                    actual_model = "openai/gpt-oss-120b"
+                # Use the actual model passed from the frontend, ensuring we don't map to hallucinated IDs
+                if not actual_model:
+                    actual_model = "llama-3.3-70b-versatile"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
