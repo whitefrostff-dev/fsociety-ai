@@ -506,7 +506,8 @@ async def chat_with_assistant(
     session_id: str = Form(...), 
     message: str = Form(""), 
     file: Optional[UploadFile] = File(None),
-    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
+    # Updated default fallback model choice from the decommissioned 70b-versatile
+    model_choice: str = Form("groq:llama-3.3-70b-versatile"), 
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
@@ -745,7 +746,7 @@ async def chat_with_assistant(
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
                 if not actual_model:
-                    actual_model = "openai/gpt-oss-120b"
+                    actual_model = "llama-3.3-70b-versatile"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
