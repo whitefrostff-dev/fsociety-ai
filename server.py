@@ -201,7 +201,6 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
             if conn:
                 conn.close()
     
-    # Disk fallback
     local_chats = load_local_chats()
     if user_email not in local_chats:
         local_chats[user_email] = {}
@@ -338,7 +337,6 @@ async def get_user_sessions(request: Request):
             if conn:
                 conn.close()
     
-    # Disk fallback
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
@@ -361,7 +359,6 @@ async def get_session_history(request: Request, session_id: str):
             if conn:
                 conn.close()
     
-    # Disk fallback
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     if str(session_id) in user_data:
@@ -538,11 +535,12 @@ async def chat_with_assistant(
     file_bytes = None
     mime_type = ""
     is_image = False
+    file_text_content = ""
     display_message = message
 
     if file and file.filename:
         file_bytes = await file.read()
-        mime_type = file.content_type or "image/png"
+        mime_type = file.content_type or "application/octet-stream"
         is_image = mime_type.startswith("image/")
         
         filename = f"{uuid.uuid4().hex}_{file.filename}"
@@ -563,6 +561,13 @@ async def chat_with_assistant(
                 if conn_asset:
                     conn_asset.close()
 
+        # --- Read Text / Code Files Directly into Context ---
+        if not is_image:
+            try:
+                file_text_content = file_bytes.decode('utf-8', errors='ignore')
+            except Exception:
+                file_text_content = "[Binary or unreadable file content]"
+
         display_message += f" [Attached File: {file.filename}]"
 
     existing_messages.append({"role": "user", "content": display_message})
@@ -577,7 +582,7 @@ async def chat_with_assistant(
     image_trigger_words = ["pic", "pics", "picture", "pictures", "image", "images", "photo", "photos"]
     has_image_intent = any(w in lower_prompt for w in image_trigger_words)
     
-    if has_image_intent:
+    if has_image_intent and not file:
         clean_prompt = message
         match = re.search(r'(?:picture|pic|image|photo)s?\s+(?:of\s+)?(.*)', message, re.IGNORECASE)
         if match and match.group(1).strip():
@@ -652,6 +657,15 @@ async def chat_with_assistant(
                 f"Instructions: Use the real-time search context above to answer the user's question directly."
             )
 
+    # --- Inject File Text Content into Message Payload if Present ---
+    if file_text_content and not is_image:
+        effective_message = (
+            f"{effective_message}\n\n"
+            f"--- Contents of uploaded file '{file.filename}' ---\n"
+            f"```\n{file_text_content}\n```\n"
+            f"--- End of file contents ---"
+        )
+
     # --- Standard AI Chat Processing ---
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or (
         "You are Ranen, an elite, humanoid AI assistant created by Nwodili Yaemerie Convenant. "
@@ -665,9 +679,8 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # FIXED: Updated Google model string to gemini-1.5-flash to avoid 404
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
+        actual_model = "gemini-1.5-flash"
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
@@ -709,8 +722,8 @@ async def chat_with_assistant(
                     contents.append(f"{role_prefix}: {msg['content']}")
 
                 if is_image and file_bytes:
-                    image_path = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-                    contents.append(image_path)
+                    image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
+                    contents.append(image_part)
                 
                 contents.append(effective_message)
 
@@ -746,7 +759,6 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Map active production Groq models correctly
                 if "70b" in actual_model or "versatile" in actual_model:
                     actual_model = "openai/gpt-oss-120b"
                 elif "8b" in actual_model or "instant" in actual_model or not actual_model:
