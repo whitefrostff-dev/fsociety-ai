@@ -173,6 +173,8 @@
             font-size: 0.9rem; 
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             word-wrap: break-word;
+            user-select: text;
+            -webkit-user-select: text;
         }
         
         body.light-mode .user-msg {
@@ -193,7 +195,17 @@
         }
         body.light-mode .assistant-avatar { background: linear-gradient(135deg, #0f172a 0%, #334155 100%); }
         
-        .assistant-content { flex: 1; min-width: 0; color: var(--text-main); font-size: 0.9rem; line-height: 1.6; max-width: 100%; overflow-x: auto; }
+        .assistant-content { 
+            flex: 1; 
+            min-width: 0; 
+            color: var(--text-main); 
+            font-size: 0.9rem; 
+            line-height: 1.6; 
+            max-width: 100%; 
+            overflow-x: auto; 
+            user-select: text;
+            -webkit-user-select: text;
+        }
         .assistant-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
         .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
         .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
@@ -660,6 +672,10 @@
         </div>
     </div>
 
+    <div id="copy-toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-gray-700 text-white px-4 py-2 rounded-xl text-xs shadow-2xl hidden z-50 transition-all">
+        Copied to clipboard!
+    </div>
+
     <script>
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
 
@@ -1058,13 +1074,36 @@
                         : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
 
                     list.innerHTML += `
-                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
+                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors group ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
                             <span class="truncate pr-2">${safeTitle}</span>
+                            <button onclick="deleteSession(event, '${s.id}')" title="Delete chat" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-gray-400 transition-opacity">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
                         </div>
                     `;
                 });
             } else {
                 list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No past chats yet.</div>`;
+            }
+        }
+
+        async function deleteSession(event, sessionId) {
+            event.stopPropagation();
+            if (!confirm("Are you sure you want to delete this chat?")) return;
+            
+            try {
+                const res = await fetch(`/api/delete-session/${sessionId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    if (currentSessionId === sessionId) {
+                        currentSessionId = null;
+                        renderEmptyState();
+                        const titleEl = document.getElementById('current-chat-title');
+                        if (titleEl) titleEl.innerText = 'New Chat';
+                    }
+                    await fetchSessions();
+                }
+            } catch (e) {
+                console.error("Failed to delete session", e);
             }
         }
 
@@ -1230,6 +1269,42 @@
             navigator.clipboard.writeText(text);
             btn.innerHTML = `<i class="fa-solid fa-check text-green-400"></i>`;
             setTimeout(() => { btn.innerHTML = `<i class="fa-regular fa-copy"></i>`; }, 2000);
+        }
+
+        // --- Long-Press Copy Setup ---
+        let pressTimer = null;
+        document.addEventListener('mousedown', (e) => handleLongPressStart(e));
+        document.addEventListener('mouseup', () => handleLongPressEnd());
+        document.addEventListener('touchstart', (e) => handleLongPressStart(e), {passive: true});
+        document.addEventListener('touchend', () => handleLongPressEnd());
+
+        function handleLongPressStart(e) {
+            const bubble = e.target.closest('.user-msg, .assistant-content');
+            if (!bubble) return;
+            
+            pressTimer = setTimeout(() => {
+                const textToCopy = bubble.innerText;
+                if (textToCopy) {
+                    navigator.clipboard.writeText(textToCopy);
+                    showCopyToast();
+                }
+            }, 600); // 600ms hold triggers copy
+        }
+
+        function handleLongPressEnd() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+        }
+
+        function showCopyToast() {
+            const toast = document.getElementById('copy-toast');
+            if (!toast) return;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2000);
         }
 
         function extractCodeForArtifacts(markdownText) {
