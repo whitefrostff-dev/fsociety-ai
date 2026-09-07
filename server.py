@@ -665,7 +665,7 @@ async def chat_with_assistant(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
-    # Correct Google Model fallback 
+    # Maintain Google Model (Gemini 3.6 Flash / 2.5 Flash setup)
     if provider == "google":
         actual_model = "gemini-3.6-flash"
 
@@ -744,9 +744,8 @@ async def chat_with_assistant(
             if not groq_client:
                 ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
             else:
-                # Use the actual model passed from the frontend, ensuring we don't map to hallucinated IDs
                 if not actual_model:
-                  actual_model = "openai/gpt-oss-120b"
+                    actual_model = "openai/gpt-oss-120b"
 
                 messages_payload = [{"role": "system", "content": system_prompt}]
                 for msg in recent_history[:-1]:
