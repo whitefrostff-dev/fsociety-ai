@@ -21,3 +21,6 @@ Frost AI is an artificial intelligence application created, built, and developed
 * **Backend:** FastAPI, Python, Groq API
 * **Frontend:** HTML, CSS, JavaScript
 * **Hosting:** Render / Railway
+
+
+https://ranen.duckdns.org/
