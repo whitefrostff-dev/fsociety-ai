@@ -57,6 +57,8 @@
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
             --accent-glow: rgba(255, 255, 255, 0.05);
+            --user-bubble-bg: rgba(255,255,255,0.08);
+            --user-bubble-text: #f1f5f9;
         }
 
         body.light-mode {
@@ -164,9 +166,9 @@
         
         .user-msg-container { display: flex; justify-content: flex-end; width: 100%; margin: 16px 0; }
         .user-msg { 
-            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+            background: var(--user-bubble-bg, linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%));
             border: 1px solid var(--border-glow); 
-            color: var(--text-main); 
+            color: var(--user-bubble-text, var(--text-main)); 
             border-radius: 20px 20px 4px 20px; 
             padding: 12px 16px; 
             max-width: 90%; 
@@ -175,6 +177,7 @@
             word-wrap: break-word;
             user-select: text;
             -webkit-user-select: text;
+            transition: background 0.4s ease, color 0.4s ease;
         }
         
         body.light-mode .user-msg {
@@ -320,6 +323,39 @@
         .calendar-cell:hover { background-color: var(--bg-card-hover); border-color: var(--border-color); }
         .calendar-cell.active-day { border-color: var(--text-main); font-weight: bold; background-color: var(--bg-card-hover); }
         .calendar-cell.today { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; font-weight: bold; box-shadow: 0 0 12px rgba(59, 130, 246, 0.4); }
+
+        /* --- THINKING / STATUS INDICATOR --- */
+        .thinking-container { display: flex; gap: 12px; width: 100%; margin: 20px 0; align-items: flex-start; }
+        .thinking-bubble {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .thinking-dot-pulse {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            animation: thinkPulse 1.1s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes thinkPulse {
+            0%, 100% { transform: scale(0.7); opacity: 0.5; }
+            50% { transform: scale(1.15); opacity: 1; }
+        }
+        #thinking-status-text { transition: opacity 0.25s ease; }
+
+        /* --- EDITABLE CODE ARTIFACT --- */
+        #artifact-code-view[contenteditable="true"] {
+            outline: none;
+            border-color: rgba(96, 165, 250, 0.5) !important;
+            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
+        }
+        .code-edit-btn.editing { color: #4ade80 !important; border-color: rgba(74, 222, 128, 0.5) !important; }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -465,6 +501,9 @@
                     <button onclick="switchArtifactTab('architecture')" id="tab-architecture-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Blueprint</button>
                     <button onclick="switchArtifactTab('security')" id="tab-security-btn" class="text-[11px] md:text-xs px-2 py-1 rounded transition-colors text-gray-400 hover:text-white">Security</button>
                 </div>
+                <button onclick="toggleCodeEdit()" id="edit-code-btn" class="code-edit-btn text-[10px] bg-blue-900/30 text-blue-400 border border-blue-900/50 hover:bg-blue-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </button>
                 <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
                     <i class="fa-solid fa-bug"></i> Fix
                 </button>
@@ -503,6 +542,20 @@
                         <button onclick="setTheme('dark')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition-colors">Dark Mode</button>
                         <button onclick="setTheme('light')" class="flex-1 border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-100 text-black bg-white transition-colors">Light Mode</button>
                     </div>
+                </div>
+
+                <div>
+                    <p class="text-[13px] md:text-sm font-semibold mb-2">Chat Bubble Color</p>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setBubbleColor('default')" class="w-8 h-8 rounded-full border-2 border-gray-500 bg-gradient-to-br from-gray-700 to-gray-900" title="Default"></button>
+                        <button onclick="setBubbleColor('pink')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#ec4899" title="Pink"></button>
+                        <button onclick="setBubbleColor('blue')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#3b82f6" title="Blue"></button>
+                        <button onclick="setBubbleColor('green')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#22c55e" title="Green"></button>
+                        <button onclick="setBubbleColor('purple')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#a855f7" title="Purple"></button>
+                        <button onclick="setBubbleColor('orange')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#f97316" title="Orange"></button>
+                        <button onclick="setBubbleColor('red')" class="w-8 h-8 rounded-full border-2 border-gray-500" style="background:#ef4444" title="Red"></button>
+                    </div>
+                    <p class="text-[9px] text-gray-500 mt-2">Tip: you can also just type "make the chat pink" in the chat box.</p>
                 </div>
 
                 <div class="pt-2">
@@ -707,10 +760,56 @@
         let latestExtractedCode = "";
         let allSessions = [];
         let currentUserName = "Guest User";
+        let isCodeEditing = false;
 
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
         let calEvents = JSON.parse(localStorage.getItem('ranen_cal_events') || '{}');
+
+        // --- CHAT BUBBLE COLOR SYSTEM ---
+        const BUBBLE_COLORS = {
+            default: null,
+            pink:   { bg: 'linear-gradient(135deg, rgba(236,72,153,0.28) 0%, rgba(236,72,153,0.12) 100%)', text: '#fbcfe8', border: 'rgba(236,72,153,0.5)' },
+            blue:   { bg: 'linear-gradient(135deg, rgba(59,130,246,0.28) 0%, rgba(59,130,246,0.12) 100%)', text: '#bfdbfe', border: 'rgba(59,130,246,0.5)' },
+            green:  { bg: 'linear-gradient(135deg, rgba(34,197,94,0.28) 0%, rgba(34,197,94,0.12) 100%)', text: '#bbf7d0', border: 'rgba(34,197,94,0.5)' },
+            purple: { bg: 'linear-gradient(135deg, rgba(168,85,247,0.28) 0%, rgba(168,85,247,0.12) 100%)', text: '#e9d5ff', border: 'rgba(168,85,247,0.5)' },
+            orange: { bg: 'linear-gradient(135deg, rgba(249,115,22,0.28) 0%, rgba(249,115,22,0.12) 100%)', text: '#fed7aa', border: 'rgba(249,115,22,0.5)' },
+            red:    { bg: 'linear-gradient(135deg, rgba(239,68,68,0.28) 0%, rgba(239,68,68,0.12) 100%)', text: '#fecaca', border: 'rgba(239,68,68,0.5)' },
+        };
+
+        function setBubbleColor(name) {
+            const root = document.documentElement;
+            const cfg = BUBBLE_COLORS[name];
+            if (!cfg) {
+                root.style.removeProperty('--user-bubble-bg');
+                root.style.removeProperty('--user-bubble-text');
+                localStorage.removeItem('ranen_bubble_color');
+                return;
+            }
+            root.style.setProperty('--user-bubble-bg', cfg.bg);
+            root.style.setProperty('--user-bubble-text', cfg.text);
+            localStorage.setItem('ranen_bubble_color', name);
+        }
+
+        function loadSavedBubbleColor() {
+            const saved = localStorage.getItem('ranen_bubble_color');
+            if (saved) setBubbleColor(saved);
+        }
+
+        // Returns a color name if the message is a color-change command, else null.
+        // Handled entirely client-side so it's instant and doesn't burn an AI call.
+        function detectColorCommand(text) {
+            const lower = text.toLowerCase();
+            const wantsChange = /(make|change|turn|set)\s+(the\s+)?(chat|bubble|text|message)?s?\s*(color\s+)?(to\s+)?/.test(lower)
+                || /^(pink|blue|green|purple|orange|red)\s*(chat|please)?$/.test(lower.trim());
+            if (!wantsChange) return null;
+            const colorNames = Object.keys(BUBBLE_COLORS).filter(c => c !== 'default');
+            for (const c of colorNames) {
+                if (lower.includes(c)) return c;
+            }
+            if (/default|normal|reset|original/.test(lower) && /color|chat|theme/.test(lower)) return 'default';
+            return null;
+        }
 
         function toggleLeftSidebar() {
             const sidebar = document.getElementById('left-sidebar');
@@ -750,6 +849,7 @@
 
         async function init() {
             if (localStorage.getItem('ranen_theme') === 'light') setTheme('light');
+            loadSavedBubbleColor();
 
             await checkUserStatus();
             await fetchSessions();
@@ -962,6 +1062,33 @@
             if (window.innerWidth < 768) { toggleArtifactPanel(); }
             document.getElementById('user-input').value = debugPrompt;
             sendMessage(new Event('submit'));
+        }
+
+        // --- EDITABLE CODE ARTIFACT ---
+        function toggleCodeEdit() {
+            const view = document.getElementById('artifact-code-view');
+            const btn = document.getElementById('edit-code-btn');
+            if (!latestExtractedCode) return;
+
+            isCodeEditing = !isCodeEditing;
+
+            if (isCodeEditing) {
+                view.setAttribute('contenteditable', 'true');
+                view.focus();
+                btn.classList.add('editing');
+                btn.innerHTML = `<i class="fa-solid fa-check"></i> Save`;
+            } else {
+                view.setAttribute('contenteditable', 'false');
+                latestExtractedCode = view.innerText;
+                btn.classList.remove('editing');
+                btn.innerHTML = `<i class="fa-solid fa-pen"></i> Edit`;
+
+                // Push the edited code into the live preview too
+                const previewFrame = document.getElementById('artifact-preview-view');
+                if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
+                    previewFrame.srcdoc = latestExtractedCode;
+                }
+            }
         }
 
         function selectModel(modelValue, labelName) {
@@ -1193,11 +1320,83 @@
             document.getElementById('attachment-preview-container').classList.remove('flex');
         }
 
+        // --- THINKING / STATUS INDICATOR ---
+        // Purely a UI status cue while we wait on the backend. Not a real
+        // step-by-step trace of the request (that would require server-sent
+        // events / streaming, which this backend doesn't do yet) — it's a
+        // rotating set of plausible status lines, like the Gemini screenshot.
+        const THINKING_STEPS = [
+            "Reading your message...",
+            "Understanding intent...",
+            "Checking context...",
+            "Thinking it through...",
+            "Composing response..."
+        ];
+        let thinkingInterval = null;
+
+        function showThinkingIndicator() {
+            const container = document.getElementById('messages-container');
+            const el = document.createElement('div');
+            el.className = 'thinking-container';
+            el.id = 'thinking-indicator';
+            el.innerHTML = `
+                <div class="assistant-avatar"><i class="fa-solid fa-sparkles text-white"></i></div>
+                <div class="thinking-bubble">
+                    <div class="thinking-dot-pulse"></div>
+                    <span id="thinking-status-text">${THINKING_STEPS[0]}</span>
+                </div>
+            `;
+            container.appendChild(el);
+            container.scrollTop = container.scrollHeight;
+
+            let stepIdx = 0;
+            thinkingInterval = setInterval(() => {
+                stepIdx = (stepIdx + 1) % THINKING_STEPS.length;
+                const textEl = document.getElementById('thinking-status-text');
+                if (textEl) {
+                    textEl.style.opacity = 0;
+                    setTimeout(() => {
+                        textEl.innerText = THINKING_STEPS[stepIdx];
+                        textEl.style.opacity = 1;
+                    }, 200);
+                }
+            }, 1400);
+        }
+
+        function hideThinkingIndicator() {
+            if (thinkingInterval) {
+                clearInterval(thinkingInterval);
+                thinkingInterval = null;
+            }
+            const el = document.getElementById('thinking-indicator');
+            if (el) el.remove();
+        }
+
         async function sendMessage(e) {
             e.preventDefault();
             const input = document.getElementById('user-input');
             const text = input.value.trim();
             if (!text && !selectedFile) return;
+
+            // --- Local color-change command interceptor (no AI call needed) ---
+            if (!selectedFile) {
+                const colorCmd = detectColorCommand(text);
+                if (colorCmd) {
+                    if (!currentSessionId) {
+                        const newRes = await fetch('/api/new-session', { method: 'POST' });
+                        const newData = await newRes.json();
+                        currentSessionId = newData.session_id;
+                    }
+                    renderMessage('user', text, true);
+                    setBubbleColor(colorCmd);
+                    input.value = '';
+                    const confirmMsg = colorCmd === 'default'
+                        ? "Done — chat bubbles are back to default."
+                        : `Done — chat bubbles are now **${colorCmd}**. You can change this anytime from Settings too.`;
+                    renderMessage('assistant', confirmMsg, true);
+                    return;
+                }
+            }
 
             if (!currentSessionId) {
                 const newRes = await fetch('/api/new-session', { method: 'POST' });
@@ -1223,13 +1422,17 @@
             sendBtn.disabled = true;
             sendBtn.classList.add("opacity-50", "cursor-not-allowed");
 
+            showThinkingIndicator();
+
             try {
                 const res = await fetch('/api/chat', { method: 'POST', body: formData });
                 if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 const data = await res.json();
+                hideThinkingIndicator();
                 renderMessage('assistant', data.response, true);
                 await fetchSessions();
             } catch (error) {
+                hideThinkingIndicator();
                 renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
             } finally {
                 sendBtn.innerHTML = originalBtnHTML;
@@ -1342,6 +1545,7 @@
             if (codeExtracted.trim()) {
                 latestExtractedCode = codeExtracted.trim();
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
+                document.getElementById('edit-code-btn').classList.remove('hidden');
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
                 }
@@ -1398,7 +1602,9 @@
             });
             
             const debugBtn = document.getElementById('debug-code-btn');
+            const editBtn = document.getElementById('edit-code-btn');
             debugBtn.classList.add('hidden');
+            editBtn.classList.add('hidden');
 
             const activeBtn = document.getElementById(`tab-${tab}-btn`);
             const activeView = document.getElementById(`artifact-${tab}-view`);
@@ -1409,7 +1615,10 @@
                 if (tab === 'architecture') activeView.classList.add('flex');
             }
 
-            if (tab === 'code' && latestExtractedCode) debugBtn.classList.remove('hidden');
+            if (tab === 'code' && latestExtractedCode) {
+                debugBtn.classList.remove('hidden');
+                editBtn.classList.remove('hidden');
+            }
             if (tab === 'preview' && latestExtractedCode) activeView.srcdoc = latestExtractedCode;
             if (tab === 'assets') fetchAssets();
         }
@@ -1417,4 +1626,5 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html>
+                        </html>
+                            
