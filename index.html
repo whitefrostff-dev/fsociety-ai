@@ -392,6 +392,8 @@
         .code-card-title { font-size: 0.88rem; font-weight: 600; color: var(--text-main); }
         .code-card-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
         .code-card-chevron { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+        .msg-timestamp { font-size: 10px; color: var(--text-muted); opacity: 0.7; }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -464,6 +466,10 @@
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
+                <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+
                 <button onclick="toggleArtifactPanel()" class="flex items-center gap-1.5 text-xs font-semibold px-2 md:px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-gray-200 shadow-sm">
                     <i class="fa-solid fa-layer-group text-blue-400"></i> 
                     <span class="hidden sm:inline">Artifacts</span>
@@ -506,6 +512,10 @@
                             <i class="fa-solid fa-calculator"></i>
                         </button>
                         <input id="snap-solve-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleSnapAndSolve(event)">
+
+                        <button type="button" id="mic-btn" onclick="toggleVoiceInput()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Voice input">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
 
                         <label for="file-upload" class="cursor-pointer p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload Document or Image">
                             <i class="fa-solid fa-paperclip"></i>
@@ -1591,6 +1601,94 @@
             document.getElementById('snap-solve-input').click();
         }
 
+        // --- VOICE INPUT ---
+        // Uses the browser's native SpeechRecognition API — no backend
+        // needed. Support varies: works well on Chrome (desktop + Android);
+        // not supported on Firefox and inconsistently supported on iOS
+        // Safari, so it fails with a clear message rather than silently.
+        let voiceRecognition = null;
+        let isRecording = false;
+
+        function toggleVoiceInput() {
+            const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognitionAPI) {
+                alert("Voice input isn't supported in this browser. Try Chrome on desktop or Android.");
+                return;
+            }
+
+            const micBtn = document.getElementById('mic-btn');
+
+            if (isRecording) {
+                voiceRecognition.stop();
+                return;
+            }
+
+            voiceRecognition = new SpeechRecognitionAPI();
+            voiceRecognition.lang = 'en-US';
+            voiceRecognition.interimResults = true;
+            voiceRecognition.continuous = false;
+
+            const input = document.getElementById('user-input');
+            const baseText = input.value ? input.value + ' ' : '';
+
+            voiceRecognition.onstart = () => {
+                isRecording = true;
+                micBtn.classList.add('text-red-400');
+                micBtn.innerHTML = `<i class="fa-solid fa-microphone-lines fa-beat"></i>`;
+            };
+            voiceRecognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                input.value = baseText + transcript;
+            };
+            voiceRecognition.onerror = (e) => {
+                console.error('Speech recognition error:', e.error);
+                if (e.error === 'not-allowed') {
+                    alert("Microphone permission was blocked. Allow mic access to use voice input.");
+                }
+            };
+            voiceRecognition.onend = () => {
+                isRecording = false;
+                micBtn.classList.remove('text-red-400');
+                micBtn.innerHTML = `<i class="fa-solid fa-microphone"></i>`;
+            };
+
+            voiceRecognition.start();
+        }
+
+        // --- EXPORT CHAT ---
+        function exportChat() {
+            const container = document.getElementById('messages-container');
+            const bubbles = container.querySelectorAll('.user-msg-container, .assistant-msg-container');
+            if (bubbles.length === 0) {
+                alert("Nothing to export yet — this chat is empty.");
+                return;
+            }
+            const titleEl = document.getElementById('current-chat-title');
+            const chatTitle = titleEl ? titleEl.innerText : 'Ranen Chat';
+            let md = `# ${chatTitle}\n\nExported ${new Date().toLocaleString()}\n\n---\n\n`;
+
+            bubbles.forEach(b => {
+                const isUser = b.classList.contains('user-msg-container');
+                const textEl = isUser ? b.querySelector('.user-msg') : b.querySelector('.prose');
+                if (!textEl) return;
+                const label = isUser ? '**You:**' : '**Ranen:**';
+                md += `${label}\n\n${textEl.innerText}\n\n`;
+            });
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${chatTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
         // Snap & Solve: photograph a problem, send it straight to a vision-capable
         // model with a solve-it prompt. Forces the vision model for just this one
         // request — doesn't change your regular model selection.
@@ -1782,15 +1880,13 @@
             clearAttachment();
 
             const sendBtn = document.getElementById('send-btn');
-            const originalBtnHTML = sendBtn.innerHTML;
-            sendBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-lg"></i>`;
-            sendBtn.disabled = true;
-            sendBtn.classList.add("opacity-50", "cursor-not-allowed");
+            currentAbortController = new AbortController();
+            setSendButtonMode('stop');
 
             showThinkingIndicator();
 
             try {
-                const res = await fetch('/api/chat', { method: 'POST', body: formData });
+                const res = await fetch('/api/chat', { method: 'POST', body: formData, signal: currentAbortController.signal });
                 if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 const data = await res.json();
                 hideThinkingIndicator();
@@ -1798,12 +1894,39 @@
                 await fetchSessions();
             } catch (error) {
                 hideThinkingIndicator();
-                renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
+                if (error.name === 'AbortError') {
+                    renderMessage('assistant', '*Generation stopped.*', true);
+                } else {
+                    renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
+                }
             } finally {
-                sendBtn.innerHTML = originalBtnHTML;
+                setSendButtonMode('send');
+                currentAbortController = null;
+            }
+        }
+
+        // --- STOP / CANCEL GENERATION ---
+        let currentAbortController = null;
+
+        function setSendButtonMode(mode) {
+            const sendBtn = document.getElementById('send-btn');
+            if (mode === 'stop') {
+                sendBtn.innerHTML = `<i class="fa-solid fa-stop text-xs"></i>`;
+                sendBtn.type = 'button';
+                sendBtn.onclick = () => { if (currentAbortController) currentAbortController.abort(); };
+                sendBtn.disabled = false;
+                sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            } else {
+                sendBtn.innerHTML = `<i class="fa-solid fa-arrow-up text-sm"></i>`;
+                sendBtn.type = 'submit';
+                sendBtn.onclick = null;
                 sendBtn.disabled = false;
                 sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
             }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function renderMessage(role, content, shouldScroll = true) {
@@ -1815,26 +1938,44 @@
             const formattedContent = marked.parse(content);
             if (!isUser) extractCodeForArtifacts(content);
 
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Only animate freshly-received live responses (shouldScroll=true
+            // marks a live send/receive) — never replay the typing effect
+            // when loading past history from the sidebar.
+            const shouldAnimate = !isUser && shouldScroll;
+            let proseId = '';
+
             let msgHtml = "";
             if (isUser) {
                 msgHtml = `
                     <div class="user-msg-container">
-                        <div class="user-msg">
-                            ${formattedContent}
+                        <div class="flex flex-col items-end gap-1 max-w-[90%]">
+                            <div class="user-msg">
+                                ${formattedContent}
+                            </div>
+                            <div class="flex items-center gap-2 pr-1">
+                                <span class="msg-timestamp">${timestamp}</span>
+                                <button onclick="editUserMessage(this)" class="text-[10px] text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1">
+                                    <i class="fa-solid fa-pen text-[9px]"></i> Edit
+                                </button>
+                            </div>
+                            <span class="hidden raw-user-text">${escapeHtml(content)}</span>
                         </div>
                     </div>
                 `;
             } else {
+                proseId = 'prose-' + Math.random().toString(36).slice(2, 10);
                 msgHtml = `
                     <div class="assistant-msg-container">
                         <div class="assistant-avatar">
                             <i class="fa-solid fa-sparkles text-white"></i>
                         </div>
                         <div class="assistant-content">
-                            <div class="prose prose-invert text-sm leading-relaxed">${formattedContent}</div>
+                            <div id="${proseId}" class="prose prose-invert text-sm leading-relaxed">${shouldAnimate ? '' : formattedContent}</div>
                             <div class="assistant-actions">
+                                <span class="msg-timestamp">${timestamp}</span>
                                 <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
-                                <button onclick="createNewSession()" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>
+                                <button onclick="regenerateResponse(this)" title="Regenerate response"><i class="fa-solid fa-rotate-right"></i></button>
                             </div>
                         </div>
                     </div>
@@ -1843,6 +1984,101 @@
 
             container.innerHTML += msgHtml;
             if (shouldScroll) container.scrollTop = container.scrollHeight;
+
+            if (shouldAnimate) {
+                const proseEl = document.getElementById(proseId);
+                typewriterReveal(proseEl, formattedContent, container);
+            }
+        }
+
+        // --- TYPEWRITER REVEAL ---
+        // Reveals already-rendered HTML progressively (whole tags render
+        // instantly, text content reveals word-by-word) instead of literal
+        // char-by-char, so markdown formatting (bold, code blocks, lists)
+        // never gets split mid-tag. This is cosmetic only — the full
+        // response already arrived from the backend; there's no real
+        // token-by-token streaming here since /api/chat isn't a streaming
+        // endpoint.
+        function typewriterReveal(el, html, scrollContainer, speedMs = 8) {
+            const tokens = html.match(/<[^>]+>|[^<]+/g) || [html];
+            let i = 0;
+            function step() {
+                if (i >= tokens.length) return;
+                const token = tokens[i];
+                if (token[0] === '<') {
+                    el.insertAdjacentHTML('beforeend', token);
+                    i++;
+                    step();
+                    return;
+                }
+                const words = token.split(/(\s+)/);
+                let wi = 0;
+                const textNode = document.createTextNode('');
+                el.appendChild(textNode);
+                (function stepWord() {
+                    if (wi >= words.length) { i++; step(); return; }
+                    textNode.textContent += words[wi];
+                    wi++;
+                    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    setTimeout(stepWord, speedMs);
+                })();
+            }
+            step();
+        }
+
+        // --- REGENERATE (fixed "Retry" bug) ---
+        // Previously this button called createNewSession(), which just
+        // opened a blank new chat instead of regenerating anything. Now it
+        // calls the backend's /api/regenerate, which drops the stored last
+        // response and produces a fresh one from the same conversation.
+        async function regenerateResponse(btn) {
+            if (!currentSessionId) return;
+            const assistantContent = btn.closest('.assistant-content');
+            const proseEl = assistantContent.querySelector('.prose');
+            const container = document.getElementById('messages-container');
+
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('model_choice', activeModelValue);
+            if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
+
+            try {
+                const res = await fetch('/api/regenerate', { method: 'POST', body: formData });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                extractCodeForArtifacts(data.response);
+                const newHtml = marked.parse(data.response);
+                proseEl.innerHTML = '';
+                typewriterReveal(proseEl, newHtml, container);
+                await fetchSessions();
+            } catch (error) {
+                alert(`Couldn't regenerate: ${error.message}`);
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+            }
+        }
+
+        // --- EDIT & RESEND ---
+        // Repopulates the input box with the original text for editing, then
+        // you send it like normal. This does not retroactively rewrite the
+        // stored conversation history — it's a quick edit-and-resend, not a
+        // true "regenerate from this point" (that would need the backend to
+        // support truncating/branching stored history, which is a larger change).
+        function editUserMessage(btn) {
+            const wrapper = btn.closest('.flex.flex-col');
+            const rawText = wrapper.querySelector('.raw-user-text').textContent;
+            const input = document.getElementById('user-input');
+            input.value = rawText;
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function copyToClipboard(btn) {
