@@ -125,9 +125,17 @@ def load_local_chats():
     return {}
 
 def save_local_chats(data):
+    # Atomic write: write to a temp file then rename over the real one.
+    # Previously a crash or concurrent write mid-json.dump could leave
+    # chats.json truncated/corrupted, and the next load_local_chats() call
+    # would silently return {} — i.e. everyone's local-fallback history
+    # gone at once. os.replace() is atomic on POSIX, so readers only ever
+    # see a fully-written old or new file, never a partial one.
     try:
-        with open(CHATS_FILE, "w", encoding="utf-8") as f:
+        tmp_path = CHATS_FILE + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        os.replace(tmp_path, CHATS_FILE)
     except Exception as e:
         print(f"Error saving to disk: {e}")
 
@@ -174,6 +182,32 @@ app.add_middleware(
     same_site="lax"
 )
 
+# --- GUARANTEED GUEST COOKIE ---
+# BUG FIX: previously the guest_id cookie was only set inside the "/" and
+# "/api/guest-mode" route handlers. Any request that hit another endpoint
+# first (e.g. /api/chat) without a cookie already present fell back to a
+# single shared identifier literally named "unknown_guest" — meaning that
+# session's chat history got mixed into one bucket shared by every affected
+# guest, and became permanently unreachable once a real guest_id was later
+# issued. This middleware generates the ID *before* the route handler runs
+# (via request.state) so even a brand-new guest's very first request gets a
+# correct, unique identifier — not just requests after this one.
+@app.middleware("http")
+async def ensure_guest_cookie(request: Request, call_next):
+    existing_guest_id = request.cookies.get("guest_id")
+    new_guest_id = None
+    if not existing_guest_id:
+        new_guest_id = str(uuid.uuid4())
+        request.state.guest_id = new_guest_id
+    else:
+        request.state.guest_id = existing_guest_id
+
+    response = await call_next(request)
+
+    if new_guest_id:
+        response.set_cookie(key="guest_id", value=new_guest_id, max_age=31536000, httponly=True)
+    return response
+
 # --- ENVIRONMENT VARIABLES ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -215,8 +249,10 @@ def get_identifier(request: Request):
     user = request.session.get('user')
     if user and user.get('email'):
         return ("user_email", user['email'])
-    
-    guest_id = request.cookies.get("guest_id")
+
+    # Prefer the ID the middleware resolved for this exact request (always
+    # present now), falling back to the raw cookie for safety.
+    guest_id = getattr(request.state, "guest_id", None) or request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
 
 # --- FILE TEXT EXTRACTION HELPER ---
@@ -468,6 +504,29 @@ async def get_current_user(request: Request):
     if user:
         return {"logged_in": True, "name": user.get('name'), "email": user.get('email')}
     return {"logged_in": False, "name": "Guest User"}
+
+@app.get("/api/debug/storage")
+async def debug_storage():
+    """Diagnostic endpoint — tells you which chat storage is actually active.
+    If 'using' is 'local_file_fallback', your chat history lives on Render's
+    EPHEMERAL disk and WILL be wiped on every redeploy or restart — this is
+    almost certainly why history disappears. Fix: add DATABASE_URL (a real
+    Postgres instance) as an environment variable on Render."""
+    conn = get_db_connection()
+    db_connected = conn is not None
+    if conn:
+        conn.close()
+    return {
+        "database_url_configured": bool(DATABASE_URL),
+        "database_currently_reachable": db_connected,
+        "using": "postgres" if db_connected else "local_file_fallback",
+        "local_fallback_path": CHATS_FILE,
+        "warning": (
+            None if db_connected else
+            "Chat history is on ephemeral local disk and will be LOST on every "
+            "redeploy/restart unless DATABASE_URL is set to a real Postgres instance."
+        )
+    }
 
 @app.get('/auth/login')
 async def login(request: Request):
@@ -780,6 +839,86 @@ async def _call_provider(provider, actual_model, system_prompt, recent_history, 
         return chat_completion.choices[0].message.content
 
 
+async def _generate_smart_title(user_message: str, ai_response: str) -> Optional[str]:
+    """Classic ChatGPT/Claude-style behavior: generate a short, meaningful
+    chat title from the first exchange instead of just truncating the raw
+    message. Uses Groq for speed/cost; falls back to None (caller keeps the
+    truncated title) on any failure — never blocks the main response."""
+    if not groq_client:
+        return None
+    try:
+        result = groq_client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": (
+                    "Generate a short chat title (3-6 words, no quotes, no punctuation at the "
+                    "end) summarizing what this conversation is about. Reply with ONLY the title."
+                )},
+                {"role": "user", "content": f"User: {user_message[:300]}\nAssistant: {ai_response[:300]}"}
+            ],
+            temperature=0.3,
+            max_tokens=20,
+        )
+        title = result.choices[0].message.content.strip().strip('"').strip("'")
+        if title and len(title) <= 60:
+            return title
+        return None
+    except Exception as e:
+        print(f"[SMART TITLE ERROR]: {e}")
+        return None
+
+
+DEFAULT_SYSTEM_PROMPT = (
+    "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
+    "CORE DIRECTIVES:\n"
+    "1. Reason like a top-tier frontier model (Sonnet/Fable-class): think through problems "
+    "carefully and internally before answering, break down hard problems step by step, catch "
+    "your own errors, and never guess when you can reason it out.\n"
+    "2. Act natural and humanoid. Speak like a real developer/peer, not a machine.\n"
+    "3. BE CONCISE by default. No filler, no repeating the question, no unnecessary preamble. "
+    "But when a question is genuinely technical or multi-step, give it the depth it needs — "
+    "concise does not mean shallow.\n"
+    "4. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
+    "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'"
+)
+
+async def _generate_with_fallback(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
+    """Shared by /api/chat and /api/regenerate. Tries the chosen provider,
+    then falls back through other configured providers (Groq<->Google paired
+    first) on ANY failure. Raises the last error if every provider fails."""
+    vision_capable = {"openrouter", "google"}
+    all_providers = ["groq", "openrouter", "google", "silicon"]
+    fallback_partner = {"groq": "google", "google": "groq", "openrouter": "google", "silicon": "groq"}
+
+    fallback_order = [provider]
+    partner = fallback_partner.get(provider)
+    if partner and partner not in fallback_order:
+        fallback_order.append(partner)
+    for p in all_providers:
+        if p not in fallback_order:
+            fallback_order.append(p)
+    if is_image:
+        fallback_order = [p for p in fallback_order if p == provider or p in vision_capable]
+
+    last_error = None
+    for attempt_provider in fallback_order:
+        attempt_model = actual_model if attempt_provider == provider else PROVIDER_DEFAULT_MODEL.get(attempt_provider, actual_model)
+        try:
+            ai_response = await _call_provider(
+                attempt_provider, attempt_model, system_prompt, recent_history,
+                effective_message, is_image, file_bytes, mime_type
+            )
+            if attempt_provider != provider:
+                print(f"[FALLBACK] {provider} unavailable, served by {attempt_provider} instead.")
+            return ai_response
+        except Exception as e:
+            last_error = e
+            print(f"[{attempt_provider.upper()} API ERROR]: {str(e)}")
+            continue
+
+    raise RuntimeError(str(last_error))
+
+
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
@@ -852,7 +991,10 @@ async def chat_with_assistant(
 
     existing_messages.append({"role": "user", "content": display_message})
     
-    if chat_title in ["New Chat", ""] and message:
+    is_first_message = chat_title in ["New Chat", ""] and bool(message)
+    if is_first_message:
+        # Immediate fallback title so the sidebar isn't blank while we wait —
+        # replaced with an AI-generated one below if that succeeds.
         chat_title = (message[:28] + '...') if len(message) > 28 else message
 
     recent_history = existing_messages[-12:]
@@ -963,19 +1105,7 @@ async def chat_with_assistant(
         )
 
     # --- Standard AI Chat Processing ---
-    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or (
-        "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
-        "CORE DIRECTIVES:\n"
-        "1. Reason like a top-tier frontier model (Sonnet/Fable-class): think through problems "
-        "carefully and internally before answering, break down hard problems step by step, catch "
-        "your own errors, and never guess when you can reason it out.\n"
-        "2. Act natural and humanoid. Speak like a real developer/peer, not a machine.\n"
-        "3. BE CONCISE by default. No filler, no repeating the question, no unnecessary preamble. "
-        "But when a question is genuinely technical or multi-step, give it the depth it needs — "
-        "concise does not mean shallow.\n"
-        "4. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
-        "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'"
-    )
+    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
@@ -984,46 +1114,99 @@ async def chat_with_assistant(
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
-    # Automatic provider fallback: if the chosen provider is rate-limited,
-    # retry on another provider you already have configured via env vars.
-    # This does NOT rotate API keys or accounts to dodge quotas (that would
-    # violate provider ToS) — it just uses redundancy across the different,
-    # legitimately-configured providers this app already supports.
-    vision_capable = {"openrouter", "google"}
-    all_providers = ["groq", "openrouter", "google", "silicon"]
-    fallback_order = [provider] + [p for p in all_providers if p != provider and (not is_image or p in vision_capable)]
+    try:
+        ai_response = await _generate_with_fallback(
+            provider, actual_model, system_prompt, recent_history,
+            effective_message, is_image, file_bytes, mime_type
+        )
+    except Exception as e:
+        ai_response = f"Whoops, looks like every configured AI provider hit a snag. Last error: {str(e)}"
 
-    ai_response = None
-    last_error = None
-
-    for attempt_provider in fallback_order:
-        attempt_model = actual_model if attempt_provider == provider else PROVIDER_DEFAULT_MODEL.get(attempt_provider, actual_model)
-        try:
-            ai_response = await _call_provider(
-                attempt_provider, attempt_model, system_prompt, recent_history,
-                effective_message, is_image, file_bytes, mime_type
-            )
-            if attempt_provider != provider:
-                print(f"[FALLBACK] {provider} unavailable, served by {attempt_provider} instead.")
-            break
-        except Exception as e:
-            last_error = e
-            print(f"[{attempt_provider.upper()} API ERROR]: {str(e)}")
-            if not _is_rate_limit_error(e):
-                # Non-rate-limit errors (bad key, malformed request) won't be
-                # fixed by switching providers — stop trying immediately.
-                break
-            continue
-
-    if ai_response is None:
-        ai_response = f"Whoops, looks like the AI provider(s) hit a snag: {str(last_error)}"
+    if is_first_message:
+        smart_title = await _generate_smart_title(message, ai_response)
+        if smart_title:
+            chat_title = smart_title
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
 
     return {"response": ai_response}
 
+
+@app.post("/api/regenerate")
+async def regenerate_response(
+    request: Request,
+    session_id: str = Form(...),
+    model_choice: str = Form("groq:openai/gpt-oss-120b"),
+    gem_prompt: Optional[str] = Form(None)
+):
+    """Fixes the previously-broken 'Retry' button, which was calling
+    createNewSession() and just starting a blank chat instead of actually
+    regenerating anything. This properly drops the last assistant reply and
+    re-generates a fresh one from the same conversation, in place."""
+    col, val = get_identifier(request)
+
+    existing_messages = []
+    chat_title = "New Chat"
+
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
+                row = cur.fetchone()
+                conn.close()
+                if row:
+                    msgs = row.get("messages", [])
+                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
+                    chat_title = row.get("title", "New Chat")
+        except Exception as e:
+            print(f"DATABASE FETCH ERROR IN /api/regenerate: {e}")
+            if conn:
+                conn.close()
+    else:
+        local_chats = load_local_chats()
+        user_data = local_chats.get(val, {}).get(str(session_id), {})
+        existing_messages = user_data.get("messages", [])
+        chat_title = user_data.get("title", "New Chat")
+
+    if not existing_messages or existing_messages[-1]["role"] != "assistant":
+        return JSONResponse(status_code=400, content={"error": "No response to regenerate."})
+
+    existing_messages.pop()  # drop the response we're replacing
+
+    last_user_message = None
+    for m in reversed(existing_messages):
+        if m["role"] == "user":
+            last_user_message = m["content"]
+            break
+
+    if not last_user_message:
+        return JSONResponse(status_code=400, content={"error": "No user message found to regenerate from."})
+
+    recent_history = existing_messages[-12:]
+    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
+
+    provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
+    if provider == "google":
+        actual_model = "gemini-3.6-flash"
+    elif provider == "openrouter" and actual_model.endswith(":free"):
+        actual_model = actual_model.replace(":free", "")
+
+    try:
+        ai_response = await _generate_with_fallback(
+            provider, actual_model, system_prompt, recent_history,
+            last_user_message, False, None, ""
+        )
+    except Exception as e:
+        ai_response = f"Whoops, looks like every configured AI provider hit a snag. Last error: {str(e)}"
+
+    existing_messages.append({"role": "assistant", "content": ai_response})
+    save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
+
+    return {"response": ai_response}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-
