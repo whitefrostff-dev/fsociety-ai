@@ -1,9 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Nwodili yaemerie convenant</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
     <meta name="google-site-verification" content="aJLbQxe0H--GagBnc7GuiZUBCuDwoh_pvVsTFqchLYc" />
     <script type="application/ld+json">
@@ -356,6 +359,39 @@
             box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
         }
         .code-edit-btn.editing { color: #4ade80 !important; border-color: rgba(74, 222, 128, 0.5) !important; }
+
+        @keyframes popupFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- SUGGESTED PROMPT CHIPS --- */
+        #welcome-screen button:hover { border-color: var(--border-glow); }
+
+        /* --- CODE CARD (chat inline) --- */
+        .code-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 10px 0;
+            max-width: 320px;
+        }
+        .code-card:hover { border-color: var(--border-glow); background: var(--bg-card-hover); transform: translateY(-1px); }
+        .code-card-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; flex-shrink: 0;
+        }
+        .code-card-info { flex: 1; min-width: 0; }
+        .code-card-title { font-size: 0.88rem; font-weight: 600; color: var(--text-main); }
+        .code-card-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+        .code-card-chevron { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -466,6 +502,11 @@
                         </button>
                         <input id="native-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
 
+                        <button type="button" onclick="triggerSnapAndSolve()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-amber-400" title="Snap & Solve — photograph a problem to get it solved">
+                            <i class="fa-solid fa-calculator"></i>
+                        </button>
+                        <input id="snap-solve-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleSnapAndSolve(event)">
+
                         <label for="file-upload" class="cursor-pointer p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload Document or Image">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
@@ -504,8 +545,8 @@
                 <button onclick="toggleCodeEdit()" id="edit-code-btn" class="code-edit-btn text-[10px] bg-blue-900/30 text-blue-400 border border-blue-900/50 hover:bg-blue-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
                     <i class="fa-solid fa-pen"></i> Edit
                 </button>
-                <button onclick="debugArtifactCode()" id="debug-code-btn" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
-                    <i class="fa-solid fa-bug"></i> Fix
+                <button onclick="debugArtifactCode()" id="debug-code-btn" title="Send this code to Ranen for debugging" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
+                    <i class="fa-solid fa-bug"></i> Debug
                 </button>
             </div>
             <button onclick="toggleArtifactPanel()" class="text-lg ml-2 hover:text-white transition-colors pl-2 shrink-0">
@@ -566,6 +607,20 @@
                         </a>
                         <a href="/privacy" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
                             <span>Privacy Policy</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <p class="text-[13px] md:text-sm font-semibold mb-2">Contact Us</p>
+                    <div class="space-y-2">
+                        <a href="mailto:whitefrostff@gmail.com" class="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
+                            <i class="fa-solid fa-envelope text-blue-400"></i>
+                            <span>whitefrostff@gmail.com</span>
+                        </a>
+                        <a href="tel:+2347077187114" class="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
+                            <i class="fa-solid fa-phone text-green-400"></i>
+                            <span>+234 707 718 7114</span>
                         </a>
                     </div>
                 </div>
@@ -636,6 +691,21 @@
                         </div>
                         <div id="cal-events-list" class="space-y-1 text-xs max-h-24 overflow-y-auto"></div>
                     </div>
+                </div>
+
+                <div class="p-3 border border-gray-700 bg-[#1e1e1e] rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-500 flex items-center justify-center text-white text-sm md:text-lg"><i class="fa-regular fa-clock"></i></div>
+                            <div>
+                                <p class="text-[13px] md:text-sm font-bold text-white">Scheduled Prompts</p>
+                                <p class="text-[9px] md:text-[10px] text-gray-400">Fires while this tab is open — see note below</p>
+                            </div>
+                        </div>
+                        <button onclick="addScheduledPrompt()" class="text-[9px] md:text-[10px] px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold transition-colors">+ Add</button>
+                    </div>
+                    <p class="text-[9px] text-gray-500 leading-relaxed">Heads up: this only fires while Ranen is open in a browser tab — closing the tab or app pauses it. True always-on scheduling (like ChatGPT's) needs a background server process running independently, which isn't set up yet.</p>
+                    <div id="scheduled-list" class="space-y-1 text-xs max-h-28 overflow-y-auto"></div>
                 </div>
             </div>
         </div>
@@ -749,6 +819,20 @@
                         return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                     }
                     return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
+                },
+                code(code, infostring) {
+                    const meta = codeCardMeta(infostring);
+                    const lineCount = code.split('\n').filter(l => l.length).length || code.split('\n').length;
+                    return `
+                        <div class="code-card" onclick="openArtifactTab('${meta.tab}')">
+                            <div class="code-card-icon" style="background:${meta.color}22; color:${meta.color};"><i class="fa-solid ${meta.icon}"></i></div>
+                            <div class="code-card-info">
+                                <div class="code-card-title">${meta.label}</div>
+                                <div class="code-card-sub">Code &middot; ${meta.ext} &middot; ${lineCount} lines</div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right code-card-chevron"></i>
+                        </div>
+                    `;
                 }
             }
         });
@@ -761,6 +845,35 @@
         let allSessions = [];
         let currentUserName = "Guest User";
         let isCodeEditing = false;
+
+        // Maps a fenced code block's language tag to how its chat card looks
+        // and which Artifact tab it should open.
+        const LANG_EXT_LABELS = {
+            py: 'PY', python: 'PY', js: 'JS', javascript: 'JS', jsx: 'JSX', ts: 'TS', typescript: 'TS',
+            html: 'HTML', css: 'CSS', json: 'JSON', sql: 'SQL', java: 'JAVA', c: 'C', cpp: 'C++',
+            go: 'GO', rb: 'RUBY', php: 'PHP', yaml: 'YAML', yml: 'YAML', xml: 'XML'
+        };
+
+        function codeCardMeta(infostring) {
+            const key = (infostring || '').trim().toLowerCase();
+            if (key === 'mermaid') {
+                return { label: 'Diagram', ext: 'MERMAID', icon: 'fa-diagram-project', tab: 'architecture', color: '#a78bfa' };
+            }
+            if (['bash', 'sh', 'nmap', 'security'].includes(key)) {
+                return { label: 'Security', ext: key.toUpperCase(), icon: 'fa-shield-halved', tab: 'security', color: '#f87171' };
+            }
+            const ext = LANG_EXT_LABELS[key] || (key ? key.toUpperCase() : 'TXT');
+            return { label: 'Code', ext, icon: 'fa-code', tab: 'code', color: '#fbbf24' };
+        }
+
+        function openArtifactTab(tab) {
+            const panel = document.getElementById('artifact-sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            panel.classList.remove('hidden');
+            panel.classList.add('flex', 'mobile-open');
+            backdrop.classList.add('active');
+            switchArtifactTab(tab);
+        }
 
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
@@ -794,6 +907,79 @@
         function loadSavedBubbleColor() {
             const saved = localStorage.getItem('ranen_bubble_color');
             if (saved) setBubbleColor(saved);
+        }
+
+        // --- DEVICE ACTIONS (torch + app deep links) ---
+        // Browsers deliberately block webpages from launching arbitrary
+        // native apps or controlling hardware without explicit permission —
+        // this is NOT a Ranen limitation, it's a security boundary every
+        // website is under. What actually works: camera-torch control (with
+        // permission) and URL-scheme deep links for apps that support them
+        // (WhatsApp, phone dialer, SMS, maps). "Open any app" in general is
+        // not something a website can do.
+        let torchStream = null;
+        let torchOn = false;
+
+        async function toggleTorch() {
+            try {
+                if (!torchOn) {
+                    torchStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    const track = torchStream.getVideoTracks()[0];
+                    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                    if (!capabilities.torch) {
+                        torchStream.getTracks().forEach(t => t.stop());
+                        torchStream = null;
+                        return { ok: false, reason: "This device or browser doesn't expose flashlight control to websites." };
+                    }
+                    await track.applyConstraints({ advanced: [{ torch: true }] });
+                    torchOn = true;
+                    return { ok: true, state: 'on' };
+                } else {
+                    if (torchStream) {
+                        const track = torchStream.getVideoTracks()[0];
+                        await track.applyConstraints({ advanced: [{ torch: false }] });
+                        torchStream.getTracks().forEach(t => t.stop());
+                        torchStream = null;
+                    }
+                    torchOn = false;
+                    return { ok: true, state: 'off' };
+                }
+            } catch (e) {
+                return { ok: false, reason: "Camera/torch permission was blocked or unavailable: " + e.message };
+            }
+        }
+
+        function detectDeviceCommand(text) {
+            const lower = text.toLowerCase();
+            if (/(turn (on|off)|toggle)\s+(the\s+)?(torch|flashlight)/.test(lower)) {
+                return { type: 'torch' };
+            }
+            if (/open\s+whatsapp/.test(lower)) {
+                return { type: 'whatsapp' };
+            }
+            if (/(open|call)\s+(the\s+)?(dial(er)?|phone)/.test(lower)) {
+                return { type: 'dialer' };
+            }
+            return null;
+        }
+
+        async function handleDeviceCommand(cmd) {
+            if (cmd.type === 'torch') {
+                const result = await toggleTorch();
+                if (result.ok) {
+                    return `Torch is now **${result.state}**.`;
+                }
+                return `Couldn't control the torch: ${result.reason}`;
+            }
+            if (cmd.type === 'whatsapp') {
+                window.open('https://wa.me/', '_blank');
+                return "Opening WhatsApp now.";
+            }
+            if (cmd.type === 'dialer') {
+                window.location.href = 'tel:';
+                return "Opening your phone dialer.";
+            }
+            return "I couldn't handle that device action.";
         }
 
         // Returns a color name if the message is a color-change command, else null.
@@ -856,6 +1042,8 @@
             await fetchGems();
             highlightActiveModelCard();
             renderCalendar();
+            renderScheduledList();
+            scheduleCheckInterval = setInterval(checkScheduledPrompts, 20000);
             
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
@@ -1056,6 +1244,87 @@
             renderCalendarEvents();
         }
 
+        // --- SCHEDULED PROMPTS (tab-open-only, see disclaimer in UI) ---
+        let scheduledTasks = JSON.parse(localStorage.getItem('ranen_scheduled') || '[]');
+        let scheduleCheckInterval = null;
+
+        function renderScheduledList() {
+            const container = document.getElementById('scheduled-list');
+            if (!container) return;
+            if (scheduledTasks.length === 0) {
+                container.innerHTML = `<span class="text-[10px] text-gray-500 italic">No scheduled prompts.</span>`;
+                return;
+            }
+            container.innerHTML = scheduledTasks.map((t, idx) => `
+                <div class="flex items-center justify-between p-1.5 border border-gray-700 bg-[#2a2a2a] rounded">
+                    <span class="text-gray-200 truncate pr-2">${t.fired ? '✅ ' : '⏳ '}${t.prompt} — ${new Date(t.time).toLocaleString()}</span>
+                    <button onclick="removeScheduledPrompt(${idx})" class="text-[10px] text-red-400 hover:text-red-300 shrink-0"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('');
+        }
+
+        async function addScheduledPrompt() {
+            const promptText = prompt("What should Ranen do?");
+            if (!promptText) return;
+            const whenStr = prompt("When? (e.g. 2026-09-10 14:30)");
+            if (!whenStr) return;
+            const time = new Date(whenStr.replace(' ', 'T'));
+            if (isNaN(time.getTime())) {
+                alert("Couldn't parse that date/time. Try format: YYYY-MM-DD HH:MM");
+                return;
+            }
+            if (Notification && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            scheduledTasks.push({ prompt: promptText, time: time.getTime(), fired: false });
+            localStorage.setItem('ranen_scheduled', JSON.stringify(scheduledTasks));
+            renderScheduledList();
+        }
+
+        function removeScheduledPrompt(idx) {
+            scheduledTasks.splice(idx, 1);
+            localStorage.setItem('ranen_scheduled', JSON.stringify(scheduledTasks));
+            renderScheduledList();
+        }
+
+        async function checkScheduledPrompts() {
+            const now = Date.now();
+            let changed = false;
+            for (const task of scheduledTasks) {
+                if (!task.fired && task.time <= now) {
+                    task.fired = true;
+                    changed = true;
+
+                    if (Notification && Notification.permission === 'granted') {
+                        new Notification('Ranen — Scheduled prompt', { body: task.prompt });
+                    }
+
+                    if (!currentSessionId) {
+                        const newRes = await fetch('/api/new-session', { method: 'POST' });
+                        const newData = await newRes.json();
+                        currentSessionId = newData.session_id;
+                    }
+                    renderMessage('user', `[Scheduled] ${task.prompt}`, true);
+                    const formData = new FormData();
+                    formData.append('session_id', currentSessionId);
+                    formData.append('message', task.prompt);
+                    formData.append('model_choice', activeModelValue);
+                    try {
+                        const res = await fetch('/api/chat', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        renderMessage('assistant', data.response, true);
+                        await fetchSessions();
+                    } catch (e) {
+                        renderMessage('assistant', `**System Alert:** Scheduled prompt failed to send. (${e.message})`, true);
+                    }
+                }
+            }
+            if (changed) {
+                localStorage.setItem('ranen_scheduled', JSON.stringify(scheduledTasks));
+                renderScheduledList();
+            }
+        }
+
         function debugArtifactCode() {
             if (!latestExtractedCode) return;
             const debugPrompt = `Please analyze, debug, and fix the following code. Explain what went wrong and provide the corrected version:\n\n\`\`\`\n${latestExtractedCode}\n\`\`\``;
@@ -1124,8 +1393,9 @@
                 const container = document.getElementById('gems-list');
                 container.innerHTML = '';
                 gems.forEach(g => {
+                    const safeDesc = (g.description || '').replace(/'/g, "\\'");
                     container.innerHTML += `
-                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
+                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}', '${safeDesc}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
                             <div>
                                 <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon || 'fa-gem'} text-amber-400"></i> ${g.name}</h4>
                                 <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
@@ -1137,8 +1407,16 @@
             } catch (e) { console.error(e); }
         }
 
-        function setGem(prompt, name) {
-            activeGemPrompt = prompt;
+        // Bug fix: previously a custom gem's raw system_prompt was sent as-is,
+        // so if it didn't explicitly say "you are X", asking "who are you"
+        // fell through to the model's generic identity. Wrapping it here
+        // binds the persona's name/description to its identity every time.
+        function setGem(prompt, name, description) {
+            const identityWrap = `You are ${name}.${description ? ' ' + description + '.' : ''} `
+                + `If asked who you are, what your name is, or what you do, answer in character as ${name} `
+                + `based on the persona description below — do not describe yourself as a generic assistant.\n\n`
+                + `--- Persona instructions ---\n${prompt}`;
+            activeGemPrompt = identityWrap;
             alert(`Persona active: ${name}`);
             closeGemsModal();
         }
@@ -1244,14 +1522,35 @@
 
         function renderEmptyState() {
             const container = document.getElementById('messages-container');
+            const suggestions = [
+                { icon: 'fa-pen-nib', text: 'Write an email to reply to my colleague' },
+                { icon: 'fa-lightbulb', text: 'Explain a concept I\'m struggling with' },
+                { icon: 'fa-code', text: 'Help me debug a piece of code' },
+                { icon: 'fa-comments', text: 'Generate a message to start a conversation' },
+            ];
             container.innerHTML = `
-                <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-4 pt-16">
+                <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-5 pt-16">
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
                         Hi ${currentUserName}, Where should we start?
                     </h1>
                     <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
+                    <div class="flex flex-col gap-2 w-full max-w-sm mx-auto px-4">
+                        ${suggestions.map(s => `
+                            <button onclick="useSuggestedPrompt(this)" data-prompt="${s.text.replace(/"/g, '&quot;')}" class="w-full flex items-center gap-3 text-left text-xs md:text-sm px-4 py-3 rounded-2xl border border-[var(--border-color)] bg-[#1a1a1a] hover:bg-[#242424] transition-colors text-gray-200">
+                                <i class="fa-solid ${s.icon} text-gray-500 w-4"></i>
+                                <span>${s.text}</span>
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
             `;
+        }
+
+        function useSuggestedPrompt(btn) {
+            const prompt = btn.getAttribute('data-prompt');
+            const input = document.getElementById('user-input');
+            input.value = prompt;
+            input.focus();
         }
 
         async function createNewSession() {
@@ -1286,6 +1585,55 @@
 
         function triggerNativeCamera() {
             document.getElementById('native-camera-input').click();
+        }
+
+        function triggerSnapAndSolve() {
+            document.getElementById('snap-solve-input').click();
+        }
+
+        // Snap & Solve: photograph a problem, send it straight to a vision-capable
+        // model with a solve-it prompt. Forces the vision model for just this one
+        // request — doesn't change your regular model selection.
+        async function handleSnapAndSolve(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            event.target.value = '';
+
+            if (!currentSessionId) {
+                const newRes = await fetch('/api/new-session', { method: 'POST' });
+                const newData = await newRes.json();
+                currentSessionId = newData.session_id;
+            }
+
+            const solvePrompt = "Solve this problem. Show your work step by step, then give the final answer clearly.";
+            renderMessage('user', solvePrompt + ' [Attached File: ' + file.name + ']', true);
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('message', solvePrompt);
+            formData.append('model_choice', 'google:gemini-1.5-flash'); // vision-capable, regardless of current selection
+            formData.append('file', file);
+
+            const sendBtn = document.getElementById('send-btn');
+            const originalBtnHTML = sendBtn.innerHTML;
+            sendBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-lg"></i>`;
+            sendBtn.disabled = true;
+            showThinkingIndicator();
+
+            try {
+                const res = await fetch('/api/chat', { method: 'POST', body: formData });
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                const data = await res.json();
+                hideThinkingIndicator();
+                renderMessage('assistant', data.response, true);
+                await fetchSessions();
+            } catch (error) {
+                hideThinkingIndicator();
+                renderMessage('assistant', `**System Alert:** Connection interrupted. (${error.message})`, true);
+            } finally {
+                sendBtn.innerHTML = originalBtnHTML;
+                sendBtn.disabled = false;
+            }
         }
 
         function handleFileSelect(e) {
@@ -1377,6 +1725,23 @@
             const input = document.getElementById('user-input');
             const text = input.value.trim();
             if (!text && !selectedFile) return;
+
+            // --- Local device-action command interceptor (torch / app deep links) ---
+            if (!selectedFile) {
+                const deviceCmd = detectDeviceCommand(text);
+                if (deviceCmd) {
+                    if (!currentSessionId) {
+                        const newRes = await fetch('/api/new-session', { method: 'POST' });
+                        const newData = await newRes.json();
+                        currentSessionId = newData.session_id;
+                    }
+                    renderMessage('user', text, true);
+                    input.value = '';
+                    const resultMsg = await handleDeviceCommand(deviceCmd);
+                    renderMessage('assistant', resultMsg, true);
+                    return;
+                }
+            }
 
             // --- Local color-change command interceptor (no AI call needed) ---
             if (!selectedFile) {
@@ -1488,22 +1853,28 @@
         }
 
         let pressTimer = null;
+        let lastPressCoords = { x: 0, y: 0 };
         document.addEventListener('mousedown', (e) => handleLongPressStart(e));
         document.addEventListener('mouseup', () => handleLongPressEnd());
         document.addEventListener('touchstart', (e) => handleLongPressStart(e), {passive: true});
         document.addEventListener('touchend', () => handleLongPressEnd());
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#floating-copy-popup')) hideCopyPopup();
+        });
 
         function handleLongPressStart(e) {
             const bubble = e.target.closest('.user-msg, .assistant-content');
             if (!bubble) return;
-            
+
+            const point = e.touches ? e.touches[0] : e;
+            lastPressCoords = { x: point.clientX, y: point.clientY };
+
             pressTimer = setTimeout(() => {
                 const textToCopy = bubble.innerText;
                 if (textToCopy) {
-                    navigator.clipboard.writeText(textToCopy);
-                    showCopyToast();
+                    showCopyPopup(lastPressCoords.x, lastPressCoords.y, textToCopy);
                 }
-            }, 600);
+            }, 500);
         }
 
         function handleLongPressEnd() {
@@ -1511,6 +1882,41 @@
                 clearTimeout(pressTimer);
                 pressTimer = null;
             }
+        }
+
+        function showCopyPopup(x, y, textToCopy) {
+            hideCopyPopup();
+            const popup = document.createElement('div');
+            popup.id = 'floating-copy-popup';
+            popup.className = 'input-box';
+            popup.style.cssText = `
+                position: fixed;
+                left: ${Math.min(x, window.innerWidth - 130)}px;
+                top: ${Math.max(y - 50, 10)}px;
+                z-index: 60;
+                border-radius: 14px;
+                padding: 8px 14px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.8rem;
+                cursor: pointer;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+                animation: popupFadeIn 0.15s ease;
+            `;
+            popup.innerHTML = `<i class="fa-regular fa-copy"></i> Copy`;
+            popup.onclick = () => {
+                navigator.clipboard.writeText(textToCopy);
+                popup.innerHTML = `<i class="fa-solid fa-check text-green-400"></i> Copied`;
+                setTimeout(hideCopyPopup, 700);
+            };
+            document.body.appendChild(popup);
+            setTimeout(hideCopyPopup, 4000);
+        }
+
+        function hideCopyPopup() {
+            const existing = document.getElementById('floating-copy-popup');
+            if (existing) existing.remove();
         }
 
         function showCopyToast() {
@@ -1626,5 +2032,4 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-                        </html>
-                            
+</html>
