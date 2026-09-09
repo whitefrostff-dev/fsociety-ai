@@ -135,6 +135,36 @@ UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+# --- FAVICON ---
+# Root-level files aren't served by the /uploads StaticFiles mount, so this
+# needs its own route. Looks for favicon.png next to index.html; falls back
+# to a 204 (no icon) if it's not there yet so the route never 500s.
+def _find_favicon_path():
+    candidates = [
+        os.path.join("..", "app", "favicon.png"),
+        "favicon.png",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+@app.get("/favicon.png")
+async def favicon():
+    path = _find_favicon_path()
+    if path:
+        return Response(content=open(path, "rb").read(), media_type="image/png")
+    return Response(status_code=204)
+
+@app.get("/favicon.ico")
+async def favicon_ico():
+    # Browsers request this by default even when a PNG <link> is set; point it
+    # at the same PNG so there's no broken-icon request in the network tab.
+    path = _find_favicon_path()
+    if path:
+        return Response(content=open(path, "rb").read(), media_type="image/png")
+    return Response(status_code=204)
+
 # --- PROXY & SECURE SESSION FIX ---
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
@@ -305,26 +335,131 @@ async def serve_frontend(request: Request):
         
     return response
 
+LEGAL_PAGE_STYLE = """
+    <style>
+        body{background:#050505;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:0;margin:0;line-height:1.7;}
+        .wrap{max-width:760px;margin:0 auto;padding:48px 24px 80px;}
+        h1{font-size:1.8rem;margin-bottom:4px;}
+        .updated{color:#9ca3af;font-size:0.8rem;margin-bottom:32px;}
+        h2{font-size:1.15rem;margin-top:32px;margin-bottom:10px;color:#f9fafb;border-bottom:1px solid #262626;padding-bottom:6px;}
+        p, li{color:#d1d5db;font-size:0.92rem;}
+        ul{padding-left:20px;}
+        a{color:#60a5fa;text-decoration:none;}
+        a:hover{text-decoration:underline;}
+        .contact-box{background:#111827;border:1px solid #262626;border-radius:12px;padding:18px 20px;margin-top:8px;}
+        .contact-box p{margin:4px 0;}
+        .back{display:inline-block;margin-bottom:24px;color:#9ca3af;font-size:0.85rem;}
+    </style>
+"""
+
+CONTACT_BLOCK = """
+    <div class="contact-box">
+        <p><b>Email:</b> <a href="mailto:whitefrostff@gmail.com">whitefrostff@gmail.com</a></p>
+        <p><b>Phone / WhatsApp:</b> <a href="tel:+2347077187114">+234 707 718 7114</a></p>
+    </div>
+"""
+
 @app.get("/terms", response_class=HTMLResponse)
 async def terms_page():
-    return """
-    <html><head><title>Terms of Service - Ranen</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Terms of Service for Ranen</h2>
-    <p>1. <b>Acceptable Use:</b> Do not use the service for malicious activities, prompt injection, or illegal content generation.<br>
-    2. <b>AI Output Disclaimer:</b> Outputs may contain errors or hallucinations. Do not rely on Ranen for critical medical, legal, or financial advice.<br>
-    3. <b>Content Ownership:</b> You retain rights to your inputs; we retain rights to the platform UI/UX.<br>
-    4. <b>Liability:</b> Service is provided "as is". We are not responsible for downtime or damages.</p></body></html>
+    return f"""
+    <html><head><title>Terms of Service - Ranen</title>{LEGAL_PAGE_STYLE}</head>
+    <body><div class="wrap">
+    <a href="/" class="back">&larr; Back to Ranen</a>
+    <h1>Terms of Service</h1>
+    <div class="updated">Last updated: 2026</div>
+
+    <p>These Terms govern your use of Ranen ("the Service"), an AI assistant platform built and operated by Nwodili Yaemerie Convenant. By using Ranen, you agree to these Terms. If you do not agree, please do not use the Service.</p>
+
+    <h2>1. Acceptable Use</h2>
+    <ul>
+        <li>Do not use the Service for malicious activity, including malware creation, prompt injection attacks, or attempts to bypass safety systems.</li>
+        <li>Do not use the Service to generate illegal content, including content that exploits or endangers minors, facilitates violence, or violates the rights of others.</li>
+        <li>Do not attempt to reverse-engineer, scrape, or overload the Service's infrastructure.</li>
+        <li>Do not use the Service to impersonate real people or organizations in a misleading or harmful way.</li>
+    </ul>
+
+    <h2>2. AI Output Disclaimer</h2>
+    <p>Ranen is powered by third-party large language models (including but not limited to Groq, Google Gemini, OpenRouter, and SiliconFlow). Outputs may contain errors, outdated information, or hallucinations. Do not rely on Ranen as a substitute for professional medical, legal, financial, or safety-critical advice. Always verify important information independently.</p>
+
+    <h2>3. Accounts &amp; Guest Access</h2>
+    <p>You may use Ranen as a signed-in user (via Google OAuth) or as an anonymous guest. Guest sessions are tied to a browser cookie and are not guaranteed to persist indefinitely. You are responsible for safeguarding access to your account.</p>
+
+    <h2>4. Content Ownership</h2>
+    <p>You retain ownership of the messages, files, and content you submit to Ranen. We retain ownership of the platform itself — its design, code, branding, and user interface. By uploading files or content, you confirm you have the right to share that content and to have it processed by the third-party AI providers listed above.</p>
+
+    <h2>5. File Uploads</h2>
+    <p>Uploaded files are stored to provide chat continuity and may be processed by third-party AI providers to generate responses. Do not upload sensitive personal documents (IDs, financial statements, medical records) unless necessary, as Ranen is not a certified secure storage system.</p>
+
+    <h2>6. Service Availability</h2>
+    <p>The Service is provided "as is" and "as available," without warranties of any kind. We do not guarantee uninterrupted uptime, and third-party AI providers may experience outages, rate limits, or degraded performance outside of our control.</p>
+
+    <h2>7. Limitation of Liability</h2>
+    <p>To the maximum extent permitted by law, Nwodili Yaemerie Convenant shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service, including but not limited to data loss, service downtime, or reliance on AI-generated content.</p>
+
+    <h2>8. Changes to These Terms</h2>
+    <p>These Terms may be updated periodically as the Service evolves. Continued use of Ranen after changes are posted constitutes acceptance of the revised Terms.</p>
+
+    <h2>9. Termination</h2>
+    <p>We reserve the right to suspend or terminate access to the Service for any user found violating these Terms, without prior notice.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about these Terms? Reach out directly:</p>
+    {CONTACT_BLOCK}
+    </div></body></html>
     """
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_page():
-    return """
-    <html><head><title>Privacy Policy - Ranen</title><style>body{background:#000;color:#fff;font-family:sans-serif;padding:40px;line-height:1.6;} a{color:#4da6ff;}</style></head>
-    <body><h2>Privacy Policy for Ranen</h2>
-    <p>1. <b>Data Collection:</b> We collect chat prompts, uploaded images, and basic connection logs to provide the service.<br>
-    2. <b>Third-Party Providers:</b> Your prompts and images are processed securely via external APIs (e.g., Groq, Google Gemini) to generate responses.<br>
-    3. <b>Data Sales:</b> We do not sell your personal data or chat histories to third-party advertisers.<br>
-    4. <b>Retention:</b> Chat history is stored to provide session continuity and can be deleted upon request.</p></body></html>
+    return f"""
+    <html><head><title>Privacy Policy - Ranen</title>{LEGAL_PAGE_STYLE}</head>
+    <body><div class="wrap">
+    <a href="/" class="back">&larr; Back to Ranen</a>
+    <h1>Privacy Policy</h1>
+    <div class="updated">Last updated: 2026</div>
+
+    <p>This Privacy Policy explains what data Ranen collects, how it is used, and your choices regarding that data.</p>
+
+    <h2>1. Data We Collect</h2>
+    <ul>
+        <li><b>Chat content:</b> messages you send, and any files or images you upload.</li>
+        <li><b>Account info:</b> if you sign in with Google, we receive your name and email address via OAuth.</li>
+        <li><b>Guest identifiers:</b> a random cookie ID for anonymous sessions, with no personal info attached.</li>
+        <li><b>Basic technical logs:</b> connection metadata (e.g., timestamps, error logs) used for debugging and abuse prevention.</li>
+    </ul>
+
+    <h2>2. How We Use Your Data</h2>
+    <ul>
+        <li>To generate AI responses to your messages.</li>
+        <li>To maintain chat history so conversations persist across sessions.</li>
+        <li>To improve reliability and fix bugs.</li>
+    </ul>
+
+    <h2>3. Third-Party AI Providers</h2>
+    <p>Your prompts, uploaded files, and images are sent to third-party AI providers (Groq, Google Gemini, OpenRouter, SiliconFlow) to generate responses. Each provider processes this data under its own privacy and data-handling terms. We do not control how these providers internally process requests beyond what their APIs document.</p>
+
+    <h2>4. Data Storage</h2>
+    <p>Chat history and uploaded files are stored on our servers (PostgreSQL database and file storage) to provide session continuity. This data persists until you delete a chat or request deletion of your account data.</p>
+
+    <h2>5. Data We Do Not Sell</h2>
+    <p>We do not sell your personal data, chat histories, or uploaded files to advertisers or data brokers.</p>
+
+    <h2>6. Your Choices</h2>
+    <ul>
+        <li>You can delete individual chats at any time from the sidebar.</li>
+        <li>You can use Ranen as a guest without creating an account.</li>
+        <li>You can request full deletion of your stored data by contacting us (see below).</li>
+    </ul>
+
+    <h2>7. Children's Privacy</h2>
+    <p>Ranen is not directed at children under 13, and we do not knowingly collect personal data from children under 13.</p>
+
+    <h2>8. Changes to This Policy</h2>
+    <p>This Privacy Policy may be updated as the Service evolves. Material changes will be reflected by updating the "Last updated" date above.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions, data deletion requests, or anything else:</p>
+    {CONTACT_BLOCK}
+    </div></body></html>
     """
 
 @app.get("/api/user")
@@ -553,6 +688,98 @@ async def github_plugin_callback(request: Request, code: str):
             return RedirectResponse(url="/?plugin=github&status=connected")
         return RedirectResponse(url="/?plugin=github&status=failed")
 
+RATE_LIMIT_MARKERS = ["429", "rate limit", "rate_limit", "quota", "resource_exhausted", "too many requests", "capacity"]
+
+def _is_rate_limit_error(err: Exception) -> bool:
+    msg = str(err).lower()
+    return any(marker in msg for marker in RATE_LIMIT_MARKERS)
+
+PROVIDER_DEFAULT_MODEL = {
+    "groq": "openai/gpt-oss-120b",
+    "openrouter": "meta-llama/llama-3.3-70b-instruct",
+    "google": "gemini-1.5-flash",
+    "silicon": "Qwen/Qwen2.5-7B-Instruct",
+}
+
+async def _call_provider(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
+    """Dispatches one AI call to the given provider. Raises on failure —
+    callers handle retries/fallback."""
+    if provider == "openrouter":
+        if not openrouter_client:
+            raise RuntimeError("OPENROUTER_API_KEY is missing.")
+        messages_payload = [{"role": "system", "content": system_prompt}]
+        for msg in recent_history[:-1]:
+            messages_payload.append({"role": msg["role"], "content": msg["content"]})
+
+        if is_image and file_bytes:
+            b64_img = base64.b64encode(file_bytes).decode('utf-8')
+            messages_payload.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": effective_message or "Analyze this file."},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
+                ]
+            })
+        else:
+            messages_payload.append({"role": "user", "content": effective_message})
+
+        res = await openrouter_client.chat.completions.create(
+            model=actual_model, messages=messages_payload, max_tokens=2048
+        )
+        return res.choices[0].message.content
+
+    elif provider == "google":
+        if not genai_client:
+            raise RuntimeError("GOOGLE_API_KEY is missing.")
+        contents = []
+        for msg in recent_history[:-1]:
+            role_prefix = "User" if msg["role"] == "user" else "Model"
+            contents.append(f"{role_prefix}: {msg['content']}")
+
+        if is_image and file_bytes:
+            image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
+            contents.append(image_part)
+
+        contents.append(effective_message)
+
+        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
+        resp = genai_client.models.generate_content(model=actual_model, contents=contents, config=config)
+        return resp.text
+
+    elif provider == "silicon":
+        if not silicon_client:
+            raise RuntimeError("SILICONFLOW_API_KEY is missing.")
+        messages_payload = [{"role": "system", "content": system_prompt}]
+        for msg in recent_history[:-1]:
+            messages_payload.append({"role": msg["role"], "content": msg["content"]})
+        messages_payload.append({"role": "user", "content": effective_message})
+
+        response = await silicon_client.chat.completions.create(
+            model=actual_model, messages=messages_payload, max_tokens=2048
+        )
+        return response.choices[0].message.content
+
+    else:  # groq
+        if not groq_client:
+            raise RuntimeError("GROQ_API_KEY is missing from environment variables.")
+        if "70b" in actual_model or "versatile" in actual_model:
+            actual_model = "openai/gpt-oss-120b"
+        elif "8b" in actual_model or "instant" in actual_model or not actual_model:
+            actual_model = "openai/gpt-oss-20b"
+        else:
+            actual_model = "openai/gpt-oss-120b"
+
+        messages_payload = [{"role": "system", "content": system_prompt}]
+        for msg in recent_history[:-1]:
+            messages_payload.append({"role": msg["role"], "content": msg["content"]})
+        messages_payload.append({"role": "user", "content": effective_message})
+
+        chat_completion = groq_client.chat.completions.create(
+            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048
+        )
+        return chat_completion.choices[0].message.content
+
+
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
@@ -683,10 +910,19 @@ async def chat_with_assistant(
 
     # --- Live Web Search Interceptor ---
     web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
+    research_keywords = ["research", "deep dive", "look into", "investigate", "in-depth"]
     effective_message = message
-    
-    if HAS_DDGS and any(kw in lower_prompt for kw in web_search_keywords):
-        cached_text_results = get_cached_search(message, search_type="text")
+
+    is_research_mode = any(kw in lower_prompt for kw in research_keywords)
+    should_search = is_research_mode or any(kw in lower_prompt for kw in web_search_keywords)
+    # Research mode pulls more sources for a deeper synthesis. This is
+    # user-triggered on-demand depth, not autonomous background research —
+    # a true "AI researches on its own schedule" feature needs a background
+    # worker/scheduler process, which this request-response backend doesn't have.
+    search_result_count = 6 if is_research_mode else 3
+
+    if HAS_DDGS and should_search:
+        cached_text_results = get_cached_search(f"{message}:{search_result_count}", search_type="text")
         if cached_text_results is not None:
             results = cached_text_results
         else:
@@ -694,8 +930,8 @@ async def chat_with_assistant(
                 try:
                     await asyncio.sleep(0.5) 
                     with DDGS() as ddgs:
-                        results = list(ddgs.text(message, max_results=3))
-                        set_cached_search(message, results, search_type="text")
+                        results = list(ddgs.text(message, max_results=search_result_count))
+                        set_cached_search(f"{message}:{search_result_count}", results, search_type="text")
                 except Exception as e:
                     results = []
                     print(f"Web search execution error: {e}")
@@ -703,11 +939,18 @@ async def chat_with_assistant(
         if results:
             snippets = "\n".join([f"- Title: {r.get('title')}\n  Snippet: {r.get('body')}\n  Source URL: {r.get('href')}" for r in results])
             current_date_str = datetime.now().strftime("%A, %B %d, %Y")
+            research_instruction = (
+                "Instructions: This is a research request. Synthesize the sources above into a "
+                "structured, well-organized answer — cover multiple angles, note any disagreement "
+                "between sources, and cite source URLs inline where relevant."
+                if is_research_mode else
+                "Instructions: Use the real-time search context above to answer the user's question directly."
+            )
             effective_message = (
                 f"{message}\n\n"
                 f"[Live Web Search Context - Current Date: {current_date_str}]:\n"
                 f"{snippets}\n\n"
-                f"Instructions: Use the real-time search context above to answer the user's question directly."
+                f"{research_instruction}"
             )
 
     # --- Inject File Text Content into Message Payload if Present ---
@@ -741,104 +984,39 @@ async def chat_with_assistant(
     elif provider == "openrouter" and actual_model.endswith(":free"):
         actual_model = actual_model.replace(":free", "")
 
-    try:
-        if provider == "openrouter":
-            if not openrouter_client:
-                ai_response = "**Error:** `OPENROUTER_API_KEY` is missing."
-            else:
-                messages_payload = [{"role": "system", "content": system_prompt}]
-                for msg in recent_history[:-1]:
-                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
+    # Automatic provider fallback: if the chosen provider is rate-limited,
+    # retry on another provider you already have configured via env vars.
+    # This does NOT rotate API keys or accounts to dodge quotas (that would
+    # violate provider ToS) — it just uses redundancy across the different,
+    # legitimately-configured providers this app already supports.
+    vision_capable = {"openrouter", "google"}
+    all_providers = ["groq", "openrouter", "google", "silicon"]
+    fallback_order = [provider] + [p for p in all_providers if p != provider and (not is_image or p in vision_capable)]
 
-                if is_image and file_bytes:
-                    b64_img = base64.b64encode(file_bytes).decode('utf-8')
-                    messages_payload.append({
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": effective_message or "Analyze this file."},
-                            {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
-                        ]
-                    })
-                else:
-                    messages_payload.append({"role": "user", "content": effective_message})
+    ai_response = None
+    last_error = None
 
-                res = await openrouter_client.chat.completions.create(
-                    model=actual_model,
-                    messages=messages_payload,
-                    max_tokens=2048
-                )
-                ai_response = res.choices[0].message.content
+    for attempt_provider in fallback_order:
+        attempt_model = actual_model if attempt_provider == provider else PROVIDER_DEFAULT_MODEL.get(attempt_provider, actual_model)
+        try:
+            ai_response = await _call_provider(
+                attempt_provider, attempt_model, system_prompt, recent_history,
+                effective_message, is_image, file_bytes, mime_type
+            )
+            if attempt_provider != provider:
+                print(f"[FALLBACK] {provider} unavailable, served by {attempt_provider} instead.")
+            break
+        except Exception as e:
+            last_error = e
+            print(f"[{attempt_provider.upper()} API ERROR]: {str(e)}")
+            if not _is_rate_limit_error(e):
+                # Non-rate-limit errors (bad key, malformed request) won't be
+                # fixed by switching providers — stop trying immediately.
+                break
+            continue
 
-        elif provider == "google":
-            if not genai_client:
-                ai_response = "**Error:** `GOOGLE_API_KEY` is missing."
-            else:
-                contents = []
-                for msg in recent_history[:-1]:
-                    role_prefix = "User" if msg["role"] == "user" else "Model"
-                    contents.append(f"{role_prefix}: {msg['content']}")
-
-                if is_image and file_bytes:
-                    image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-                    contents.append(image_part)
-                
-                contents.append(effective_message)
-
-                config = types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0.7,
-                )
-
-                resp = genai_client.models.generate_content(
-                    model=actual_model,
-                    contents=contents,
-                    config=config
-                )
-                ai_response = resp.text
-
-        elif provider == "silicon":
-            if not silicon_client:
-                ai_response = "**Error:** `SILICONFLOW_API_KEY` is missing."
-            else:
-                messages_payload = [{"role": "system", "content": system_prompt}]
-                for msg in recent_history[:-1]:
-                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
-                messages_payload.append({"role": "user", "content": effective_message})
-                
-                response = await silicon_client.chat.completions.create(
-                    model=actual_model,
-                    messages=messages_payload,
-                    max_tokens=2048
-                )
-                ai_response = response.choices[0].message.content
-
-        else: 
-            if not groq_client:
-                ai_response = "**Error:** `GROQ_API_KEY` is missing from environment variables."
-            else:
-                if "70b" in actual_model or "versatile" in actual_model:
-                    actual_model = "openai/gpt-oss-120b"
-                elif "8b" in actual_model or "instant" in actual_model or not actual_model:
-                    actual_model = "openai/gpt-oss-20b"
-                else:
-                    actual_model = "openai/gpt-oss-120b"
-
-                messages_payload = [{"role": "system", "content": system_prompt}]
-                for msg in recent_history[:-1]:
-                    messages_payload.append({"role": msg["role"], "content": msg["content"]})
-                messages_payload.append({"role": "user", "content": effective_message})
-
-                chat_completion = groq_client.chat.completions.create(
-                    model=actual_model,
-                    messages=messages_payload,
-                    temperature=0.75,
-                    max_tokens=2048
-                )
-                ai_response = chat_completion.choices[0].message.content
-
-    except Exception as e:
-        print(f"[{provider.upper()} API ERROR]: {str(e)}")
-        ai_response = f"Whoops, looks like the AI provider hit a snag: {str(e)}"
+    if ai_response is None:
+        ai_response = f"Whoops, looks like the AI provider(s) hit a snag: {str(last_error)}"
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
@@ -848,4 +1026,4 @@ async def chat_with_assistant(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)
-    
+
