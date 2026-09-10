@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Nwodili yaemerie convenant</title>
+    <meta name="description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant, a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University.">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
@@ -19,8 +20,12 @@
         "@type": "Country",
         "name": "Nigeria"
       },
-      "jobTitle": "Full-Stack Software Engineer & Cybersecurity Researcher",
-      "almaMater": {
+      "homeLocation": {
+        "@type": "Place",
+        "name": "Anambra State, Nigeria"
+      },
+      "jobTitle": "Cybersecurity Student & Web Developer",
+      "alumniOf": {
         "@type": "CollegeOrUniversity",
         "name": "Abia State University (ABSU)"
       },
@@ -32,10 +37,10 @@
         "FastAPI",
         "Node.js",
         "JavaScript",
-        "Linux System Administration",
-        "Competitive Esports Strategy"
+        "Web Development",
+        "Linux System Administration"
       ],
-      "description": "Nwodili Yaemerie Convenant is an 18-year-old Computer Science developer. He is from Nigeria, belongs to the igbo tribe, and practices Judaism.",
+      "description": "Nwodili Yaemerie Convenant is an 18-year-old cybersecurity student and web developer from Anambra State, Nigeria, currently studying at Abia State University. He built Ranen, an AI assistant platform, and practices Judaism.",
       "sameAs": [
         "https://github.com/whitefrostff-dev"
       ]
@@ -44,7 +49,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
     
     <style>
@@ -462,7 +467,10 @@
             </div>
             
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="ranen-shining select-none pointer-events-auto cursor-pointer" onclick="createNewSession()">Ranen</div>
+                <div class="flex flex-col items-center pointer-events-auto">
+                    <div class="ranen-shining select-none cursor-pointer" onclick="createNewSession()">Ranen</div>
+                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors -mt-1">by Nwodili Yaemerie Convenant</a>
+                </div>
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
@@ -485,19 +493,12 @@
 
         <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             
-            <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)] max-w-fit">
-                <img id="attachment-preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg border border-gray-700 hidden">
-                <div id="attachment-icon-fallback" class="w-12 h-12 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-blue-400 text-lg hidden">
-                    <i class="fa-solid fa-file-lines"></i>
-                </div>
-                <div class="flex flex-col pr-2">
-                    <span id="attachment-name" class="text-[10px] md:text-xs text-white font-medium truncate max-w-[120px] md:max-w-[150px]"></span>
-                    <span class="text-[9px] md:text-[10px] text-gray-400">Ready to send</span>
-                </div>
-                <button type="button" onclick="clearAttachment()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
-            </div>
+            <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 flex-wrap"></div>
 
-            <form id="chat-form" onsubmit="sendMessage(event)" class="input-box rounded-3xl p-2.5 md:p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300">
+            <form id="chat-form" onsubmit="sendMessage(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)" class="input-box rounded-3xl p-2.5 md:p-3 flex flex-col gap-2 shadow-2xl border border-[var(--border-color)] bg-[#1a1a1a] focus-within:border-gray-500 focus-within:bg-[#222] transition-all duration-300 relative">
+                <div id="drag-drop-overlay" class="hidden absolute inset-0 rounded-3xl bg-blue-500/10 border-2 border-dashed border-blue-400 flex items-center justify-center pointer-events-none z-10">
+                    <span class="text-xs font-semibold text-blue-300"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Drop files to attach</span>
+                </div>
                 
                 <textarea id="user-input" rows="1" placeholder="Ask Ranen..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
@@ -520,7 +521,7 @@
                         <label for="file-upload" class="cursor-pointer p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Upload Document or Image">
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
-                        <input id="file-upload" type="file" accept="image/*,.txt,.pdf,.py,.js,.html,.css,.json,.md,.csv" class="hidden" onchange="handleFileSelect(event)">
+                        <input id="file-upload" type="file" multiple accept="image/*,.txt,.pdf,.py,.js,.html,.css,.json,.md,.csv" class="hidden" onchange="handleFileSelect(event)">
                         
                         <button type="button" onclick="openModelModal()" class="flex items-center gap-1 text-[10px] md:text-[11px] px-2 py-1 md:py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[120px] sm:max-w-[140px] md:max-w-none">
                             <span id="current-model-label" class="truncate font-medium">Frost Llama 3.1 (Groq)</span>
@@ -537,7 +538,7 @@
             </form>
             
             <div class="text-center mt-2 md:mt-3">
-                <span class="text-[9px] md:text-[10px] text-gray-500">Ranen can make mistakes. Built by Nwodili Yaemerie Convenant.</span>
+                <span class="text-[9px] md:text-[10px] text-gray-500">Ranen can make mistakes. Built by <a href="/about" class="hover:text-gray-300 underline transition-colors">Nwodili Yaemerie Convenant</a>.</span>
             </div>
         </div>
     </main>
@@ -754,35 +755,14 @@
                 <div onclick="selectModel('groq:llama-3.1-70b-versatile', 'Frost Llama 3.1 (Groq)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
                     <div class="flex items-center gap-2 md:gap-3">
                         <span class="text-[13px] md:text-base font-semibold">Frost Llama 3.1</span>
-                        <span class="badge-tag hidden sm:inline-block">Groq Ultra Fast</span>
+                        <span class="badge-tag hidden sm:inline-block">Groq &middot; Fast &middot; Web Search</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
-                <div onclick="selectModel('openrouter:meta-llama/llama-3.3-70b-instruct:free', 'Frost 3.3 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-llama">
+                <div onclick="selectModel('google:gemini-3.5-flash', 'Frost Vision (Gemini)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
                     <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Frost 3.3</span>
-                        <span class="badge-tag hidden sm:inline-block">OpenRouter • Free</span>
-                    </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
-                </div>
-                <div onclick="selectModel('openrouter:deepseek/deepseek-r1:free', 'DeepSeek R1 (OpenRouter)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-openrouter-deepseek">
-                    <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">DeepSeek R1</span>
-                        <span class="badge-tag hidden sm:inline-block">OpenRouter • Free</span>
-                    </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
-                </div>
-                <div onclick="selectModel('google:gemini-1.5-flash', 'Frost 1.5 (Vision)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
-                    <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Frost 1.5</span>
-                        <span class="badge-tag hidden sm:inline-block">Ranen Vision</span>
-                    </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
-                </div>
-                <div onclick="selectModel('silicon:Qwen/Qwen2.5-7B-Instruct', 'Qwen 2.5 7B')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-silicon-qwen">
-                    <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Qwen 2.5 7B</span>
-                        <span class="badge-tag hidden sm:inline-block">SiliconFlow</span>
+                        <span class="text-[13px] md:text-base font-semibold">Frost Vision</span>
+                        <span class="badge-tag hidden sm:inline-block">Gemini &middot; Images &middot; Web Search</span>
                     </div>
                     <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
                 </div>
@@ -817,22 +797,29 @@
 
         marked.use({
             renderer: {
-                image(href, title, text) {
-                    const url = typeof href === 'object' ? href.href : href;
-                    const altText = typeof href === 'object' ? href.text : text;
+                // marked v14+ removed the old positional-argument renderer
+                // signature entirely — every custom renderer now receives a
+                // single token object instead of (value, title, text). This
+                // is what broke ("code.split is not a function") once the
+                // unpinned CDN script silently updated past v13.
+                image(token) {
+                    const url = token.href;
+                    const altText = token.text;
                     return `<img src="${url}" alt="${altText || 'Ranen Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                 },
-                link(href, title, text) {
-                    const url = typeof href === 'object' ? href.href : href;
-                    const linkText = typeof href === 'object' ? href.text : text;
+                link(token) {
+                    const url = token.href;
+                    const linkText = this.parser.parseInline(token.tokens);
                     if (url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
                         return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                     }
                     return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
                 },
-                code(code, infostring) {
-                    const meta = codeCardMeta(infostring);
-                    const lineCount = code.split('\n').filter(l => l.length).length || code.split('\n').length;
+                code(token) {
+                    const codeText = token.text || '';
+                    const lang = token.lang || '';
+                    const meta = codeCardMeta(lang);
+                    const lineCount = codeText.split('\n').filter(l => l.length).length || codeText.split('\n').length;
                     return `
                         <div class="code-card" onclick="openArtifactTab('${meta.tab}')">
                             <div class="code-card-icon" style="background:${meta.color}22; color:${meta.color};"><i class="fa-solid ${meta.icon}"></i></div>
@@ -848,7 +835,7 @@
         });
 
         let currentSessionId = null;
-        let selectedFile = null;
+        let selectedFiles = [];
         let activeModelValue = "groq:llama-3.1-70b-versatile";
         let activeGemPrompt = null;
         let latestExtractedCode = "";
@@ -1122,8 +1109,30 @@
         }
 
         let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
-        let lastAccelMagnitude = 0;
         let isStepCounterActive = false;
+
+        // --- STEP COUNTER v2 ---
+        // The old version counted a step on ANY acceleration delta above a
+        // fixed threshold — meaning setting the phone down, shifting in a
+        // chair, or a bump in a car could all register as "steps", with no
+        // limit on how many times per second it could fire. This rewrite
+        // uses the standard lightweight pedometer pattern: a moving-average
+        // smoothing filter (reduces sensor jitter), peak-then-valley
+        // detection with hysteresis (a step is only counted once the signal
+        // rises above a threshold AND then falls back below a lower one —
+        // not on every jiggle), and a minimum cooldown between steps (a
+        // real footstep takes at least ~300ms, so anything faster is noise).
+        // Honest caveat: this is still an approximation from raw
+        // accelerometer data — there's no standard Web API that exposes a
+        // phone's dedicated hardware step-counter sensor, so browser-based
+        // step counting can't match a native fitness app's accuracy.
+        let motionBuffer = [];
+        const MOTION_BUFFER_SIZE = 4;
+        let stepPhase = 'waiting_for_peak'; // or 'waiting_for_valley'
+        let lastStepTime = 0;
+        const STEP_PEAK_THRESHOLD = 11.2;   // smoothed magnitude above this = possible step
+        const STEP_VALLEY_THRESHOLD = 9.5;  // must fall back below this to complete the step
+        const STEP_COOLDOWN_MS = 300;       // fastest realistic step cadence
 
         async function initStepCounter() {
             const stepDisplay = document.getElementById("nav-step-count");
@@ -1144,24 +1153,34 @@
             window.addEventListener("devicemotion", (event) => {
                 let acc = event.accelerationIncludingGravity || event.acceleration;
                 if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return;
-                
-                let magnitude = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
-                let delta = Math.abs(magnitude - lastAccelMagnitude);
-                
-                if (delta > 1.5) {
-                    stepCount++;
-                    if (stepDisplay) stepDisplay.innerText = stepCount;
-                    localStorage.setItem("daily_steps", stepCount);
-                    
-                    if (stepCount % 25 === 0) {
-                        fetch('/api/plugins/steps/save', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ steps: stepCount })
-                        });
+
+                const magnitude = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
+
+                motionBuffer.push(magnitude);
+                if (motionBuffer.length > MOTION_BUFFER_SIZE) motionBuffer.shift();
+                const smoothed = motionBuffer.reduce((a, b) => a + b, 0) / motionBuffer.length;
+
+                const now = Date.now();
+
+                if (stepPhase === 'waiting_for_peak' && smoothed > STEP_PEAK_THRESHOLD) {
+                    stepPhase = 'waiting_for_valley';
+                } else if (stepPhase === 'waiting_for_valley' && smoothed < STEP_VALLEY_THRESHOLD) {
+                    stepPhase = 'waiting_for_peak';
+                    if (now - lastStepTime > STEP_COOLDOWN_MS) {
+                        lastStepTime = now;
+                        stepCount++;
+                        if (stepDisplay) stepDisplay.innerText = stepCount;
+                        localStorage.setItem("daily_steps", stepCount);
+
+                        if (stepCount % 25 === 0) {
+                            fetch('/api/plugins/steps/save', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ steps: stepCount })
+                            });
+                        }
                     }
                 }
-                lastAccelMagnitude = magnitude;
             });
 
             isStepCounterActive = true;
@@ -1383,11 +1402,8 @@
                 card.querySelector('.check-icon')?.classList.add('hidden');
             });
             const cardMap = {
-                'openrouter:meta-llama/llama-3.3-70b-instruct:free': 'm-openrouter-llama',
-                'openrouter:deepseek/deepseek-r1:free': 'm-openrouter-deepseek',
                 'groq:llama-3.1-70b-versatile': 'm-groq-llama',
-                'google:gemini-1.5-flash': 'm-google-flash',
-                'silicon:Qwen/Qwen2.5-7B-Instruct': 'm-silicon-qwen'
+                'google:gemini-3.5-flash': 'm-google-flash'
             };
             const activeCard = document.getElementById(cardMap[activeModelValue]);
             if (activeCard) {
@@ -1709,8 +1725,8 @@
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
             formData.append('message', solvePrompt);
-            formData.append('model_choice', 'google:gemini-1.5-flash'); // vision-capable, regardless of current selection
-            formData.append('file', file);
+            formData.append('model_choice', 'google:gemini-3.5-flash'); // vision-capable, regardless of current selection
+            formData.append('files', file);
 
             const sendBtn = document.getElementById('send-btn');
             const originalBtnHTML = sendBtn.innerHTML;
@@ -1735,35 +1751,65 @@
         }
 
         function handleFileSelect(e) {
-            selectedFile = e.target.files[0];
-            if (selectedFile) {
-                const previewImg = document.getElementById('attachment-preview-img');
-                const iconFallback = document.getElementById('attachment-icon-fallback');
-                document.getElementById('attachment-name').innerText = selectedFile.name;
-                document.getElementById('attachment-preview-container').classList.remove('hidden');
-                document.getElementById('attachment-preview-container').classList.add('flex');
+            addFilesToSelection(Array.from(e.target.files));
+            e.target.value = ''; // allow re-selecting the same file later
+        }
 
-                if (selectedFile.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(evt) {
-                        previewImg.src = evt.target.result;
-                        previewImg.classList.remove('hidden');
-                        iconFallback.classList.add('hidden');
-                    };
-                    reader.readAsDataURL(selectedFile);
-                } else {
-                    previewImg.classList.add('hidden');
-                    iconFallback.classList.remove('hidden');
-                }
+        function addFilesToSelection(newFiles) {
+            selectedFiles = selectedFiles.concat(newFiles);
+            renderAttachmentChips();
+        }
+
+        function renderAttachmentChips() {
+            const container = document.getElementById('attachment-preview-container');
+            if (selectedFiles.length === 0) {
+                container.classList.add('hidden');
+                container.classList.remove('flex');
+                container.innerHTML = '';
+                return;
             }
+            container.classList.remove('hidden');
+            container.classList.add('flex');
+            container.innerHTML = selectedFiles.map((f, idx) => {
+                const isImg = f.type.startsWith('image/');
+                const icon = isImg ? '' : `<div class="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-blue-400 text-sm"><i class="fa-solid fa-file-lines"></i></div>`;
+                return `
+                    <div class="flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)]">
+                        ${isImg ? `<img src="${URL.createObjectURL(f)}" class="w-9 h-9 object-cover rounded-lg border border-gray-700">` : icon}
+                        <span class="text-[10px] text-white font-medium truncate max-w-[80px]">${f.name}</span>
+                        <button type="button" onclick="removeSelectedFile(${idx})" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xs"></i></button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeSelectedFile(idx) {
+            selectedFiles.splice(idx, 1);
+            renderAttachmentChips();
         }
 
         function clearAttachment() {
-            selectedFile = null;
+            selectedFiles = [];
             document.getElementById('native-camera-input').value = '';
             document.getElementById('file-upload').value = '';
-            document.getElementById('attachment-preview-container').classList.add('hidden');
-            document.getElementById('attachment-preview-container').classList.remove('flex');
+            renderAttachmentChips();
+        }
+
+        // --- DRAG & DROP ---
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('drag-drop-overlay').classList.remove('hidden');
+        }
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('drag-drop-overlay').classList.add('hidden');
+        }
+        function handleFileDrop(e) {
+            e.preventDefault();
+            document.getElementById('drag-drop-overlay').classList.add('hidden');
+            if (e.dataTransfer.files.length) {
+                addFilesToSelection(Array.from(e.dataTransfer.files));
+            }
         }
 
         // --- THINKING / STATUS INDICATOR ---
@@ -1822,10 +1868,10 @@
             e.preventDefault();
             const input = document.getElementById('user-input');
             const text = input.value.trim();
-            if (!text && !selectedFile) return;
+            if (!text && selectedFiles.length === 0) return;
 
             // --- Local device-action command interceptor (torch / app deep links) ---
-            if (!selectedFile) {
+            if (selectedFiles.length === 0) {
                 const deviceCmd = detectDeviceCommand(text);
                 if (deviceCmd) {
                     if (!currentSessionId) {
@@ -1842,7 +1888,7 @@
             }
 
             // --- Local color-change command interceptor (no AI call needed) ---
-            if (!selectedFile) {
+            if (selectedFiles.length === 0) {
                 const colorCmd = detectColorCommand(text);
                 if (colorCmd) {
                     if (!currentSessionId) {
@@ -1867,14 +1913,15 @@
                 currentSessionId = newData.session_id;
             }
 
-            renderMessage('user', text + (selectedFile ? ` [Attached File: ${selectedFile.name}]` : ''), true);
+            const fileNames = selectedFiles.map(f => f.name).join(', ');
+            renderMessage('user', text + (selectedFiles.length ? ` [Attached Files: ${fileNames}]` : ''), true);
             
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
             formData.append('message', text);
             formData.append('model_choice', activeModelValue);
             if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
-            if (selectedFile) formData.append('file', selectedFile);
+            selectedFiles.forEach(f => formData.append('files', f));
 
             input.value = '';
             clearAttachment();
@@ -1975,6 +2022,7 @@
                             <div class="assistant-actions">
                                 <span class="msg-timestamp">${timestamp}</span>
                                 <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="speakMessage(this)" title="Read aloud"><i class="fa-solid fa-volume-high"></i></button>
                                 <button onclick="regenerateResponse(this)" title="Regenerate response"><i class="fa-solid fa-rotate-right"></i></button>
                             </div>
                         </div>
@@ -2080,6 +2128,48 @@
             input.focus();
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+
+        // --- TEXT-TO-SPEECH READBACK ---
+        // Browser-native SpeechSynthesis API — pairs with the voice INPUT
+        // added earlier. Support is broad (Chrome, Edge, Safari, Firefox)
+        // but voice quality/availability varies by OS.
+        function speakMessage(btn) {
+            if (!window.speechSynthesis) {
+                alert("Text-to-speech isn't supported in this browser.");
+                return;
+            }
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                btn.innerHTML = `<i class="fa-solid fa-volume-high"></i>`;
+                return;
+            }
+            const proseEl = btn.closest('.assistant-content').querySelector('.prose');
+            const text = proseEl.innerText;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onend = () => { btn.innerHTML = `<i class="fa-solid fa-volume-high"></i>`; };
+            utterance.onerror = () => { btn.innerHTML = `<i class="fa-solid fa-volume-high"></i>`; };
+            btn.innerHTML = `<i class="fa-solid fa-volume-high fa-beat"></i>`;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // --- KEYBOARD SHORTCUTS ---
+        // Ctrl/Cmd+Enter: send. Esc: stop generation. Ctrl/Cmd+K: new chat.
+        document.addEventListener('keydown', (e) => {
+            const isMac = navigator.platform.toUpperCase().includes('MAC');
+            const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+            if (modKey && e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage(new Event('submit'));
+            }
+            if (e.key === 'Escape' && currentAbortController) {
+                currentAbortController.abort();
+            }
+            if (modKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                createNewSession();
+            }
+        });
 
         function copyToClipboard(btn) {
             const text = btn.closest('.assistant-content').querySelector('.prose').innerText;
