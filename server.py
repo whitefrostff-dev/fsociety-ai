@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from typing import Optional
+from typing import Optional, List
 import uuid
 import os
 import re
@@ -20,7 +20,6 @@ from pydantic import BaseModel
 from groq import Groq
 from google import genai
 from google.genai import types
-from openai import AsyncOpenAI
 from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
@@ -209,28 +208,18 @@ async def ensure_guest_cookie(request: Request, call_next):
     return response
 
 # --- ENVIRONMENT VARIABLES ---
+# Per your request: only Groq and Google Gemini remain configured — simpler
+# to reason about, fewer moving parts, one less set of API keys to manage.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
 # Init API Clients
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
-
-silicon_client = AsyncOpenAI(
-    api_key=SILICONFLOW_API_KEY,
-    base_url="https://api.siliconflow.cn/v1"
-) if SILICONFLOW_API_KEY else None
-
-openrouter_client = AsyncOpenAI(
-    api_key=OPENROUTER_API_KEY,
-    base_url="https://openrouter.ai/api/v1"
-) if OPENROUTER_API_KEY else None
 
 # --- GOOGLE OAUTH SETUP ---
 oauth = OAuth()
@@ -349,6 +338,11 @@ async def sitemap():
         <loc>https://ranen.duckdns.org/privacy</loc>
         <changefreq>monthly</changefreq>
         <priority>0.3</priority>
+    </url>
+    <url>
+        <loc>https://ranen.duckdns.org/about</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
     </url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
@@ -471,7 +465,7 @@ async def privacy_page():
     </ul>
 
     <h2>3. Third-Party AI Providers</h2>
-    <p>Your prompts, uploaded files, and images are sent to third-party AI providers (Groq, Google Gemini, OpenRouter, SiliconFlow) to generate responses. Each provider processes this data under its own privacy and data-handling terms. We do not control how these providers internally process requests beyond what their APIs document.</p>
+    <p>Your prompts, uploaded files, and images are sent to third-party AI providers (Groq and Google Gemini) to generate responses. Each provider processes this data under its own privacy and data-handling terms. We do not control how these providers internally process requests beyond what their APIs document.</p>
 
     <h2>4. Data Storage</h2>
     <p>Chat history and uploaded files are stored on our servers (PostgreSQL database and file storage) to provide session continuity. This data persists until you delete a chat or request deletion of your account data.</p>
@@ -494,6 +488,70 @@ async def privacy_page():
 
     <h2>Contact</h2>
     <p>For privacy questions, data deletion requests, or anything else:</p>
+    {CONTACT_BLOCK}
+    </div></body></html>
+    """
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page():
+    # Real, visible, crawlable text — not just hidden JSON-LD metadata.
+    # Google's indexer weighs actual page content far more heavily than
+    # structured data alone for showing anything meaningful in search
+    # results, which is what was missing before.
+    return f"""
+    <html><head>
+    <title>About Nwodili Yaemerie Convenant — Creator of Ranen</title>
+    <meta name="description" content="Nwodili Yaemerie Convenant is a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University. Creator of Ranen, an AI assistant platform.">
+    {LEGAL_PAGE_STYLE}
+    <style>
+        .profile-header {{ display:flex; align-items:center; gap:16px; margin-bottom:24px; }}
+        .profile-avatar {{ width:64px; height:64px; border-radius:16px; background:linear-gradient(135deg,#0f172a,#334155); display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:800; color:#fff; flex-shrink:0; }}
+        .fact-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:20px 0; }}
+        .fact-item {{ background:#111827; border:1px solid #262626; border-radius:10px; padding:10px 14px; }}
+        .fact-label {{ font-size:0.7rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; }}
+        .fact-value {{ font-size:0.95rem; color:#f9fafb; font-weight:600; margin-top:2px; }}
+    </style>
+    </head>
+    <body><div class="wrap">
+    <a href="/" class="back">&larr; Back to Ranen</a>
+
+    <div class="profile-header">
+        <div class="profile-avatar">NC</div>
+        <div>
+            <h1 style="margin-bottom:2px;">Nwodili Yaemerie Convenant</h1>
+            <p style="color:#9ca3af; font-size:0.9rem; margin:0;">Creator of Ranen</p>
+        </div>
+    </div>
+
+    <p>
+        Nwodili Yaemerie Convenant is a cybersecurity student and web developer from Anambra State, Nigeria,
+        currently studying at Abia State University (ABSU). He builds full-stack web applications and AI-powered
+        tools, with a particular interest in ethical hacking and vulnerability research alongside his development
+        work. Ranen — the AI assistant platform this page belongs to — is one of his projects, built from the
+        ground up with FastAPI on the backend and a custom frontend on top of multiple AI providers.
+    </p>
+
+    <div class="fact-grid">
+        <div class="fact-item"><div class="fact-label">Age</div><div class="fact-value">18</div></div>
+        <div class="fact-item"><div class="fact-label">Location</div><div class="fact-value">Anambra State, Nigeria</div></div>
+        <div class="fact-item"><div class="fact-label">School</div><div class="fact-value">Abia State University</div></div>
+        <div class="fact-item"><div class="fact-label">Religion</div><div class="fact-value">Judaism</div></div>
+    </div>
+
+    <h2>What he works on</h2>
+    <ul>
+        <li>Cybersecurity &amp; ethical hacking fundamentals</li>
+        <li>Full-stack web development (Python/FastAPI, JavaScript)</li>
+        <li>Building AI-powered tools and assistants — including Ranen</li>
+        <li>Linux system administration</li>
+    </ul>
+
+    <h2>Links</h2>
+    <ul>
+        <li><a href="https://github.com/whitefrostff-dev" target="_blank">GitHub — whitefrostff-dev</a></li>
+    </ul>
+
+    <h2>Contact</h2>
     {CONTACT_BLOCK}
     </div></body></html>
     """
@@ -755,39 +813,169 @@ def _is_rate_limit_error(err: Exception) -> bool:
 
 PROVIDER_DEFAULT_MODEL = {
     "groq": "openai/gpt-oss-120b",
-    "openrouter": "meta-llama/llama-3.3-70b-instruct",
-    "google": "gemini-1.5-flash",
-    "silicon": "Qwen/Qwen2.5-7B-Instruct",
+    "google": "gemini-3.5-flash",
 }
+
+# --- REAL TOOL/FUNCTION CALLING ---
+# Replaces the old crude keyword-matching search interceptor ("news",
+# "latest", "research", etc. triggering a blind search every time those
+# words appeared). Now the model itself decides when a question needs live
+# web data and calls a tool for it — this is what "the AI can call things"
+# and "search the internet when it needs to" actually means in a modern
+# LLM app, versus regex guessing at intent.
+
+def _perform_web_search(query: str, max_results: int = 5) -> str:
+    """The actual web_search tool implementation, shared by both providers."""
+    if not HAS_DDGS:
+        return "Web search is unavailable — the `ddgs` package isn't installed on the server."
+    cache_key = f"{query}:{max_results}"
+    cached = get_cached_search(cache_key, search_type="text")
+    if cached is not None:
+        results = cached
+    else:
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=max_results))
+            set_cached_search(cache_key, results, search_type="text")
+        except Exception as e:
+            return f"Web search failed: {e}"
+    if not results:
+        return "No results found for that search."
+    return "\n".join(
+        f"- {r.get('title')}: {r.get('body')} (Source: {r.get('href')})" for r in results
+    )
+
+WEB_SEARCH_TOOL_GROQ = {
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": (
+            "Search the live web for current information — news, prices, recent events, or "
+            "anything that may have changed since training or requires real-time knowledge. "
+            "Use this whenever the answer could depend on up-to-date information."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query"}
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+def _tool_call_to_dict(tc):
+    if hasattr(tc, "model_dump"):
+        return tc.model_dump()
+    return {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+
+async def _call_groq_with_tools(actual_model, base_messages_payload):
+    """Tries real tool-calling first. If the SDK's tool-calling shape doesn't
+    match what's coded here (API versions drift), falls back to a plain call
+    using the untouched original payload — a signature mismatch degrades
+    gracefully instead of breaking the whole chat."""
+    try:
+        messages_payload = list(base_messages_payload)
+        first = await asyncio.to_thread(
+            groq_client.chat.completions.create,
+            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+            tools=[WEB_SEARCH_TOOL_GROQ], tool_choice="auto",
+        )
+        choice = first.choices[0]
+        tool_calls = getattr(choice.message, "tool_calls", None)
+
+        if not tool_calls:
+            return choice.message.content
+
+        messages_payload.append({
+            "role": "assistant",
+            "content": choice.message.content or "",
+            "tool_calls": [_tool_call_to_dict(tc) for tc in tool_calls],
+        })
+
+        for tc in tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+            except Exception:
+                args = {}
+            query = args.get("query", "")
+            result_text = await asyncio.to_thread(_perform_web_search, query)
+            messages_payload.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": result_text,
+            })
+
+        second = await asyncio.to_thread(
+            groq_client.chat.completions.create,
+            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+        )
+        return second.choices[0].message.content
+
+    except Exception as e:
+        print(f"[GROQ TOOL-CALLING FALLBACK]: {e}")
+        plain = await asyncio.to_thread(
+            groq_client.chat.completions.create,
+            model=actual_model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
+        )
+        return plain.choices[0].message.content
+
+async def _call_google_with_tools(actual_model, system_prompt, base_contents):
+    """Same graceful-fallback approach as the Groq version — genai's function
+    calling API shape can vary by SDK version, so any mismatch here falls
+    back to a plain (non-tool) call rather than erroring out."""
+    try:
+        contents = list(base_contents)
+        tool = types.Tool(function_declarations=[
+            types.FunctionDeclaration(
+                name="web_search",
+                description=(
+                    "Search the live web for current, up-to-date information — news, prices, "
+                    "recent events, or anything that may have changed since training."
+                ),
+                parameters=types.Schema(
+                    type="OBJECT",
+                    properties={"query": types.Schema(type="STRING", description="The search query")},
+                    required=["query"],
+                ),
+            )
+        ])
+        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7, tools=[tool])
+
+        resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+
+        candidate = resp.candidates[0]
+        function_call_part = None
+        for part in candidate.content.parts:
+            if getattr(part, "function_call", None):
+                function_call_part = part.function_call
+                break
+
+        if not function_call_part:
+            return resp.text
+
+        query = dict(function_call_part.args).get("query", "") if function_call_part.args else ""
+        result_text = await asyncio.to_thread(_perform_web_search, query)
+
+        contents.append(candidate.content)
+        contents.append(types.Content(
+            role="user",
+            parts=[types.Part.from_function_response(name="web_search", response={"result": result_text})],
+        ))
+        resp2 = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+        return resp2.text
+
+    except Exception as e:
+        print(f"[GOOGLE TOOL-CALLING FALLBACK]: {e}")
+        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
+        resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=base_contents, config=config)
+        return resp.text
 
 async def _call_provider(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
     """Dispatches one AI call to the given provider. Raises on failure —
-    callers handle retries/fallback."""
-    if provider == "openrouter":
-        if not openrouter_client:
-            raise RuntimeError("OPENROUTER_API_KEY is missing.")
-        messages_payload = [{"role": "system", "content": system_prompt}]
-        for msg in recent_history[:-1]:
-            messages_payload.append({"role": msg["role"], "content": msg["content"]})
-
-        if is_image and file_bytes:
-            b64_img = base64.b64encode(file_bytes).decode('utf-8')
-            messages_payload.append({
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": effective_message or "Analyze this file."},
-                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
-                ]
-            })
-        else:
-            messages_payload.append({"role": "user", "content": effective_message})
-
-        res = await openrouter_client.chat.completions.create(
-            model=actual_model, messages=messages_payload, max_tokens=2048
-        )
-        return res.choices[0].message.content
-
-    elif provider == "google":
+    callers handle retries/fallback. Image analysis bypasses tool-calling
+    entirely (vision requests don't need web search)."""
+    if provider == "google":
         if not genai_client:
             raise RuntimeError("GOOGLE_API_KEY is missing.")
         contents = []
@@ -798,25 +986,13 @@ async def _call_provider(provider, actual_model, system_prompt, recent_history, 
         if is_image and file_bytes:
             image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
             contents.append(image_part)
+            contents.append(effective_message)
+            config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
+            resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+            return resp.text
 
         contents.append(effective_message)
-
-        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
-        resp = genai_client.models.generate_content(model=actual_model, contents=contents, config=config)
-        return resp.text
-
-    elif provider == "silicon":
-        if not silicon_client:
-            raise RuntimeError("SILICONFLOW_API_KEY is missing.")
-        messages_payload = [{"role": "system", "content": system_prompt}]
-        for msg in recent_history[:-1]:
-            messages_payload.append({"role": msg["role"], "content": msg["content"]})
-        messages_payload.append({"role": "user", "content": effective_message})
-
-        response = await silicon_client.chat.completions.create(
-            model=actual_model, messages=messages_payload, max_tokens=2048
-        )
-        return response.choices[0].message.content
+        return await _call_google_with_tools(actual_model, system_prompt, contents)
 
     else:  # groq
         if not groq_client:
@@ -833,10 +1009,7 @@ async def _call_provider(provider, actual_model, system_prompt, recent_history, 
             messages_payload.append({"role": msg["role"], "content": msg["content"]})
         messages_payload.append({"role": "user", "content": effective_message})
 
-        chat_completion = groq_client.chat.completions.create(
-            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048
-        )
-        return chat_completion.choices[0].message.content
+        return await _call_groq_with_tools(actual_model, messages_payload)
 
 
 async def _generate_smart_title(user_message: str, ai_response: str) -> Optional[str]:
@@ -847,7 +1020,8 @@ async def _generate_smart_title(user_message: str, ai_response: str) -> Optional
     if not groq_client:
         return None
     try:
-        result = groq_client.chat.completions.create(
+        result = await asyncio.to_thread(
+            groq_client.chat.completions.create,
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": (
@@ -879,26 +1053,28 @@ DEFAULT_SYSTEM_PROMPT = (
     "But when a question is genuinely technical or multi-step, give it the depth it needs — "
     "concise does not mean shallow.\n"
     "4. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
-    "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'"
+    "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'\n"
+    "6. You have a web_search tool. Use it whenever a question depends on current events, "
+    "prices, recent releases, or anything that could have changed since your training — don't "
+    "guess or say you can't access the internet, just call the tool. Don't use it for timeless "
+    "facts, math, or general knowledge you already know.\n"
+    "7. When asked to build a website, app, or any code project: deliver complete, working, "
+    "production-quality output in a single response — no placeholders, no 'add your logic here' "
+    "stubs, no half-finished sections. Use clean modern structure (semantic HTML, organized CSS, "
+    "no inline style soup) and make it visually polished by default (real layout, spacing, and "
+    "color choices) even if the person didn't specify a design — never ship something plain or "
+    "unfinished unless they explicitly asked for bare-bones."
 )
 
 async def _generate_with_fallback(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
     """Shared by /api/chat and /api/regenerate. Tries the chosen provider,
-    then falls back through other configured providers (Groq<->Google paired
-    first) on ANY failure. Raises the last error if every provider fails."""
-    vision_capable = {"openrouter", "google"}
-    all_providers = ["groq", "openrouter", "google", "silicon"]
-    fallback_partner = {"groq": "google", "google": "groq", "openrouter": "google", "silicon": "groq"}
-
-    fallback_order = [provider]
-    partner = fallback_partner.get(provider)
-    if partner and partner not in fallback_order:
-        fallback_order.append(partner)
-    for p in all_providers:
-        if p not in fallback_order:
-            fallback_order.append(p)
+    then falls back to the other one (Groq<->Google) on ANY failure. Raises
+    the last error if both fail. Image requests only ever use Google — Groq
+    has no vision support in this app."""
+    all_providers = ["groq", "google"]
+    fallback_order = [provider] + [p for p in all_providers if p != provider]
     if is_image:
-        fallback_order = [p for p in fallback_order if p == provider or p in vision_capable]
+        fallback_order = [p for p in fallback_order if p == "google"]
 
     last_error = None
     for attempt_provider in fallback_order:
@@ -924,7 +1100,7 @@ async def chat_with_assistant(
     request: Request,
     session_id: str = Form(...), 
     message: str = Form(""), 
-    file: Optional[UploadFile] = File(None),
+    files: List[UploadFile] = File(default=[]),
     model_choice: str = Form("groq:openai/gpt-oss-120b"), 
     gem_prompt: Optional[str] = Form(None)
 ):
@@ -954,28 +1130,32 @@ async def chat_with_assistant(
         existing_messages = user_data.get("messages", [])
         chat_title = user_data.get("title", "New Chat")
 
-    file_bytes = None
+    file_bytes = None   # bytes of the first image attached, if any
     mime_type = ""
     is_image = False
     file_text_content = ""
     display_message = message
+    attached_names = []
 
-    if file and file.filename:
-        file_bytes = await file.read()
-        mime_type = file.content_type or "application/octet-stream"
-        is_image = mime_type.startswith("image/")
-        
-        filename = f"{uuid.uuid4().hex}_{file.filename}"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        with open(filepath, "wb") as f:
-            f.write(file_bytes)
-            
-        rel_path = f"/uploads/{filename}"
+    for f in files:
+        if not f or not f.filename:
+            continue
+
+        f_bytes = await f.read()
+        f_mime = f.content_type or "application/octet-stream"
+        f_is_image = f_mime.startswith("image/")
+
+        stored_filename = f"{uuid.uuid4().hex}_{f.filename}"
+        filepath = os.path.join(UPLOAD_DIR, stored_filename)
+        with open(filepath, "wb") as fh:
+            fh.write(f_bytes)
+
+        rel_path = f"/uploads/{stored_filename}"
         conn_asset = get_db_connection()
         if conn_asset:
             try:
                 with conn_asset.cursor() as cur:
-                    cur.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)", (val, file.filename, rel_path, mime_type))
+                    cur.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)", (val, f.filename, rel_path, f_mime))
                     conn_asset.commit()
                 conn_asset.close()
             except Exception as e:
@@ -983,11 +1163,29 @@ async def chat_with_assistant(
                 if conn_asset:
                     conn_asset.close()
 
-        # --- Extract text from non-image files (PDF-aware) ---
-        if not is_image:
-            file_text_content = extract_file_text(file_bytes, file.filename, mime_type)
+        attached_names.append(f.filename)
 
-        display_message += f" [Attached File: {file.filename}]"
+        if f_is_image:
+            if file_bytes is None:
+                # Only the first image gets sent to the vision model — the
+                # providers wired up here (Gemini / OpenRouter vision) take
+                # one image per call in this implementation. Additional
+                # images are still saved as assets, just not visually
+                # analyzed. True multi-image analysis would need per-provider
+                # multi-part payloads, a larger change than this pass covers.
+                file_bytes = f_bytes
+                mime_type = f_mime
+                is_image = True
+        else:
+            extracted = extract_file_text(f_bytes, f.filename, f_mime)
+            file_text_content += (
+                f"\n\n--- Contents of uploaded file '{f.filename}' ---\n"
+                f"```\n{extracted}\n```\n"
+                f"--- End of file contents ---"
+            )
+
+    if attached_names:
+        display_message += f" [Attached Files: {', '.join(attached_names)}]"
 
     existing_messages.append({"role": "user", "content": display_message})
     
@@ -1004,7 +1202,7 @@ async def chat_with_assistant(
     image_trigger_words = ["pic", "pics", "picture", "pictures", "image", "images", "photo", "photos"]
     has_image_intent = any(w in lower_prompt for w in image_trigger_words)
     
-    if has_image_intent and not file:
+    if has_image_intent and not attached_names:
         clean_prompt = message
         match = re.search(r'(?:picture|pic|image|photo)s?\s+(?:of\s+)?(.*)', message, re.IGNORECASE)
         if match and match.group(1).strip():
@@ -1050,59 +1248,19 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Live Web Search Interceptor ---
-    web_search_keywords = ["news", "latest", "current", "what is happening", "today", "price", "update", "exchange rate"]
-    research_keywords = ["research", "deep dive", "look into", "investigate", "in-depth"]
+    # --- Web search is now handled by real tool-calling inside the provider
+    # call itself (see _call_groq_with_tools / _call_google_with_tools) —
+    # the model decides when a question needs live web data and calls the
+    # web_search tool, instead of a fixed keyword list guessing at intent.
     effective_message = message
-
-    is_research_mode = any(kw in lower_prompt for kw in research_keywords)
-    should_search = is_research_mode or any(kw in lower_prompt for kw in web_search_keywords)
-    # Research mode pulls more sources for a deeper synthesis. This is
-    # user-triggered on-demand depth, not autonomous background research —
-    # a true "AI researches on its own schedule" feature needs a background
-    # worker/scheduler process, which this request-response backend doesn't have.
-    search_result_count = 6 if is_research_mode else 3
-
-    if HAS_DDGS and should_search:
-        cached_text_results = get_cached_search(f"{message}:{search_result_count}", search_type="text")
-        if cached_text_results is not None:
-            results = cached_text_results
-        else:
-            async with search_lock:
-                try:
-                    await asyncio.sleep(0.5) 
-                    with DDGS() as ddgs:
-                        results = list(ddgs.text(message, max_results=search_result_count))
-                        set_cached_search(f"{message}:{search_result_count}", results, search_type="text")
-                except Exception as e:
-                    results = []
-                    print(f"Web search execution error: {e}")
-
-        if results:
-            snippets = "\n".join([f"- Title: {r.get('title')}\n  Snippet: {r.get('body')}\n  Source URL: {r.get('href')}" for r in results])
-            current_date_str = datetime.now().strftime("%A, %B %d, %Y")
-            research_instruction = (
-                "Instructions: This is a research request. Synthesize the sources above into a "
-                "structured, well-organized answer — cover multiple angles, note any disagreement "
-                "between sources, and cite source URLs inline where relevant."
-                if is_research_mode else
-                "Instructions: Use the real-time search context above to answer the user's question directly."
-            )
-            effective_message = (
-                f"{message}\n\n"
-                f"[Live Web Search Context - Current Date: {current_date_str}]:\n"
-                f"{snippets}\n\n"
-                f"{research_instruction}"
-            )
+    current_date_str = datetime.now().strftime("%A, %B %d, %Y")
+    effective_message = f"{effective_message}\n\n[Current date: {current_date_str}]"
 
     # --- Inject File Text Content into Message Payload if Present ---
-    if file_text_content and not is_image:
-        effective_message = (
-            f"{effective_message}\n\n"
-            f"--- Contents of uploaded file '{file.filename}' ---\n"
-            f"```\n{file_text_content}\n```\n"
-            f"--- End of file contents ---"
-        )
+    # file_text_content is already fully wrapped per-file (built in the
+    # upload loop above, since there can be multiple non-image files now).
+    if file_text_content:
+        effective_message = f"{effective_message}{file_text_content}"
 
     # --- Standard AI Chat Processing ---
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
@@ -1110,9 +1268,11 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
-    elif provider == "openrouter" and actual_model.endswith(":free"):
-        actual_model = actual_model.replace(":free", "")
+        # "gemini-3.6-flash" was never a real model name — confirmed via
+        # Google's actual lineup. gemini-3.5-flash is their current GA
+        # (non-preview) flagship, specifically the one they recommend for
+        # coding/agentic tasks — exactly what "build me a website" needs.
+        actual_model = "gemini-3.5-flash"
 
     try:
         ai_response = await _generate_with_fallback(
@@ -1189,9 +1349,7 @@ async def regenerate_response(
 
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
     if provider == "google":
-        actual_model = "gemini-3.6-flash"
-    elif provider == "openrouter" and actual_model.endswith(":free"):
-        actual_model = actual_model.replace(":free", "")
+        actual_model = "gemini-3.5-flash"
 
     try:
         ai_response = await _generate_with_fallback(
