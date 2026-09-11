@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, File, UploadFile, Request, Response
+from fastapi import FastAPI, Form, File, UploadFile, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -494,14 +494,36 @@ async def privacy_page():
 
 @app.get("/about", response_class=HTMLResponse)
 async def about_page():
-    # Real, visible, crawlable text — not just hidden JSON-LD metadata.
-    # Google's indexer weighs actual page content far more heavily than
-    # structured data alone for showing anything meaningful in search
-    # results, which is what was missing before.
+    # AEO-structured: leads with the exact question people search ("Who is
+    # X?") followed by a direct 1-2 sentence answer, matches wording between
+    # visible text and JSON-LD, and adds FAQPage schema — this is what
+    # AI-Overview-style systems are documented to extract from, not a hack.
+    # Still no guarantee: inclusion depends heavily on independent
+    # corroborating sources this page alone can't manufacture.
+    direct_answer = (
+        "Nwodili Yaemerie Convenant is an 18-year-old cybersecurity student and web developer "
+        "from Anambra State, Nigeria, studying at Abia State University. He is the creator of "
+        "Ranen, an AI assistant platform."
+    )
     return f"""
     <html><head>
-    <title>About Nwodili Yaemerie Convenant — Creator of Ranen</title>
-    <meta name="description" content="Nwodili Yaemerie Convenant is a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University. Creator of Ranen, an AI assistant platform.">
+    <title>Who is Nwodili Yaemerie Convenant? — Creator of Ranen</title>
+    <meta name="description" content="{direct_answer}">
+    <link rel="canonical" href="https://ranen.duckdns.org/about">
+    <script type="application/ld+json">
+    {{
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [{{
+        "@type": "Question",
+        "name": "Who is Nwodili Yaemerie Convenant?",
+        "acceptedAnswer": {{
+          "@type": "Answer",
+          "text": "{direct_answer}"
+        }}
+      }}]
+    }}
+    </script>
     {LEGAL_PAGE_STYLE}
     <style>
         .profile-header {{ display:flex; align-items:center; gap:16px; margin-bottom:24px; }}
@@ -510,6 +532,7 @@ async def about_page():
         .fact-item {{ background:#111827; border:1px solid #262626; border-radius:10px; padding:10px 14px; }}
         .fact-label {{ font-size:0.7rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; }}
         .fact-value {{ font-size:0.95rem; color:#f9fafb; font-weight:600; margin-top:2px; }}
+        .direct-answer {{ font-size:1rem; line-height:1.7; background:#111827; border:1px solid #262626; border-radius:12px; padding:16px 18px; margin:18px 0; }}
     </style>
     </head>
     <body><div class="wrap">
@@ -523,13 +546,8 @@ async def about_page():
         </div>
     </div>
 
-    <p>
-        Nwodili Yaemerie Convenant is a cybersecurity student and web developer from Anambra State, Nigeria,
-        currently studying at Abia State University (ABSU). He builds full-stack web applications and AI-powered
-        tools, with a particular interest in ethical hacking and vulnerability research alongside his development
-        work. Ranen — the AI assistant platform this page belongs to — is one of his projects, built from the
-        ground up with FastAPI on the backend and a custom frontend on top of multiple AI providers.
-    </p>
+    <h2>Who is Nwodili Yaemerie Convenant?</h2>
+    <p class="direct-answer">{direct_answer}</p>
 
     <div class="fact-grid">
         <div class="fact-item"><div class="fact-label">Age</div><div class="fact-value">18</div></div>
@@ -538,13 +556,23 @@ async def about_page():
         <div class="fact-item"><div class="fact-label">Religion</div><div class="fact-value">Judaism</div></div>
     </div>
 
-    <h2>What he works on</h2>
+    <h2>What does he work on?</h2>
+    <p>
+        He builds full-stack web applications and AI-powered tools, with a particular interest in
+        ethical hacking and vulnerability research alongside his development work.
+    </p>
     <ul>
         <li>Cybersecurity &amp; ethical hacking fundamentals</li>
         <li>Full-stack web development (Python/FastAPI, JavaScript)</li>
         <li>Building AI-powered tools and assistants — including Ranen</li>
         <li>Linux system administration</li>
     </ul>
+
+    <h2>What is Ranen?</h2>
+    <p>
+        Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant, built from the
+        ground up with FastAPI on the backend and a custom frontend on top of multiple AI providers.
+    </p>
 
     <h2>Links</h2>
     <ul>
@@ -1058,12 +1086,17 @@ DEFAULT_SYSTEM_PROMPT = (
     "prices, recent releases, or anything that could have changed since your training — don't "
     "guess or say you can't access the internet, just call the tool. Don't use it for timeless "
     "facts, math, or general knowledge you already know.\n"
-    "7. When asked to build a website, app, or any code project: deliver complete, working, "
-    "production-quality output in a single response — no placeholders, no 'add your logic here' "
-    "stubs, no half-finished sections. Use clean modern structure (semantic HTML, organized CSS, "
-    "no inline style soup) and make it visually polished by default (real layout, spacing, and "
-    "color choices) even if the person didn't specify a design — never ship something plain or "
-    "unfinished unless they explicitly asked for bare-bones."
+    "7. When asked to build a website, app, or any code project: pick the best approach "
+    "yourself and build it directly — never respond with a list of design options or ask which "
+    "style the person wants before writing code. State any assumption in one line if needed, "
+    "then deliver complete, working, production-quality output in a single response — no "
+    "placeholders, no 'add your logic here' stubs, no half-finished sections.\n"
+    "8. Never use inline style=\"...\" attributes on HTML elements. Put CSS in a single "
+    "organized <style> block (single-file output) or one shared external stylesheet (multi-file "
+    "output, e.g. Flask templates) — never duplicate a <style> block across multiple pages of the "
+    "same project. Use semantic HTML and make it visually polished by default (real layout, "
+    "spacing, and color choices) even if the person didn't specify a design — never ship "
+    "something plain or unfinished unless they explicitly asked for bare-bones."
 )
 
 async def _generate_with_fallback(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
@@ -1363,6 +1396,100 @@ async def regenerate_response(
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
 
     return {"response": ai_response}
+
+
+# --- LIVE CALL MODE: real-time Gemini Live API relay ---
+# This is fundamentally different from /api/chat — it's a persistent
+# WebSocket relay between the browser and a Gemini Live session, not a
+# request/response call. Two concurrent tasks run for the life of the call:
+# one forwarding mic audio from the browser into the Gemini session, one
+# forwarding Gemini's audio responses back to the browser. Audio format per
+# Gemini Live API spec: 16-bit PCM, 16kHz mono in; 16-bit PCM, 24kHz mono out.
+#
+# Honest flag: this is a preview-tier model and a streaming audio pipeline —
+# the one part of this whole build that genuinely could not be validated
+# without a live browser, live mic, and a live API key. Static analysis
+# (syntax checks, etc.) cannot catch audio-format or timing issues; this
+# needs real testing after deploy.
+LIVE_CALL_MODEL = "gemini-3.1-flash-live-preview"
+
+@app.websocket("/ws/live-call")
+async def live_call_websocket(websocket: WebSocket):
+    await websocket.accept()
+
+    if not genai_client:
+        await websocket.send_json({"type": "error", "message": "GOOGLE_API_KEY is missing — Live Call needs Gemini configured."})
+        await websocket.close()
+        return
+
+    live_config = {
+        "response_modalities": ["AUDIO"],
+        "system_instruction": DEFAULT_SYSTEM_PROMPT,
+    }
+
+    try:
+        async with genai_client.aio.live.connect(model=LIVE_CALL_MODEL, config=live_config) as session:
+            await websocket.send_json({"type": "ready"})
+
+            async def relay_browser_to_gemini():
+                try:
+                    while True:
+                        message = await websocket.receive()
+                        if message.get("bytes") is not None:
+                            pcm_chunk = message["bytes"]
+                            await session.send_realtime_input(
+                                audio=types.Blob(data=pcm_chunk, mime_type="audio/pcm;rate=16000")
+                            )
+                        elif message.get("text") is not None:
+                            try:
+                                payload = json.loads(message["text"])
+                                if payload.get("type") == "end":
+                                    break
+                            except Exception:
+                                pass
+                except WebSocketDisconnect:
+                    pass
+                except Exception as e:
+                    print(f"[LIVE CALL] browser->gemini relay error: {e}")
+
+            async def relay_gemini_to_browser():
+                try:
+                    async for response in session.receive():
+                        audio_data = getattr(response, "data", None)
+                        if audio_data:
+                            await websocket.send_bytes(audio_data)
+
+                        server_content = getattr(response, "server_content", None)
+                        if server_content is not None:
+                            if getattr(server_content, "interrupted", False):
+                                await websocket.send_json({"type": "interrupted"})
+                            if getattr(server_content, "turn_complete", False):
+                                await websocket.send_json({"type": "turn_complete"})
+                except Exception as e:
+                    print(f"[LIVE CALL] gemini->browser relay error: {e}")
+
+            browser_task = asyncio.create_task(relay_browser_to_gemini())
+            gemini_task = asyncio.create_task(relay_gemini_to_browser())
+
+            done, pending = await asyncio.wait(
+                [browser_task, gemini_task], return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in pending:
+                task.cancel()
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"[LIVE CALL] session error: {e}")
+        try:
+            await websocket.send_json({"type": "error", "message": f"Live call session failed: {str(e)}"})
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
