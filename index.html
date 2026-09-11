@@ -474,6 +474,10 @@
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
+                <button onclick="startCallMode()" class="p-1.5 md:p-2 hover:bg-green-900/30 rounded-full text-sm transition-colors text-green-400" title="Start a live voice call with Ranen">
+                    <i class="fa-solid fa-phone"></i>
+                </button>
+
                 <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
                     <i class="fa-solid fa-download"></i>
                 </button>
@@ -788,6 +792,35 @@
         </div>
     </div>
 
+    <!-- LIVE CALL MODE -->
+    <!-- Turn-based voice conversation: listen fully -> respond -> speak fully
+         -> listen again. Built on browser SpeechRecognition + SpeechSynthesis,
+         the same APIs already used for voice input / read-aloud elsewhere in
+         the app. This is NOT full-duplex, interrupt-anytime realtime audio
+         (that needs a specialized streaming API like Gemini's Live API or
+         OpenAI's Realtime API — a fundamentally different, WebSocket-based
+         architecture) — it's an honest, working turn-based call experience. -->
+    <div id="call-overlay" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
+        <div class="flex flex-col items-center gap-6 px-6">
+            <div id="call-avatar" class="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl transition-transform duration-300">
+                <i class="fa-solid fa-sparkles text-white"></i>
+            </div>
+            <div class="text-center">
+                <h2 class="text-lg md:text-xl font-bold text-white">Ranen</h2>
+                <p id="call-status-text" class="text-sm text-gray-400 mt-1">Listening...</p>
+            </div>
+            <div id="call-transcript" class="text-xs text-gray-500 text-center max-w-xs min-h-[20px] px-2"></div>
+            <div class="flex items-center gap-6 mt-4">
+                <button onclick="toggleCallMute()" id="call-mute-btn" class="w-14 h-14 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-white text-lg transition-colors">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                <button onclick="endCallMode()" class="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center text-white text-xl transition-colors shadow-lg shadow-red-900/50">
+                    <i class="fa-solid fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="copy-toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-gray-700 text-white px-4 py-2 rounded-xl text-xs shadow-2xl hidden z-50 transition-all">
         Copied to clipboard!
     </div>
@@ -839,6 +872,7 @@
         let activeModelValue = "groq:llama-3.1-70b-versatile";
         let activeGemPrompt = null;
         let latestExtractedCode = "";
+        let lastAssistantRawContent = "";
         let allSessions = [];
         let currentUserName = "Guest User";
         let isCodeEditing = false;
@@ -1014,6 +1048,14 @@
                 panel.classList.add('mobile-open');
                 backdrop.classList.add('active');
                 fetchAssets();
+                // Defensive re-sync: re-derive the artifact panel's content
+                // from the last known assistant message every time the panel
+                // opens, instead of trusting it was already caught correctly
+                // whenever the message first arrived. Cheap, and removes any
+                // dependency on perfect first-try timing.
+                if (lastAssistantRawContent) {
+                    extractCodeForArtifacts(lastAssistantRawContent);
+                }
             } else {
                 panel.classList.add('hidden');
                 panel.classList.remove('flex');
@@ -1813,14 +1855,16 @@
         }
 
         // --- THINKING / STATUS INDICATOR ---
-        // Purely a UI status cue while we wait on the backend. Not a real
-        // step-by-step trace of the request (that would require server-sent
-        // events / streaming, which this backend doesn't do yet) — it's a
-        // rotating set of plausible status lines, like the Gemini screenshot.
+        // Purely a UI status cue while we wait on the backend — not a real
+        // step-by-step trace (that would need streaming/SSE, which this
+        // backend doesn't do). Previously cycled through phrases on a
+        // modulo loop, so a slow response visibly repeated the same 5 lines
+        // over and over — obviously fake. Now it progresses through the
+        // list once and holds on the last line instead of visibly looping.
         const THINKING_STEPS = [
             "Reading your message...",
             "Understanding intent...",
-            "Checking context...",
+            "Checking if a web search is needed...",
             "Thinking it through...",
             "Composing response..."
         ];
@@ -1843,7 +1887,12 @@
 
             let stepIdx = 0;
             thinkingInterval = setInterval(() => {
-                stepIdx = (stepIdx + 1) % THINKING_STEPS.length;
+                if (stepIdx >= THINKING_STEPS.length - 1) {
+                    clearInterval(thinkingInterval);
+                    thinkingInterval = null;
+                    return; // hold on the final line instead of looping back
+                }
+                stepIdx++;
                 const textEl = document.getElementById('thinking-status-text');
                 if (textEl) {
                     textEl.style.opacity = 0;
@@ -1983,7 +2032,10 @@
 
             const isUser = role === 'user';
             const formattedContent = marked.parse(content);
-            if (!isUser) extractCodeForArtifacts(content);
+            if (!isUser) {
+                lastAssistantRawContent = content;
+                extractCodeForArtifacts(content);
+            }
 
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             // Only animate freshly-received live responses (shouldScroll=true
@@ -2152,6 +2204,259 @@
             window.speechSynthesis.speak(utterance);
         }
 
+        // --- LIVE CALL MODE (real-time, Gemini Live API) ---
+        // True full-duplex voice: continuous mic audio streams to the
+        // backend over a WebSocket, which relays it to Gemini's Live API
+        // session; audio responses stream back the same way and play as
+        // they arrive, with barge-in (interrupting mid-response) supported
+        // server-side. This is fundamentally different from a text request —
+        // there is no /api/chat call per turn; it's one persistent streaming
+        // connection for the whole call.
+        //
+        // Audio formats (per Gemini Live API spec): mic input is downsampled
+        // to 16-bit PCM, 16kHz, mono before sending; playback audio arrives
+        // as 16-bit PCM, 24kHz, mono.
+        let callActive = false;
+        let callMuted = false;
+        let liveWs = null;
+        let liveAudioContext = null;
+        let liveMicStream = null;
+        let liveProcessorNode = null;
+        let liveSourceNode = null;
+        let livePlaybackContext = null;
+        let livePlaybackTime = 0;
+        let liveActiveSources = [];
+
+        async function startCallMode() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Live call needs microphone access, which isn't supported in this browser.");
+                return;
+            }
+            if (!window.WebSocket) {
+                alert("Live call needs WebSocket support, which isn't supported in this browser.");
+                return;
+            }
+
+            try {
+                liveMicStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+            } catch (e) {
+                alert("Microphone permission was blocked. Allow mic access to use Live Call.");
+                return;
+            }
+
+            callActive = true;
+            callMuted = false;
+            const overlay = document.getElementById('call-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            document.getElementById('call-transcript').innerText = 'Real-time voice — talk naturally';
+            resetCallMuteButton();
+            setCallStatus('listening', 'Connecting...');
+
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            liveWs = new WebSocket(`${wsProtocol}//${window.location.host}/ws/live-call`);
+            liveWs.binaryType = 'arraybuffer';
+
+            liveWs.onopen = () => {
+                setCallStatus('listening', 'Listening...');
+                startLiveMicCapture();
+            };
+
+            liveWs.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'error') {
+                            setCallStatus('error', msg.message || 'Live call error');
+                        } else if (msg.type === 'interrupted') {
+                            stopLivePlayback();
+                            setCallStatus('listening', 'Listening...');
+                        } else if (msg.type === 'turn_complete') {
+                            setCallStatus('listening', 'Listening...');
+                        }
+                    } catch (e) { /* ignore malformed control messages */ }
+                } else {
+                    setCallStatus('speaking', 'Speaking...');
+                    queueLiveAudioChunk(event.data);
+                }
+            };
+
+            liveWs.onerror = (e) => {
+                console.error('Live call WebSocket error:', e);
+            };
+
+            liveWs.onclose = () => {
+                if (callActive) {
+                    setCallStatus('error', 'Call connection closed.');
+                    endCallMode();
+                }
+            };
+        }
+
+        function startLiveMicCapture() {
+            liveAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            liveSourceNode = liveAudioContext.createMediaStreamSource(liveMicStream);
+
+            // ScriptProcessorNode: deprecated in spec but still broadly
+            // supported everywhere, and needs no separate AudioWorklet
+            // module file — chosen for reliability over "correctness" here.
+            const bufferSize = 4096;
+            liveProcessorNode = liveAudioContext.createScriptProcessor(bufferSize, 1, 1);
+
+            liveProcessorNode.onaudioprocess = (event) => {
+                if (!callActive || callMuted || !liveWs || liveWs.readyState !== WebSocket.OPEN) return;
+                const inputData = event.inputBuffer.getChannelData(0);
+                const pcm16Buffer = downsampleTo16kPCM16(inputData, liveAudioContext.sampleRate);
+                if (pcm16Buffer && pcm16Buffer.byteLength > 0) {
+                    liveWs.send(pcm16Buffer);
+                }
+            };
+
+            // A zero-gain node between processor and destination: required
+            // so onaudioprocess actually fires (ScriptProcessorNode needs to
+            // be connected into the graph), without playing raw mic input
+            // back out the speakers (which would cause audible echo/feedback).
+            const silentGain = liveAudioContext.createGain();
+            silentGain.gain.value = 0;
+            liveSourceNode.connect(liveProcessorNode);
+            liveProcessorNode.connect(silentGain);
+            silentGain.connect(liveAudioContext.destination);
+        }
+
+        function downsampleTo16kPCM16(float32Input, inputSampleRate) {
+            const targetRate = 16000;
+            if (inputSampleRate === targetRate) {
+                return float32ToPCM16(float32Input).buffer;
+            }
+            const ratio = inputSampleRate / targetRate;
+            const outputLength = Math.floor(float32Input.length / ratio);
+            const downsampled = new Float32Array(outputLength);
+            for (let i = 0; i < outputLength; i++) {
+                downsampled[i] = float32Input[Math.floor(i * ratio)];
+            }
+            return float32ToPCM16(downsampled).buffer;
+        }
+
+        function float32ToPCM16(float32Array) {
+            const pcm16 = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return pcm16;
+        }
+
+        function queueLiveAudioChunk(arrayBuffer) {
+            if (!livePlaybackContext) {
+                livePlaybackContext = new (window.AudioContext || window.webkitAudioContext)();
+                livePlaybackTime = livePlaybackContext.currentTime;
+            }
+            const pcm16 = new Int16Array(arrayBuffer);
+            const float32 = new Float32Array(pcm16.length);
+            for (let i = 0; i < pcm16.length; i++) {
+                float32[i] = pcm16[i] / 0x8000;
+            }
+            const audioBuffer = livePlaybackContext.createBuffer(1, float32.length, 24000);
+            audioBuffer.copyToChannel(float32, 0);
+
+            const source = livePlaybackContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(livePlaybackContext.destination);
+
+            // Schedule chunks back-to-back on a running cursor so playback
+            // is gapless instead of a new AudioContext clock per chunk.
+            const now = livePlaybackContext.currentTime;
+            const startTime = Math.max(now, livePlaybackTime);
+            source.start(startTime);
+            livePlaybackTime = startTime + audioBuffer.duration;
+            source.onended = () => {
+                liveActiveSources = liveActiveSources.filter(s => s !== source);
+            };
+            liveActiveSources.push(source);
+        }
+
+        function stopLivePlayback() {
+            liveActiveSources.forEach(src => {
+                try { src.stop(); } catch (e) { /* already stopped */ }
+            });
+            liveActiveSources = [];
+            if (livePlaybackContext) {
+                livePlaybackTime = livePlaybackContext.currentTime;
+            }
+        }
+
+        function endCallMode() {
+            callActive = false;
+            callMuted = false;
+
+            if (liveWs) {
+                try {
+                    if (liveWs.readyState === WebSocket.OPEN) {
+                        liveWs.send(JSON.stringify({ type: 'end' }));
+                    }
+                    liveWs.close();
+                } catch (e) { /* already closed */ }
+                liveWs = null;
+            }
+            if (liveProcessorNode) {
+                try { liveProcessorNode.disconnect(); } catch (e) {}
+                liveProcessorNode = null;
+            }
+            if (liveSourceNode) {
+                try { liveSourceNode.disconnect(); } catch (e) {}
+                liveSourceNode = null;
+            }
+            if (liveAudioContext) {
+                try { liveAudioContext.close(); } catch (e) {}
+                liveAudioContext = null;
+            }
+            if (liveMicStream) {
+                liveMicStream.getTracks().forEach(t => t.stop());
+                liveMicStream = null;
+            }
+            stopLivePlayback();
+            if (livePlaybackContext) {
+                try { livePlaybackContext.close(); } catch (e) {}
+                livePlaybackContext = null;
+            }
+
+            const overlay = document.getElementById('call-overlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        function resetCallMuteButton() {
+            const btn = document.getElementById('call-mute-btn');
+            btn.innerHTML = `<i class="fa-solid fa-microphone"></i>`;
+            btn.classList.remove('bg-red-900');
+            btn.classList.add('bg-gray-800');
+        }
+
+        function toggleCallMute() {
+            callMuted = !callMuted;
+            const btn = document.getElementById('call-mute-btn');
+            if (callMuted) {
+                btn.innerHTML = `<i class="fa-solid fa-microphone-slash"></i>`;
+                btn.classList.remove('bg-gray-800');
+                btn.classList.add('bg-red-900');
+                setCallStatus('muted', 'Muted');
+            } else {
+                resetCallMuteButton();
+                if (callActive) setCallStatus('listening', 'Listening...');
+            }
+        }
+
+        function setCallStatus(state, text) {
+            const statusEl = document.getElementById('call-status-text');
+            const avatar = document.getElementById('call-avatar');
+            if (statusEl) statusEl.innerText = text;
+            if (avatar) {
+                avatar.classList.remove('animate-pulse', 'scale-110');
+                if (state === 'listening') avatar.classList.add('animate-pulse');
+                if (state === 'speaking') avatar.classList.add('scale-110');
+            }
+        }
+
         // --- KEYBOARD SHORTCUTS ---
         // Ctrl/Cmd+Enter: send. Esc: stop generation. Ctrl/Cmd+K: new chat.
         document.addEventListener('keydown', (e) => {
@@ -2255,14 +2560,23 @@
         }
 
         function extractCodeForArtifacts(markdownText) {
-            const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+            // Was: /```(\w*)\n([\s\S]*?)```/g — required an exact \n right after
+            // the language tag. If a response ever used \r\n (carriage return),
+            // or had trailing spaces after the language tag, the match silently
+            // failed and the artifact panel just kept showing stale/placeholder
+            // content — which is why it only "fixed itself" after switching
+            // chats (that reload path re-parses the same text and can happen to
+            // work depending on how line endings got normalized along the way).
+            // \r?\n and trimming the language tag makes this match reliably
+            // regardless of exact whitespace/line-ending formatting.
+            const codeBlockRegex = /```([\w.-]*)[ \t]*\r?\n([\s\S]*?)```/g;
             let match;
             let codeExtracted = "";
             let securityExtracted = "";
             let mermaidExtracted = "";
 
             while ((match = codeBlockRegex.exec(markdownText)) !== null) {
-                const lang = match[1].toLowerCase();
+                const lang = match[1].trim().toLowerCase();
                 const content = match[2];
 
                 if (lang === 'mermaid') {
