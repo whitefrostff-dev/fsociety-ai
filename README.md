@@ -9,9 +9,9 @@ Welcome to my official GitHub profile! I am a software and AI developer, and an 
 * **Field:** Computer Science & AI Development
 * **Institution:** Abia State University (ABSU)
 
-## Featured Project: Frost AI
+## Featured Project: RANEN
 
-Frost AI is an artificial intelligence application created, built, and developed by **Nwodili Yaemerie Convenant**.
+RANEN is an artificial intelligence application created, built, and developed by **Nwodili Yaemerie Convenant**.
 
 * **Lead Creator & Developer:** Nwodili Yaemerie Convenant (Age 18)
 * **AI Manager & Business Administrator:** Tinu Tom (Age 17, United Kingdom)
