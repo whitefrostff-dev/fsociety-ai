@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -96,6 +97,12 @@ def init_db():
                         file_name TEXT,
                         file_path TEXT,
                         file_type TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS usage_limits (
+                        identifier TEXT,
+                        usage_date DATE,
+                        message_count INTEGER DEFAULT 0,
+                        PRIMARY KEY (identifier, usage_date)
                     );
                 """)
                 conn.commit()
@@ -243,6 +250,79 @@ def get_identifier(request: Request):
     # present now), falling back to the raw cookie for safety.
     guest_id = getattr(request.state, "guest_id", None) or request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
+
+def get_identifier_ws(websocket) -> str:
+    """Same identity resolution as get_identifier, adapted for WebSocket
+    connections (Live Call), which don't have request.state set by the HTTP
+    middleware. Used so Live Call sessions count against the same daily
+    limit as regular chat instead of being a free, unmetered loophole."""
+    try:
+        session_user = websocket.session.get('user') if hasattr(websocket, 'session') else None
+    except Exception:
+        session_user = None
+    if session_user and session_user.get('email'):
+        return session_user['email']
+    guest_id = websocket.cookies.get("guest_id")
+    return guest_id if guest_id else "unknown_guest"
+
+# --- DAILY MESSAGE LIMIT ---
+# Groq and Gemini free-tier rate limits apply per API key/org, not per user
+# — meaning every guest of this app shares ONE pool. Without a per-user cap,
+# a single heavy user can exhaust the whole app's shared daily quota.
+DAILY_MESSAGE_LIMIT = int(os.getenv("DAILY_MESSAGE_LIMIT", "20"))
+_local_usage_counts = {}  # fallback when no DB: {(identifier, date_str): count}
+
+def _today_str() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+def get_today_usage(identifier: str) -> int:
+    today = _today_str()
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT message_count FROM usage_limits WHERE identifier = %s AND usage_date = %s",
+                    (identifier, today)
+                )
+                row = cur.fetchone()
+                conn.close()
+                return row["message_count"] if row else 0
+        except Exception as e:
+            print(f"USAGE FETCH ERROR: {e}")
+            if conn:
+                conn.close()
+    return _local_usage_counts.get((identifier, today), 0)
+
+def increment_today_usage(identifier: str):
+    today = _today_str()
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO usage_limits (identifier, usage_date, message_count)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (identifier, usage_date)
+                    DO UPDATE SET message_count = usage_limits.message_count + 1;
+                """, (identifier, today))
+                conn.commit()
+            conn.close()
+            return
+        except Exception as e:
+            print(f"USAGE INCREMENT ERROR: {e}")
+            if conn:
+                conn.close()
+    key = (identifier, today)
+    _local_usage_counts[key] = _local_usage_counts.get(key, 0) + 1
+
+def check_and_increment_usage(identifier: str) -> bool:
+    """Returns True and increments if under the daily limit; False if the
+    limit is already reached (caller should refuse the request)."""
+    if get_today_usage(identifier) >= DAILY_MESSAGE_LIMIT:
+        return False
+    increment_today_usage(identifier)
+    return True
 
 # --- FILE TEXT EXTRACTION HELPER ---
 # Caps how much extracted text we stuff into the model context so a huge
@@ -505,6 +585,15 @@ async def about_page():
         "from Anambra State, Nigeria, studying at Abia State University. He is the creator of "
         "Ranen, an AI assistant platform."
     )
+    did_make_answer = (
+        "Yes. Nwodili Yaemerie Convenant is the creator of Ranen, an AI assistant platform that "
+        "lets users chat, generate code, analyze images and documents, and search the web in real time."
+    )
+    what_is_ranen_answer = (
+        "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant. It lets users chat "
+        "with multiple AI models, generate and edit code, analyze uploaded images and documents, "
+        "search the web for current information, and make live voice calls to the assistant."
+    )
     return f"""
     <html><head>
     <title>Who is Nwodili Yaemerie Convenant? — Creator of Ranen</title>
@@ -514,14 +603,23 @@ async def about_page():
     {{
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      "mainEntity": [{{
-        "@type": "Question",
-        "name": "Who is Nwodili Yaemerie Convenant?",
-        "acceptedAnswer": {{
-          "@type": "Answer",
-          "text": "{direct_answer}"
+      "mainEntity": [
+        {{
+          "@type": "Question",
+          "name": "Who is Nwodili Yaemerie Convenant?",
+          "acceptedAnswer": {{ "@type": "Answer", "text": "{direct_answer}" }}
+        }},
+        {{
+          "@type": "Question",
+          "name": "Did Nwodili Yaemerie Convenant make Ranen?",
+          "acceptedAnswer": {{ "@type": "Answer", "text": "{did_make_answer}" }}
+        }},
+        {{
+          "@type": "Question",
+          "name": "What is Ranen?",
+          "acceptedAnswer": {{ "@type": "Answer", "text": "{what_is_ranen_answer}" }}
         }}
-      }}]
+      ]
     }}
     </script>
     {LEGAL_PAGE_STYLE}
@@ -556,6 +654,9 @@ async def about_page():
         <div class="fact-item"><div class="fact-label">Religion</div><div class="fact-value">Judaism</div></div>
     </div>
 
+    <h2>Did Nwodili Yaemerie Convenant make Ranen?</h2>
+    <p class="direct-answer">{did_make_answer}</p>
+
     <h2>What does he work on?</h2>
     <p>
         He builds full-stack web applications and AI-powered tools, with a particular interest in
@@ -569,10 +670,7 @@ async def about_page():
     </ul>
 
     <h2>What is Ranen?</h2>
-    <p>
-        Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant, built from the
-        ground up with FastAPI on the backend and a custom frontend on top of multiple AI providers.
-    </p>
+    <p class="direct-answer">{what_is_ranen_answer}</p>
 
     <h2>Links</h2>
     <ul>
@@ -669,6 +767,95 @@ async def get_user_sessions(request: Request):
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
+
+def _make_search_snippet(content: str, query_lower: str, context_chars: int = 40) -> str:
+    idx = content.lower().find(query_lower)
+    if idx == -1:
+        return content[:80]
+    start = max(0, idx - context_chars)
+    end = min(len(content), idx + len(query_lower) + context_chars)
+    prefix = "..." if start > 0 else ""
+    suffix = "..." if end < len(content) else ""
+    return f"{prefix}{content[start:end]}{suffix}"
+
+@app.get("/api/search-messages")
+async def search_messages(request: Request, q: str = ""):
+    """Full-text search across every message in every one of the user's
+    chats — not just chat titles. Returns which chat and which message index
+    matched, so the frontend can jump straight to it and highlight the term."""
+    col, val = get_identifier(request)
+    query_lower = q.strip().lower()
+    if not query_lower:
+        return []
+
+    results = []
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT chat_id, title, messages FROM user_chats WHERE user_email = %s", (val,))
+                rows = cur.fetchall()
+                conn.close()
+                for row in rows:
+                    msgs = row.get("messages") or []
+                    if isinstance(msgs, str):
+                        msgs = json.loads(msgs)
+                    for idx, m in enumerate(msgs):
+                        content = m.get("content", "") or ""
+                        if query_lower in content.lower():
+                            results.append({
+                                "chat_id": row["chat_id"],
+                                "chat_title": row.get("title") or "Untitled Chat",
+                                "message_index": idx,
+                                "role": m.get("role"),
+                                "snippet": _make_search_snippet(content, query_lower),
+                            })
+        except Exception as e:
+            print(f"SEARCH MESSAGES ERROR: {e}")
+            if conn:
+                conn.close()
+    else:
+        local_chats = load_local_chats()
+        user_data = local_chats.get(val, {})
+        for chat_id, info in user_data.items():
+            msgs = info.get("messages", [])
+            for idx, m in enumerate(msgs):
+                content = m.get("content", "") or ""
+                if query_lower in content.lower():
+                    results.append({
+                        "chat_id": chat_id,
+                        "chat_title": info.get("title") or "Untitled Chat",
+                        "message_index": idx,
+                        "role": m.get("role"),
+                        "snippet": _make_search_snippet(content, query_lower),
+                    })
+
+    return results[:50]  # cap payload size
+
+@app.get("/api/news-digest")
+async def news_digest():
+    """Daily popular world/tech news for the notification bell. Cached for
+    an hour via the existing search cache so it isn't re-fetched on every
+    poll — this is a shared digest, not personalized per user."""
+    cache_key = "daily_news_digest"
+    cached = get_cached_search(cache_key, search_type="news")
+    if cached is not None:
+        return cached
+    if not HAS_DDGS:
+        return []
+    try:
+        async with search_lock:
+            with DDGS() as ddgs:
+                results = list(ddgs.news("world news technology", max_results=8))
+        items = [
+            {"title": r.get("title"), "url": r.get("url") or r.get("href"), "source": r.get("source")}
+            for r in results if r.get("title")
+        ]
+        set_cached_search(cache_key, items, search_type="news")
+        return items
+    except Exception as e:
+        print(f"NEWS DIGEST ERROR: {e}")
+        return []
 
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: str):
@@ -1139,6 +1326,9 @@ async def chat_with_assistant(
 ):
     col, val = get_identifier(request)
 
+    if not check_and_increment_usage(val):
+        return {"response": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight. Thanks for using Ranen!"}
+
     existing_messages = []
     chat_title = "New Chat"
     
@@ -1339,6 +1529,9 @@ async def regenerate_response(
     re-generates a fresh one from the same conversation, in place."""
     col, val = get_identifier(request)
 
+    if not check_and_increment_usage(val):
+        return JSONResponse(status_code=200, content={"error": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
+
     existing_messages = []
     chat_title = "New Chat"
 
@@ -1422,6 +1615,15 @@ async def live_call_websocket(websocket: WebSocket):
         await websocket.close()
         return
 
+    # A whole live call session counts as one unit against the daily limit —
+    # otherwise Live Call would be a free, unmetered way around the exact
+    # quota protection the message limit exists for.
+    ws_identifier = get_identifier_ws(websocket)
+    if not check_and_increment_usage(ws_identifier):
+        await websocket.send_json({"type": "error", "message": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
+        await websocket.close()
+        return
+
     live_config = {
         "response_modalities": ["AUDIO"],
         "system_instruction": DEFAULT_SYSTEM_PROMPT,
@@ -1435,38 +1637,53 @@ async def live_call_websocket(websocket: WebSocket):
                 try:
                     while True:
                         message = await websocket.receive()
-                        if message.get("bytes") is not None:
-                            pcm_chunk = message["bytes"]
-                            await session.send_realtime_input(
-                                audio=types.Blob(data=pcm_chunk, mime_type="audio/pcm;rate=16000")
-                            )
-                        elif message.get("text") is not None:
-                            try:
+                        if message.get("type") == "websocket.disconnect":
+                            break
+                        try:
+                            if message.get("bytes") is not None:
+                                pcm_chunk = message["bytes"]
+                                await session.send_realtime_input(
+                                    audio=types.Blob(data=pcm_chunk, mime_type="audio/pcm;rate=16000")
+                                )
+                            elif message.get("text") is not None:
                                 payload = json.loads(message["text"])
                                 if payload.get("type") == "end":
                                     break
-                            except Exception:
-                                pass
+                        except Exception as inner_e:
+                            # A single malformed/unexpected frame shouldn't
+                            # end the whole call — this was the likely cause
+                            # of the call dying right after one exchange:
+                            # previously ANY exception here killed the
+                            # entire relay task, which tears down the whole
+                            # session via the FIRST_COMPLETED wait below.
+                            print(f"[LIVE CALL] browser->gemini frame skipped: {inner_e}")
+                            continue
                 except WebSocketDisconnect:
                     pass
                 except Exception as e:
-                    print(f"[LIVE CALL] browser->gemini relay error: {e}")
+                    print(f"[LIVE CALL] browser->gemini relay ended: {e}")
 
             async def relay_gemini_to_browser():
                 try:
                     async for response in session.receive():
-                        audio_data = getattr(response, "data", None)
-                        if audio_data:
-                            await websocket.send_bytes(audio_data)
+                        try:
+                            audio_data = getattr(response, "data", None)
+                            if audio_data:
+                                await websocket.send_bytes(audio_data)
 
-                        server_content = getattr(response, "server_content", None)
-                        if server_content is not None:
-                            if getattr(server_content, "interrupted", False):
-                                await websocket.send_json({"type": "interrupted"})
-                            if getattr(server_content, "turn_complete", False):
-                                await websocket.send_json({"type": "turn_complete"})
+                            server_content = getattr(response, "server_content", None)
+                            if server_content is not None:
+                                if getattr(server_content, "interrupted", False):
+                                    await websocket.send_json({"type": "interrupted"})
+                                if getattr(server_content, "turn_complete", False):
+                                    await websocket.send_json({"type": "turn_complete"})
+                        except Exception as inner_e:
+                            # Same principle as the other relay direction —
+                            # one odd message shouldn't kill the whole call.
+                            print(f"[LIVE CALL] gemini message skipped: {inner_e}")
+                            continue
                 except Exception as e:
-                    print(f"[LIVE CALL] gemini->browser relay error: {e}")
+                    print(f"[LIVE CALL] gemini->browser relay ended: {e}")
 
             browser_task = asyncio.create_task(relay_browser_to_gemini())
             gemini_task = asyncio.create_task(relay_gemini_to_browser())
