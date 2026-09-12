@@ -46,6 +46,21 @@
       ]
     }
     </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Ranen",
+      "applicationCategory": "AI Assistant",
+      "operatingSystem": "Web",
+      "description": "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant. It lets users chat with multiple AI models, generate and edit code, analyze uploaded images and documents, search the web for current information, and make live voice calls to the assistant.",
+      "creator": {
+        "@type": "Person",
+        "name": "Nwodili Yaemerie Convenant"
+      },
+      "url": "https://ranen.duckdns.org/"
+    }
+    </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -242,7 +257,7 @@
         }
         
         .ranen-shining {
-            background: linear-gradient(90deg, #a3a3a3 0%, #ffffff 30%, #e2e8f0 50%, #ffffff 70%, #a3a3a3 100%);
+            background: linear-gradient(90deg, #d4af37 0%, #60a5fa 25%, #fef3c7 45%, #3b82f6 65%, #ffd700 85%, #60a5fa 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -250,10 +265,11 @@
             font-weight: 700;
             font-size: 1.3rem;
             letter-spacing: -0.5px;
+            filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.35));
         }
         
         body.light-mode .ranen-shining {
-            background: linear-gradient(90deg, #475569 0%, #000000 30%, #334155 50%, #000000 70%, #475569 100%);
+            background: linear-gradient(90deg, #b8860b 0%, #2563eb 25%, #fbbf24 45%, #1d4ed8 65%, #d4af37 85%, #2563eb 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -399,6 +415,26 @@
         .code-card-chevron { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
         .msg-timestamp { font-size: 10px; color: var(--text-muted); opacity: 0.7; }
+
+        /* --- MESSAGE SEARCH HIGHLIGHT --- */
+        .search-highlight-box {
+            background: rgba(59, 130, 246, 0.35);
+            border: 1px solid rgba(59, 130, 246, 0.6);
+            border-radius: 4px;
+            padding: 1px 3px;
+            color: inherit;
+        }
+
+        /* --- NOTIFICATION BELL --- */
+        @keyframes bellShake {
+            0%, 100% { transform: rotate(0deg); }
+            10%, 30% { transform: rotate(-15deg); }
+            20%, 40% { transform: rotate(15deg); }
+            50% { transform: rotate(-10deg); }
+            60% { transform: rotate(10deg); }
+            70% { transform: rotate(0deg); }
+        }
+        .bell-shake { animation: bellShake 0.6s ease-in-out; transform-origin: top center; display: inline-block; }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -420,7 +456,7 @@
 
             <div class="relative mb-5 px-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-400 text-sm"></i>
-                <input type="text" id="chat-search" oninput="filterSessions(this.value)" placeholder="Search for chats" class="w-full rounded-full bg-[#1e1e1e] border-none text-sm pl-10 pr-4 py-2.5 focus:outline-none text-white focus:bg-[#2a2a2a] transition-colors">
+                <input type="text" id="chat-search" oninput="handleChatSearchInput(this.value)" placeholder="Search chats or any word inside them" class="w-full rounded-full bg-[#1e1e1e] border-none text-sm pl-10 pr-4 py-2.5 focus:outline-none text-white focus:bg-[#2a2a2a] transition-colors">
             </div>
 
             <button onclick="createNewSession()" class="w-full mb-4 text-sm py-2 px-3 rounded-full flex items-center justify-between hover:bg-[#2a2a2a] text-gray-200 transition-colors">
@@ -474,10 +510,6 @@
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
-                <button onclick="startCallMode()" class="p-1.5 md:p-2 hover:bg-green-900/30 rounded-full text-sm transition-colors text-green-400" title="Start a live voice call with Ranen">
-                    <i class="fa-solid fa-phone"></i>
-                </button>
-
                 <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
                     <i class="fa-solid fa-download"></i>
                 </button>
@@ -518,7 +550,7 @@
                         </button>
                         <input id="snap-solve-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleSnapAndSolve(event)">
 
-                        <button type="button" id="mic-btn" onclick="toggleVoiceInput()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Voice input">
+                        <button type="button" onclick="toggleVoiceInput()" id="mic-btn" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Voice input">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
 
@@ -526,6 +558,10 @@
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" multiple accept="image/*,.txt,.pdf,.py,.js,.html,.css,.json,.md,.csv" class="hidden" onchange="handleFileSelect(event)">
+
+                        <button type="button" onclick="startCallMode()" class="p-1.5 md:p-2 hover:bg-green-900/30 rounded-full text-sm transition-colors text-green-400" title="Start a live voice call with Ranen">
+                            <i class="fa-solid fa-phone"></i>
+                        </button>
                         
                         <button type="button" onclick="openModelModal()" class="flex items-center gap-1 text-[10px] md:text-[11px] px-2 py-1 md:py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[120px] sm:max-w-[140px] md:max-w-none">
                             <span id="current-model-label" class="truncate font-medium">Frost Llama 3.1 (Groq)</span>
@@ -534,6 +570,17 @@
                     </div>
                     
                     <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <button type="button" onclick="toggleNotificationPanel()" class="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-colors bg-[#1e1e1e] hover:bg-[#2a2a2a] text-gray-300" title="Daily news digest">
+                                <i id="notif-bell-icon" class="fa-solid fa-bell text-sm"></i>
+                            </button>
+                            <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">0</span>
+
+                            <div id="notification-panel" class="hidden absolute bottom-full right-0 mb-2 w-72 max-h-80 overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[#1a1a1a] shadow-2xl z-20">
+                                <div class="p-3 border-b border-[var(--border-color)] text-xs font-semibold text-gray-300">Today's Digest</div>
+                                <div id="notification-panel-list" class="p-1"></div>
+                            </div>
+                        </div>
                         <button id="send-btn" type="submit" class="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
                             <i class="fa-solid fa-arrow-up text-sm"></i>
                         </button>
@@ -774,21 +821,33 @@
         </div>
     </div>
 
-    <div id="account-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-sm rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 input-box">
-            <div class="flex items-center justify-between">
-                <h3 class="text-base md:text-lg font-bold">Account & Guest Settings</h3>
-                <button onclick="closeAccountModal()" class="text-lg"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p class="text-[10px] md:text-xs text-gray-400">Manage your active authentication state or switch to anonymous guest browsing.</p>
-            <div class="space-y-2 pt-2">
-                <a href="/auth/login" class="w-full border border-[var(--border-color)] hover:bg-gray-800 py-2 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs flex items-center justify-center gap-2 transition-colors">
-                    <i class="fa-brands fa-google"></i> Sign in with Google
+    <div id="account-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
+        <div class="w-full max-w-sm rounded-3xl p-8 shadow-2xl border border-[var(--border-color)] flex flex-col items-center gap-1 input-box relative">
+            <button onclick="closeAccountModal()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+
+            <img src="/favicon.png" alt="Ranen logo" class="w-16 h-16 rounded-2xl shadow-lg mb-3 mt-2">
+            <h3 class="text-xl font-bold">Ranen</h3>
+            <p class="text-xs text-gray-400 mb-6">Your AI assistant, ready when you are.</p>
+
+            <div class="w-full space-y-3">
+                <a href="/auth/login" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg">
+                    <i class="fa-brands fa-google"></i> Continue with Google
                 </a>
-                <button onclick="switchToGuestMode()" class="w-full py-2 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs flex items-center justify-center gap-2 border border-[var(--border-color)] hover:bg-gray-800 transition-colors">
-                    <i class="fa-solid fa-user-secret"></i> Continue as Guest User
+                <div class="flex items-center gap-3 py-1">
+                    <div class="flex-1 h-px bg-[var(--border-color)]"></div>
+                    <span class="text-[10px] text-gray-500 uppercase tracking-wider">or</span>
+                    <div class="flex-1 h-px bg-[var(--border-color)]"></div>
+                </div>
+                <button onclick="switchToGuestMode()" class="w-full py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 border border-[var(--border-color)] hover:bg-gray-800 transition-colors">
+                    <i class="fa-solid fa-user-secret"></i> Continue as Guest
                 </button>
             </div>
+
+            <p class="text-[9px] text-gray-500 mt-6 text-center leading-relaxed">
+                By continuing, you agree to Ranen's
+                <a href="/terms" target="_blank" class="underline hover:text-gray-300">Terms</a> and
+                <a href="/privacy" target="_blank" class="underline hover:text-gray-300">Privacy Policy</a>.
+            </p>
         </div>
     </div>
 
@@ -868,6 +927,7 @@
         });
 
         let currentSessionId = null;
+        let currentChatIsEmpty = true;
         let selectedFiles = [];
         let activeModelValue = "groq:llama-3.1-70b-versatile";
         let activeGemPrompt = null;
@@ -1083,10 +1143,99 @@
             renderCalendar();
             renderScheduledList();
             scheduleCheckInterval = setInterval(checkScheduledPrompts, 20000);
+            initNotificationBell();
             
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
             }
+        }
+
+        // --- NOTIFICATION BELL (daily news digest) ---
+        let newsDigestCache = [];
+        let unreadNewsCount = 0;
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notif-badge');
+            if (!badge) return;
+            if (count <= 0) {
+                badge.classList.add('hidden');
+                return;
+            }
+            badge.classList.remove('hidden');
+            badge.innerText = count > 9 ? '9+' : String(count);
+        }
+
+        async function fetchNewsDigest(isPeriodicCheck) {
+            try {
+                const res = await fetch('/api/news-digest');
+                const items = await res.json();
+
+                if (isPeriodicCheck) {
+                    const oldTitles = new Set(newsDigestCache.map(i => i.title));
+                    const newItems = items.filter(i => !oldTitles.has(i.title));
+                    if (newItems.length > 0) {
+                        unreadNewsCount += newItems.length;
+                        updateNotificationBadge(unreadNewsCount);
+                    }
+                } else {
+                    unreadNewsCount = items.length;
+                    updateNotificationBadge(unreadNewsCount);
+                }
+                newsDigestCache = items;
+            } catch (e) {
+                console.error('News digest fetch failed:', e);
+            }
+        }
+
+        function shakeNotificationBell() {
+            const bell = document.getElementById('notif-bell-icon');
+            if (!bell) return;
+            bell.classList.add('bell-shake');
+            setTimeout(() => bell.classList.remove('bell-shake'), 700);
+        }
+
+        function initNotificationBell() {
+            fetchNewsDigest(false);
+            setInterval(() => {
+                shakeNotificationBell();
+                fetchNewsDigest(true);
+            }, 5 * 60 * 1000);
+
+            document.addEventListener('click', (e) => {
+                const panel = document.getElementById('notification-panel');
+                if (!panel || panel.classList.contains('hidden')) return;
+                if (!e.target.closest('#notification-panel') && !e.target.closest('[onclick="toggleNotificationPanel()"]')) {
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        function toggleNotificationPanel() {
+            const panel = document.getElementById('notification-panel');
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                unreadNewsCount = 0;
+                updateNotificationBadge(0);
+                renderNewsPanel();
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        function renderNewsPanel() {
+            const container = document.getElementById('notification-panel-list');
+            if (!container) return;
+            if (newsDigestCache.length === 0) {
+                container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No news available right now.</div>`;
+                return;
+            }
+            container.innerHTML = newsDigestCache.map(item => `
+                <a href="${item.url}" target="_blank" class="block p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-colors">
+                    <div class="text-xs font-medium text-gray-200 leading-snug">${item.title}</div>
+                    <div class="text-[10px] text-gray-500 mt-1">${item.source || ''}</div>
+                </a>
+            `).join('');
         }
 
         async function checkUserStatus() {
@@ -1176,11 +1325,29 @@
         const STEP_VALLEY_THRESHOLD = 9.5;  // must fall back below this to complete the step
         const STEP_COOLDOWN_MS = 300;       // fastest realistic step cadence
 
+        let stepMotionHandler = null;
+
         async function initStepCounter() {
             const stepDisplay = document.getElementById("nav-step-count");
             const stepBtn = document.getElementById("enable-steps-btn");
 
-            if (isStepCounterActive) return;
+            // Toggle: tapping while active now disables it, instead of doing
+            // nothing. Requires keeping a reference to the exact listener
+            // function so removeEventListener can actually find and remove it
+            // — an anonymous inline function (as before) can't be removed.
+            if (isStepCounterActive) {
+                if (stepMotionHandler) {
+                    window.removeEventListener("devicemotion", stepMotionHandler);
+                    stepMotionHandler = null;
+                }
+                isStepCounterActive = false;
+                if (stepBtn) {
+                    stepBtn.innerText = "Enable Motion";
+                    stepBtn.classList.remove("text-green-400", "border-green-500");
+                    stepBtn.classList.add("border-gray-600");
+                }
+                return;
+            }
 
             if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
                 try {
@@ -1192,7 +1359,7 @@
                 } catch(e) { console.error(e); }
             }
 
-            window.addEventListener("devicemotion", (event) => {
+            stepMotionHandler = (event) => {
                 let acc = event.accelerationIncludingGravity || event.acceleration;
                 if (!acc || (acc.x === null && acc.y === null && acc.z === null)) return;
 
@@ -1223,15 +1390,15 @@
                         }
                     }
                 }
-            });
+            };
+            window.addEventListener("devicemotion", stepMotionHandler);
 
             isStepCounterActive = true;
             if (stepBtn) {
-                stepBtn.innerText = "Active";
+                stepBtn.innerText = "Active (tap to disable)";
                 stepBtn.classList.add("text-green-400", "border-green-500");
                 stepBtn.classList.remove("border-gray-600");
             }
-            alert("Step Counter Active. Keep the app open as you walk.");
         }
 
         function renderCalendar() {
@@ -1583,9 +1750,98 @@
             }
         }
 
-        function filterSessions(query) {
-            const filtered = allSessions.filter(s => s.title.toLowerCase().includes(query.toLowerCase()));
-            renderSessionList(filtered);
+        // --- FULL MESSAGE SEARCH ---
+        // Title filtering (client-side, instant) vs message-content search
+        // (server-side, since it needs to scan every message in every chat)
+        // are blended: short input still filters titles locally so it feels
+        // instant; anything meaningful also triggers a debounced full search.
+        let searchDebounceTimer = null;
+        let lastSearchQuery = '';
+
+        function handleChatSearchInput(value) {
+            const trimmed = value.trim();
+            renderSessionList(allSessions.filter(s => s.title.toLowerCase().includes(trimmed.toLowerCase())));
+
+            clearTimeout(searchDebounceTimer);
+            if (trimmed.length < 2) {
+                return;
+            }
+            searchDebounceTimer = setTimeout(() => performMessageSearch(trimmed), 350);
+        }
+
+        async function performMessageSearch(query) {
+            lastSearchQuery = query;
+            try {
+                const res = await fetch(`/api/search-messages?q=${encodeURIComponent(query)}`);
+                const results = await res.json();
+                // Guard against a slower, stale request landing after a newer one.
+                if (query === lastSearchQuery) {
+                    renderMessageSearchResults(results, query);
+                }
+            } catch (e) {
+                console.error('Message search failed:', e);
+            }
+        }
+
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function renderMessageSearchResults(results, query) {
+            const list = document.getElementById('session-list');
+            if (results.length === 0) {
+                list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No messages found for "${query}".</div>`;
+                return;
+            }
+            const re = new RegExp(`(${escapeRegex(query)})`, 'ig');
+            list.innerHTML = results.map(r => {
+                const safeTitle = (r.chat_title || 'Untitled Chat').replace(/'/g, "\\'");
+                const highlightedSnippet = r.snippet.replace(re, '<mark class="search-highlight-box">$1</mark>');
+                return `
+                    <div class="px-3 py-2.5 mb-1 rounded-xl cursor-pointer text-sm transition-colors hover:bg-[#2a2a2a] text-gray-300" onclick="openSearchResult('${r.chat_id}', ${r.message_index}, '${query.replace(/'/g, "\\'")}', '${safeTitle}')">
+                        <div class="font-medium truncate text-gray-200">${r.chat_title || 'Untitled Chat'}</div>
+                        <div class="text-[11px] text-gray-500 truncate mt-0.5">${highlightedSnippet}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openSearchResult(chatId, msgIndex, keyword, chatTitle) {
+            await loadSession(chatId, chatTitle);
+            // Give the DOM a beat to paint the freshly-loaded messages
+            // before trying to find and scroll to the target one.
+            setTimeout(() => scrollToAndHighlight(msgIndex, keyword), 300);
+        }
+
+        function scrollToAndHighlight(msgIndex, keyword) {
+            const target = document.querySelector(`[data-msg-index="${msgIndex}"]`);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            const textEl = target.querySelector('.user-msg, .prose');
+            if (!textEl) return;
+            highlightKeywordInElement(textEl, keyword);
+        }
+
+        function highlightKeywordInElement(el, keyword) {
+            const lowerKeyword = keyword.toLowerCase();
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+            const nodes = [];
+            let node;
+            while ((node = walker.nextNode())) nodes.push(node);
+
+            for (const textNode of nodes) {
+                const text = textNode.textContent;
+                const idx = text.toLowerCase().indexOf(lowerKeyword);
+                if (idx === -1) continue;
+                const before = text.slice(0, idx);
+                const match = text.slice(idx, idx + keyword.length);
+                const after = text.slice(idx + keyword.length);
+                const span = document.createElement('span');
+                span.innerHTML = `${before}<mark class="search-highlight-box">${match}</mark>${after}`;
+                textNode.replaceWith(...span.childNodes);
+                break; // first match is enough to orient the user
+            }
         }
 
         function renderEmptyState() {
@@ -1622,9 +1878,16 @@
         }
 
         async function createNewSession() {
+            // If already sitting in a blank chat, don't spawn yet another
+            // empty session — just close panels and stay put.
+            if (currentChatIsEmpty && currentSessionId) {
+                closeAllPanels();
+                return;
+            }
             const res = await fetch('/api/new-session', { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
+            currentChatIsEmpty = true;
             renderEmptyState();
             const titleEl = document.getElementById('current-chat-title');
             if (titleEl) titleEl.innerText = 'New Chat';
@@ -1640,11 +1903,13 @@
             const messages = await res.json();
             const container = document.getElementById('messages-container');
             container.innerHTML = '';
-            
+
+            currentChatIsEmpty = messages.length === 0;
+
             if (messages.length === 0) {
                 renderEmptyState();
             } else {
-                messages.forEach(m => renderMessage(m.role, m.content, false));
+                messages.forEach((m, idx) => renderMessage(m.role, m.content, false, idx));
                 container.scrollTop = container.scrollHeight;
             }
             fetchSessions();
@@ -1763,6 +2028,7 @@
 
             const solvePrompt = "Solve this problem. Show your work step by step, then give the final answer clearly.";
             renderMessage('user', solvePrompt + ' [Attached File: ' + file.name + ']', true);
+            currentChatIsEmpty = false;
 
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
@@ -1929,6 +2195,7 @@
                         currentSessionId = newData.session_id;
                     }
                     renderMessage('user', text, true);
+                    currentChatIsEmpty = false;
                     input.value = '';
                     const resultMsg = await handleDeviceCommand(deviceCmd);
                     renderMessage('assistant', resultMsg, true);
@@ -1946,6 +2213,7 @@
                         currentSessionId = newData.session_id;
                     }
                     renderMessage('user', text, true);
+                    currentChatIsEmpty = false;
                     setBubbleColor(colorCmd);
                     input.value = '';
                     const confirmMsg = colorCmd === 'default'
@@ -1964,6 +2232,7 @@
 
             const fileNames = selectedFiles.map(f => f.name).join(', ');
             renderMessage('user', text + (selectedFiles.length ? ` [Attached Files: ${fileNames}]` : ''), true);
+            currentChatIsEmpty = false;
             
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
@@ -2025,7 +2294,7 @@
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
-        function renderMessage(role, content, shouldScroll = true) {
+        function renderMessage(role, content, shouldScroll = true, msgIndex = null) {
             const container = document.getElementById('messages-container');
             const welcomeScreen = document.getElementById('welcome-screen');
             if (welcomeScreen) welcomeScreen.remove();
@@ -2042,12 +2311,13 @@
             // marks a live send/receive) — never replay the typing effect
             // when loading past history from the sidebar.
             const shouldAnimate = !isUser && shouldScroll;
+            const indexAttr = msgIndex !== null ? ` data-msg-index="${msgIndex}"` : '';
             let proseId = '';
 
             let msgHtml = "";
             if (isUser) {
                 msgHtml = `
-                    <div class="user-msg-container">
+                    <div class="user-msg-container"${indexAttr}>
                         <div class="flex flex-col items-end gap-1 max-w-[90%]">
                             <div class="user-msg">
                                 ${formattedContent}
@@ -2065,7 +2335,7 @@
             } else {
                 proseId = 'prose-' + Math.random().toString(36).slice(2, 10);
                 msgHtml = `
-                    <div class="assistant-msg-container">
+                    <div class="assistant-msg-container"${indexAttr}>
                         <div class="assistant-avatar">
                             <i class="fa-solid fa-sparkles text-white"></i>
                         </div>
@@ -2347,32 +2617,45 @@
         }
 
         function queueLiveAudioChunk(arrayBuffer) {
-            if (!livePlaybackContext) {
-                livePlaybackContext = new (window.AudioContext || window.webkitAudioContext)();
-                livePlaybackTime = livePlaybackContext.currentTime;
-            }
-            const pcm16 = new Int16Array(arrayBuffer);
-            const float32 = new Float32Array(pcm16.length);
-            for (let i = 0; i < pcm16.length; i++) {
-                float32[i] = pcm16[i] / 0x8000;
-            }
-            const audioBuffer = livePlaybackContext.createBuffer(1, float32.length, 24000);
-            audioBuffer.copyToChannel(float32, 0);
+            try {
+                if (!livePlaybackContext) {
+                    livePlaybackContext = new (window.AudioContext || window.webkitAudioContext)();
+                    livePlaybackTime = livePlaybackContext.currentTime;
+                }
+                // Int16Array requires an even byte length — a chunk arriving
+                // with an odd byte count (possible at stream boundaries)
+                // would throw a RangeError here uncaught, which is a likely
+                // cause of the call going dead after the first response:
+                // one bad chunk breaks this handler with nothing to catch it.
+                const usableLength = arrayBuffer.byteLength - (arrayBuffer.byteLength % 2);
+                if (usableLength <= 0) return;
+                const pcm16 = new Int16Array(arrayBuffer.slice(0, usableLength));
+                const float32 = new Float32Array(pcm16.length);
+                for (let i = 0; i < pcm16.length; i++) {
+                    float32[i] = pcm16[i] / 0x8000;
+                }
+                const audioBuffer = livePlaybackContext.createBuffer(1, float32.length, 24000);
+                audioBuffer.copyToChannel(float32, 0);
 
-            const source = livePlaybackContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(livePlaybackContext.destination);
+                const source = livePlaybackContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(livePlaybackContext.destination);
 
-            // Schedule chunks back-to-back on a running cursor so playback
-            // is gapless instead of a new AudioContext clock per chunk.
-            const now = livePlaybackContext.currentTime;
-            const startTime = Math.max(now, livePlaybackTime);
-            source.start(startTime);
-            livePlaybackTime = startTime + audioBuffer.duration;
-            source.onended = () => {
-                liveActiveSources = liveActiveSources.filter(s => s !== source);
-            };
-            liveActiveSources.push(source);
+                // Schedule chunks back-to-back on a running cursor so playback
+                // is gapless instead of a new AudioContext clock per chunk.
+                const now = livePlaybackContext.currentTime;
+                const startTime = Math.max(now, livePlaybackTime);
+                source.start(startTime);
+                livePlaybackTime = startTime + audioBuffer.duration;
+                source.onended = () => {
+                    liveActiveSources = liveActiveSources.filter(s => s !== source);
+                };
+                liveActiveSources.push(source);
+            } catch (e) {
+                // Skip this one bad chunk instead of letting an uncaught
+                // error silently kill audio processing for the rest of the call.
+                console.error('Live call audio chunk skipped (playback error):', e);
+            }
         }
 
         function stopLivePlayback() {
