@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -847,8 +846,19 @@ async def news_digest():
         async with search_lock:
             with DDGS() as ddgs:
                 results = list(ddgs.news("world news technology", max_results=8))
+        # DDGS news results carry an "image" field for the article's lead
+        # image and "body" for the excerpt — both were previously dropped.
+        # Not every article has an image, so the frontend must handle a
+        # missing/blank one gracefully rather than rendering a broken tile.
         items = [
-            {"title": r.get("title"), "url": r.get("url") or r.get("href"), "source": r.get("source")}
+            {
+                "title": r.get("title"),
+                "url": r.get("url") or r.get("href"),
+                "source": r.get("source"),
+                "image": r.get("image") or "",
+                "excerpt": (r.get("body") or "")[:220],
+                "date": r.get("date") or "",
+            }
             for r in results if r.get("title")
         ]
         set_cached_search(cache_key, items, search_type="news")
