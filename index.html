@@ -70,30 +70,48 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+        /* --- DESIGN TOKENS ---
+           Redesigned from flat near-black to a deeper, layered slate palette
+           with a teal/gold accent drawn from the Ranen logo. The old scheme
+           read "old" largely because every surface was the same flat dark
+           grey with no depth, no accent colour, and hard 1px borders. */
         :root {
-            --bg-main: #030305;
-            --bg-panel: rgba(12, 12, 16, 0.75);
-            --bg-card: rgba(20, 20, 28, 0.6);
-            --bg-card-hover: rgba(30, 30, 42, 0.8);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --border-glow: rgba(255, 255, 255, 0.2);
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-            --accent-glow: rgba(255, 255, 255, 0.05);
-            --user-bubble-bg: rgba(255,255,255,0.08);
-            --user-bubble-text: #f1f5f9;
+            --bg-main: #080a0f;
+            --bg-elevated: #0e1119;
+            --bg-panel: rgba(14, 17, 25, 0.82);
+            --bg-card: rgba(26, 31, 43, 0.55);
+            --bg-card-hover: rgba(38, 45, 61, 0.75);
+            --border-color: rgba(255, 255, 255, 0.07);
+            --border-glow: rgba(94, 234, 212, 0.35);
+            --text-main: #e9eef5;
+            --text-muted: #8b97ab;
+            --accent: #14b8a6;
+            --accent-soft: rgba(20, 184, 166, 0.14);
+            --accent-gold: #d4af37;
+            --accent-glow: rgba(20, 184, 166, 0.07);
+            --user-bubble-bg: linear-gradient(135deg, rgba(20,184,166,0.16) 0%, rgba(20,184,166,0.06) 100%);
+            --user-bubble-text: #e9eef5;
+            --radius-lg: 20px;
+            --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.4);
         }
 
         body.light-mode {
-            --bg-main: #ffffff;
-            --bg-panel: rgba(245, 245, 247, 0.95);
-            --bg-card: #f1f5f9;
-            --bg-card-hover: rgba(226, 232, 240, 1);
-            --border-color: rgba(0, 0, 0, 0.12);
-            --border-glow: rgba(0, 0, 0, 0.3);
+            --bg-main: #fbfcfd;
+            --bg-elevated: #ffffff;
+            --bg-panel: rgba(255, 255, 255, 0.92);
+            --bg-card: #f4f6f9;
+            --bg-card-hover: #e8edf3;
+            --border-color: rgba(15, 23, 42, 0.09);
+            --border-glow: rgba(13, 148, 136, 0.4);
             --text-main: #0f172a;
-            --text-muted: #475569;
-            --accent-glow: rgba(0, 0, 0, 0.03);
+            --text-muted: #5a6880;
+            --accent: #0d9488;
+            --accent-soft: rgba(13, 148, 136, 0.1);
+            --accent-gold: #b8860b;
+            --accent-glow: rgba(13, 148, 136, 0.05);
+            --user-bubble-bg: linear-gradient(135deg, rgba(13,148,136,0.12) 0%, rgba(13,148,136,0.04) 100%);
+            --user-bubble-text: #0f172a;
+            --shadow-soft: 0 4px 20px rgba(15, 23, 42, 0.07);
         }
 
         body.light-mode .bg-\[\#1e1e1e\],
@@ -178,7 +196,7 @@
         
         .input-box:focus-within {
             border-color: var(--border-glow) !important;
-            box-shadow: 0 0 25px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 0 24px var(--accent-glow), 0 4px 20px rgba(0, 0, 0, 0.15);
         }
 
         button.bg-\[\#0a0a0a\]:hover, .model-card:hover { 
@@ -273,6 +291,25 @@
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        /* --- SEND BUTTON: matches the header's gold-teal shine so the
+           single most-clicked element in the app carries the same premium
+           material instead of being plain black-and-white. --- */
+        .send-btn-shine {
+            background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent) 60%, #fef3c7 100%);
+            background-size: 220% 220%;
+            color: #0a0a0a;
+            box-shadow: 0 4px 16px rgba(212, 175, 55, 0.35), 0 0 0 1px rgba(255,255,255,0.08) inset;
+            animation: sendShine 5s ease-in-out infinite;
+        }
+        .send-btn-shine:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5), 0 0 0 1px rgba(255,255,255,0.12) inset;
+            transform: translateY(-1px);
+        }
+        @keyframes sendShine {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
         }
 
         .welcome-3d {
@@ -575,13 +612,8 @@
                                 <i id="notif-bell-icon" class="fa-solid fa-bell text-sm"></i>
                             </button>
                             <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">0</span>
-
-                            <div id="notification-panel" class="hidden absolute bottom-full right-0 mb-2 w-72 max-h-80 overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[#1a1a1a] shadow-2xl z-20">
-                                <div class="p-3 border-b border-[var(--border-color)] text-xs font-semibold text-gray-300">Today's Digest</div>
-                                <div id="notification-panel-list" class="p-1"></div>
-                            </div>
                         </div>
-                        <button id="send-btn" type="submit" class="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-colors bg-white text-black hover:bg-gray-300 disabled:opacity-50">
+                        <button id="send-btn" type="submit" class="send-btn-shine w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-50">
                             <i class="fa-solid fa-arrow-up text-sm"></i>
                         </button>
                     </div>
@@ -607,6 +639,9 @@
                 <button onclick="toggleCodeEdit()" id="edit-code-btn" class="code-edit-btn text-[10px] bg-blue-900/30 text-blue-400 border border-blue-900/50 hover:bg-blue-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
                     <i class="fa-solid fa-pen"></i> Edit
                 </button>
+                <button onclick="runPythonArtifact()" id="run-code-btn" title="Run this Python code in your browser" class="text-[10px] bg-green-900/30 text-green-400 border border-green-900/50 hover:bg-green-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
+                    <i class="fa-solid fa-play"></i> Run
+                </button>
                 <button onclick="debugArtifactCode()" id="debug-code-btn" title="Send this code to Ranen for debugging" class="text-[10px] bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 hidden shrink-0 ml-1">
                     <i class="fa-solid fa-bug"></i> Debug
                 </button>
@@ -618,6 +653,15 @@
         
         <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
             <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Ranen to write code or build an app to inspect it here.</div>
+
+            <div id="python-output-panel" class="hidden mt-3 flex-shrink-0 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] overflow-hidden" style="max-height:40%;">
+                <div class="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)]">
+                    <span class="text-[10px] font-semibold text-gray-400 flex items-center gap-1.5"><i class="fa-brands fa-python text-yellow-400"></i> Output</span>
+                    <button onclick="closePythonOutput()" class="text-gray-500 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <pre id="python-output-content" class="p-3 overflow-auto text-[11px] font-mono text-green-400 whitespace-pre-wrap leading-relaxed" style="max-height:200px;"></pre>
+            </div>
+
             <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
@@ -851,6 +895,20 @@
         </div>
     </div>
 
+    <!-- FULLSCREEN NEWS -->
+    <div id="news-overlay" class="fixed inset-0 z-[90] hidden flex-col bg-[var(--bg-main)]">
+        <div class="h-16 flex items-center justify-between px-4 md:px-6 border-b border-[var(--border-color)] flex-shrink-0">
+            <div>
+                <h2 class="text-lg font-bold">Today's Digest</h2>
+                <p class="text-[10px] text-gray-500">World &amp; technology headlines</p>
+            </div>
+            <button onclick="closeNewsOverlay()" class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#2a2a2a] transition-colors text-gray-300">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <div id="news-overlay-list" class="flex-1 overflow-y-auto p-4 md:p-6 max-w-3xl mx-auto w-full space-y-4"></div>
+    </div>
+
     <!-- LIVE CALL MODE -->
     <!-- Turn-based voice conversation: listen fully -> respond -> speak fully
          -> listen again. Built on browser SpeechRecognition + SpeechSynthesis,
@@ -933,6 +991,9 @@
         let activeGemPrompt = null;
         let latestExtractedCode = "";
         let lastAssistantRawContent = "";
+        let latestCodeLanguage = "";
+        let pyodideInstance = null;
+        let pyodideLoading = false;
         let allSessions = [];
         let currentUserName = "Guest User";
         let isCodeEditing = false;
@@ -1201,41 +1262,63 @@
                 fetchNewsDigest(true);
             }, 5 * 60 * 1000);
 
-            document.addEventListener('click', (e) => {
-                const panel = document.getElementById('notification-panel');
-                if (!panel || panel.classList.contains('hidden')) return;
-                if (!e.target.closest('#notification-panel') && !e.target.closest('[onclick="toggleNotificationPanel()"]')) {
-                    panel.classList.add('hidden');
+            // Esc closes the fullscreen reader (the old dropdown's
+            // click-outside handler no longer applies).
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const overlay = document.getElementById('news-overlay');
+                    if (overlay && !overlay.classList.contains('hidden')) closeNewsOverlay();
                 }
             });
         }
 
+        // Tapping the bell now opens a full-screen reader with article
+        // images, rather than the cramped little dropdown it used to show.
         function toggleNotificationPanel() {
-            const panel = document.getElementById('notification-panel');
-            const isHidden = panel.classList.contains('hidden');
-            if (isHidden) {
-                unreadNewsCount = 0;
-                updateNotificationBadge(0);
-                renderNewsPanel();
-                panel.classList.remove('hidden');
-            } else {
-                panel.classList.add('hidden');
-            }
+            unreadNewsCount = 0;
+            updateNotificationBadge(0);
+            renderNewsOverlay();
+            const overlay = document.getElementById('news-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
         }
 
-        function renderNewsPanel() {
-            const container = document.getElementById('notification-panel-list');
+        function closeNewsOverlay() {
+            const overlay = document.getElementById('news-overlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        function renderNewsOverlay() {
+            const container = document.getElementById('news-overlay-list');
             if (!container) return;
             if (newsDigestCache.length === 0) {
-                container.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No news available right now.</div>`;
+                container.innerHTML = `<div class="text-sm text-gray-500 text-center py-10">No news available right now.</div>`;
                 return;
             }
-            container.innerHTML = newsDigestCache.map(item => `
-                <a href="${item.url}" target="_blank" class="block p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-colors">
-                    <div class="text-xs font-medium text-gray-200 leading-snug">${item.title}</div>
-                    <div class="text-[10px] text-gray-500 mt-1">${item.source || ''}</div>
-                </a>
-            `).join('');
+            container.innerHTML = newsDigestCache.map(item => {
+                // Not every article carries an image — when it's missing,
+                // render a text-only card instead of a broken image box.
+                const imageBlock = item.image
+                    ? `<img src="${item.image}" alt="" loading="lazy"
+                           class="w-full h-44 md:h-56 object-cover"
+                           onerror="this.style.display='none'">`
+                    : '';
+                return `
+                    <a href="${item.url}" target="_blank" rel="noopener"
+                       class="block rounded-2xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-glow)] transition-all">
+                        ${imageBlock}
+                        <div class="p-4">
+                            <div class="text-sm md:text-base font-semibold text-[var(--text-main)] leading-snug">${item.title}</div>
+                            ${item.excerpt ? `<p class="text-xs text-gray-400 mt-2 leading-relaxed">${item.excerpt}</p>` : ''}
+                            <div class="flex items-center gap-2 mt-3 text-[10px] text-gray-500">
+                                <span class="font-medium">${item.source || ''}</span>
+                                ${item.date ? `<span>&middot;</span><span>${new Date(item.date).toLocaleDateString()}</span>` : ''}
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
         }
 
         async function checkUserStatus() {
@@ -1572,6 +1655,115 @@
         }
 
         // --- EDITABLE CODE ARTIFACT ---
+        // --- PYTHON EXECUTION (Pyodide, runs in-browser) ---
+        // Python runs entirely client-side via Pyodide (CPython compiled to
+        // WebAssembly) — nothing is sent to the server, so there's no
+        // sandboxing/security burden on your backend and no risk of someone
+        // running arbitrary code on your Render instance. That was the exact
+        // reason a server-side code runner got declined earlier; this
+        // sidesteps it because the code executes in the user's own tab.
+        //
+        // Pinned to an exact version (not "latest") — the marked.js incident
+        // earlier in this project was caused by an unpinned CDN silently
+        // upgrading past a breaking change.
+        const PYODIDE_VERSION = "0.26.4";
+
+        function isPythonCode() {
+            if (['python', 'py', 'python3'].includes(latestCodeLanguage)) return true;
+            // Fall back to content sniffing when the model omitted a language
+            // tag on the fence — common enough that requiring the tag would
+            // hide the Run button on plenty of valid Python.
+            if (!latestCodeLanguage && latestExtractedCode) {
+                return /^\s*(import |from \w+ import|def |print\(|class |#!\/usr\/bin\/env python)/m.test(latestExtractedCode);
+            }
+            return false;
+        }
+
+        function setPythonOutput(text, isError) {
+            const panel = document.getElementById('python-output-panel');
+            const content = document.getElementById('python-output-content');
+            panel.classList.remove('hidden');
+            content.textContent = text;
+            content.classList.toggle('text-red-400', !!isError);
+            content.classList.toggle('text-green-400', !isError);
+        }
+
+        function closePythonOutput() {
+            document.getElementById('python-output-panel').classList.add('hidden');
+        }
+
+        async function ensurePyodideLoaded() {
+            if (pyodideInstance) return pyodideInstance;
+            if (pyodideLoading) throw new Error('Python runtime is still loading — give it a moment.');
+
+            pyodideLoading = true;
+            try {
+                if (!window.loadPyodide) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.js`;
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load the Python runtime from the CDN.'));
+                        document.head.appendChild(script);
+                    });
+                }
+                pyodideInstance = await window.loadPyodide({
+                    indexURL: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`
+                });
+                return pyodideInstance;
+            } finally {
+                pyodideLoading = false;
+            }
+        }
+
+        async function runPythonArtifact() {
+            const btn = document.getElementById('run-code-btn');
+            const code = latestExtractedCode;
+            if (!code) return;
+
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running`;
+
+            try {
+                if (!pyodideInstance) {
+                    setPythonOutput('Loading Python runtime (first run only, ~10MB)...', false);
+                }
+                const pyodide = await ensurePyodideLoaded();
+
+                // Redirect stdout/stderr so print() output is capturable.
+                let buffer = [];
+                pyodide.setStdout({ batched: (s) => buffer.push(s) });
+                pyodide.setStderr({ batched: (s) => buffer.push(s) });
+
+                // input() is real here now — wired to window.prompt(), which
+                // is a genuinely blocking, synchronous browser dialog, so it
+                // behaves like a real terminal prompt. Previously this threw
+                // an error instead, which broke any input()-driven script —
+                // a very common shape for generated Python (like this one).
+                pyodide.globals.set('__ranen_js_input', (promptText) => {
+                    const result = window.prompt(promptText || '');
+                    return result === null ? '' : result;
+                });
+                await pyodide.runPythonAsync(`
+import builtins
+def _input_override(prompt=""):
+    return __ranen_js_input(prompt)
+builtins.input = _input_override
+`);
+
+                await pyodide.runPythonAsync(code);
+
+                const output = buffer.join('').trim();
+                setPythonOutput(output || '(script finished with no output)', false);
+            } catch (e) {
+                setPythonOutput(String(e.message || e), true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
         function toggleCodeEdit() {
             const view = document.getElementById('artifact-code-view');
             const btn = document.getElementById('edit-code-btn');
@@ -2858,6 +3050,8 @@
             let securityExtracted = "";
             let mermaidExtracted = "";
 
+            let detectedCodeLang = '';
+
             while ((match = codeBlockRegex.exec(markdownText)) !== null) {
                 const lang = match[1].trim().toLowerCase();
                 const content = match[2];
@@ -2867,14 +3061,19 @@
                 } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
                     securityExtracted += content + "\n\n";
                 } else {
+                    if (!detectedCodeLang && lang) detectedCodeLang = lang;
                     codeExtracted += content + "\n\n";
                 }
             }
             
             if (codeExtracted.trim()) {
                 latestExtractedCode = codeExtracted.trim();
+                latestCodeLanguage = detectedCodeLang;
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 document.getElementById('edit-code-btn').classList.remove('hidden');
+                if (isPythonCode()) {
+                    document.getElementById('run-code-btn').classList.remove('hidden');
+                }
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
                 }
@@ -2932,8 +3131,11 @@
             
             const debugBtn = document.getElementById('debug-code-btn');
             const editBtn = document.getElementById('edit-code-btn');
+            const runBtn = document.getElementById('run-code-btn');
             debugBtn.classList.add('hidden');
             editBtn.classList.add('hidden');
+            runBtn.classList.add('hidden');
+            if (tab !== 'code') closePythonOutput();
 
             const activeBtn = document.getElementById(`tab-${tab}-btn`);
             const activeView = document.getElementById(`artifact-${tab}-view`);
@@ -2947,8 +3149,26 @@
             if (tab === 'code' && latestExtractedCode) {
                 debugBtn.classList.remove('hidden');
                 editBtn.classList.remove('hidden');
+                if (isPythonCode()) runBtn.classList.remove('hidden');
             }
-            if (tab === 'preview' && latestExtractedCode) activeView.srcdoc = latestExtractedCode;
+            if (tab === 'preview' && latestExtractedCode) {
+                if (isPythonCode()) {
+                    // Dumping raw Python into an iframe just renders as plain
+                    // text (not valid HTML) — that's exactly what looked like
+                    // "it doesn't run". Preview now points to the real fix:
+                    // the Run button on the Code tab.
+                    activeView.srcdoc = `
+                        <html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:-apple-system,sans-serif;background:#0a0a0a;color:#9ca3af;text-align:center;padding:24px;">
+                            <div>
+                                <div style="font-size:32px;margin-bottom:12px;">🐍</div>
+                                <p style="font-size:14px;line-height:1.6;">This is Python — there's nothing to preview visually.<br>Use the <b style="color:#4ade80;">Run</b> button on the <b>Code</b> tab to execute it.</p>
+                            </div>
+                        </body></html>
+                    `;
+                } else {
+                    activeView.srcdoc = latestExtractedCode;
+                }
+            }
             if (tab === 'assets') fetchAssets();
         }
 
