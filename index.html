@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -164,11 +163,8 @@
             overflow: hidden;
             position: fixed;
             transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s;
-            background-image: 
-                radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 75%),
-                linear-gradient(to right, var(--border-color) 1px, transparent 1px),
-                linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
-            background-size: 100% 100%, 40px 40px, 40px 40px;
+            background-image: radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 70%);
+            background-size: 100% 100%;
         }
         
         .sidebar { 
@@ -329,21 +325,28 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .model-card { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 16px; }
-        .model-card:hover { border-color: var(--border-glow); background-color: var(--bg-card-hover); }
-        .model-card.active { border-color: var(--text-main) !important; background-color: var(--bg-card-hover) !important; box-shadow: 0 0 20px rgba(0,0,0,0.06); }
+        .model-card { transition: all 0.2s ease; border-radius: 16px; cursor: pointer; }
+        .model-card:hover { background-color: var(--bg-card-hover); border-color: transparent; transform: none; }
+        .model-card.active .model-card-name { color: var(--accent) !important; }
         
         .badge-tag { 
-            background: rgba(255, 255, 255, 0.06); 
+            background: var(--accent-soft); 
             border: 1px solid var(--border-color);
-            color: var(--text-main); 
+            color: var(--accent); 
             font-size: 10px; 
             font-weight: 600; 
             padding: 3px 10px; 
             border-radius: 20px; 
         }
         
-        body.light-mode .badge-tag { background: rgba(0, 0, 0, 0.05); color: #0f172a; }
+        body.light-mode .badge-tag { background: var(--accent-soft); color: var(--accent); }
+
+        /* --- BOTTOM SHEET (model selector) --- */
+        @keyframes sheetUp {
+            from { transform: translateY(24px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-sheet-up { animation: sheetUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         
         .mobile-overlay { display: none; backdrop-filter: blur(5px); }
         .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; }
@@ -472,6 +475,14 @@
             70% { transform: rotate(0deg); }
         }
         .bell-shake { animation: bellShake 0.6s ease-in-out; transform-origin: top center; display: inline-block; }
+
+        /* --- TEMPORARY CHAT --- */
+        #temp-chat-btn.active { color: #a78bfa !important; }
+        #temp-chat-banner {
+            background: linear-gradient(90deg, rgba(167,139,250,0.12), rgba(167,139,250,0.04));
+            border: 1px solid rgba(167,139,250,0.3);
+            color: #c4b5fd;
+        }
     </style>
 </head>
 <body class="flex overflow-hidden relative">
@@ -547,6 +558,10 @@
             </div>
             
             <div class="flex items-center z-10 gap-2 md:gap-3">
+                <button id="temp-chat-btn" onclick="toggleTemporaryChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Temporary chat — not saved to history">
+                    <i class="fa-solid fa-user-secret"></i>
+                </button>
+
                 <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
                     <i class="fa-solid fa-download"></i>
                 </button>
@@ -561,6 +576,11 @@
                 </div>
             </div>
         </header>
+
+        <div id="temp-chat-banner" class="hidden text-center text-[11px] py-1.5 px-3 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-user-secret"></i>
+            <span>Temporary chat — this won't be saved to your history</span>
+        </div>
 
         <div id="messages-container" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 max-w-4xl mx-auto w-full"></div>
 
@@ -838,28 +858,33 @@
         </div>
     </div>
 
-    <div id="model-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center hidden z-50 p-4">
-        <div class="w-full max-w-md rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 md:gap-5 max-h-[85vh] overflow-y-auto input-box">
-            <div class="flex items-center gap-3 md:gap-4 flex-shrink-0">
-                <button onclick="closeModelModal()" class="text-base md:text-lg">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </button>
-                <h3 class="text-lg md:text-xl font-bold">Select Model Engine</h3>
+    <div id="model-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center hidden z-50">
+        <div class="w-full md:max-w-md bg-[var(--bg-elevated)] rounded-t-3xl md:rounded-3xl p-5 md:p-6 shadow-2xl border border-[var(--border-color)] flex flex-col gap-1 max-h-[80vh] overflow-y-auto animate-sheet-up">
+            <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                <button onclick="closeModelModal()" class="text-lg text-gray-400 hover:text-white w-8"><i class="fa-solid fa-xmark"></i></button>
+                <h3 class="text-base font-bold">Select model</h3>
+                <div class="w-8"></div>
             </div>
-            <div class="space-y-2 md:space-y-3 overflow-y-auto pr-1">
-                <div onclick="selectModel('groq:llama-3.1-70b-versatile', 'Frost Llama 3.1 (Groq)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-groq-llama">
-                    <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Frost Llama 3.1</span>
-                        <span class="badge-tag hidden sm:inline-block">Groq &middot; Fast &middot; Web Search</span>
+            <div class="space-y-1 overflow-y-auto pr-1">
+                <div onclick="selectModel('groq:llama-3.1-70b-versatile', 'Frost Llama 3.1 (Groq)')" class="model-card p-4 flex items-center justify-between" id="m-groq-llama">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="model-card-name font-semibold text-[15px]">Frost Llama 3.1</span>
+                            <span class="badge-tag">Fast</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-0.5">Great for quick answers and everyday tasks</p>
                     </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon" style="color: var(--accent);"></i>
                 </div>
-                <div onclick="selectModel('google:gemini-3.5-flash', 'Frost Vision (Gemini)')" class="model-card p-3 md:p-4 rounded-2xl cursor-pointer flex items-center justify-between border" id="m-google-flash">
-                    <div class="flex items-center gap-2 md:gap-3">
-                        <span class="text-[13px] md:text-base font-semibold">Frost Vision</span>
-                        <span class="badge-tag hidden sm:inline-block">Gemini &middot; Images &middot; Web Search</span>
+                <div onclick="selectModel('google:gemini-3.5-flash', 'Frost Vision (Gemini)')" class="model-card p-4 flex items-center justify-between" id="m-google-flash">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="model-card-name font-semibold text-[15px]">Frost Vision</span>
+                            <span class="badge-tag">Vision</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-0.5">For images, documents, and visual analysis</p>
                     </div>
-                    <i class="fa-solid fa-check text-sm hidden check-icon text-blue-400"></i>
+                    <i class="fa-solid fa-check text-sm hidden check-icon" style="color: var(--accent);"></i>
                 </div>
             </div>
         </div>
@@ -910,13 +935,8 @@
     </div>
 
     <!-- LIVE CALL MODE -->
-    <!-- Turn-based voice conversation: listen fully -> respond -> speak fully
-         -> listen again. Built on browser SpeechRecognition + SpeechSynthesis,
-         the same APIs already used for voice input / read-aloud elsewhere in
-         the app. This is NOT full-duplex, interrupt-anytime realtime audio
-         (that needs a specialized streaming API like Gemini's Live API or
-         OpenAI's Realtime API — a fundamentally different, WebSocket-based
-         architecture) — it's an honest, working turn-based call experience. -->
+    <!-- True full-duplex voice via a WebSocket relay to Gemini's Live API —
+         see server.py for the backend half. -->
     <div id="call-overlay" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
         <div class="flex flex-col items-center gap-6 px-6">
             <div id="call-avatar" class="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl transition-transform duration-300">
@@ -947,11 +967,6 @@
 
         marked.use({
             renderer: {
-                // marked v14+ removed the old positional-argument renderer
-                // signature entirely — every custom renderer now receives a
-                // single token object instead of (value, title, text). This
-                // is what broke ("code.split is not a function") once the
-                // unpinned CDN script silently updated past v13.
                 image(token) {
                     const url = token.href;
                     const altText = token.text;
@@ -986,6 +1001,7 @@
 
         let currentSessionId = null;
         let currentChatIsEmpty = true;
+        let isTemporaryChat = false;
         let selectedFiles = [];
         let activeModelValue = "groq:llama-3.1-70b-versatile";
         let activeGemPrompt = null;
@@ -1060,6 +1076,72 @@
             const saved = localStorage.getItem('ranen_bubble_color');
             if (saved) setBubbleColor(saved);
         }
+
+        // --- TEMPORARY CHAT ---
+        // Genuinely not saved: starts a real chat (the backend still needs a
+        // session_id to generate responses) but it's deleted the moment you
+        // leave it, hidden from the sidebar while active, and best-effort
+        // cleaned up on tab close too. Not a purely client-side simulation —
+        // it really does get removed from storage, not just hidden.
+        async function toggleTemporaryChat() {
+            if (!isTemporaryChat) {
+                await cleanupCurrentTemporaryChat(); // in case one was already active
+                const res = await fetch('/api/new-session', { method: 'POST' });
+                const data = await res.json();
+                currentSessionId = data.session_id;
+                currentChatIsEmpty = true;
+                isTemporaryChat = true;
+                renderEmptyState();
+                updateTemporaryChatUI();
+                const titleEl = document.getElementById('current-chat-title');
+                if (titleEl) titleEl.innerText = 'Temporary Chat';
+                closeAllPanels();
+            } else {
+                await cleanupCurrentTemporaryChat();
+                const res = await fetch('/api/new-session', { method: 'POST' });
+                const data = await res.json();
+                currentSessionId = data.session_id;
+                currentChatIsEmpty = true;
+                renderEmptyState();
+                const titleEl = document.getElementById('current-chat-title');
+                if (titleEl) titleEl.innerText = 'New Chat';
+                await fetchSessions();
+                closeAllPanels();
+            }
+        }
+
+        async function cleanupCurrentTemporaryChat() {
+            if (isTemporaryChat && currentSessionId) {
+                try { await fetch(`/api/delete-session/${currentSessionId}`, { method: 'DELETE' }); } catch (e) {}
+            }
+            isTemporaryChat = false;
+            updateTemporaryChatUI();
+        }
+
+        function updateTemporaryChatUI() {
+            const btn = document.getElementById('temp-chat-btn');
+            const banner = document.getElementById('temp-chat-banner');
+            if (isTemporaryChat) {
+                btn.classList.add('active');
+                banner.classList.remove('hidden');
+                banner.classList.add('flex');
+            } else {
+                btn.classList.remove('active');
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+        }
+
+        // Best-effort cleanup if the tab/app closes while a temp chat is
+        // active. keepalive lets the request survive page teardown, but
+        // this is not guaranteed on every browser/OS combination.
+        window.addEventListener('beforeunload', () => {
+            if (isTemporaryChat && currentSessionId) {
+                try {
+                    fetch(`/api/delete-session/${currentSessionId}`, { method: 'DELETE', keepalive: true });
+                } catch (e) {}
+            }
+        });
 
         // --- DEVICE ACTIONS (torch + app deep links) ---
         // Browsers deliberately block webpages from launching arbitrary
@@ -1169,11 +1251,6 @@
                 panel.classList.add('mobile-open');
                 backdrop.classList.add('active');
                 fetchAssets();
-                // Defensive re-sync: re-derive the artifact panel's content
-                // from the last known assistant message every time the panel
-                // opens, instead of trusting it was already caught correctly
-                // whenever the message first arrived. Cheap, and removes any
-                // dependency on perfect first-try timing.
                 if (lastAssistantRawContent) {
                     extractCodeForArtifacts(lastAssistantRawContent);
                 }
@@ -1262,8 +1339,6 @@
                 fetchNewsDigest(true);
             }, 5 * 60 * 1000);
 
-            // Esc closes the fullscreen reader (the old dropdown's
-            // click-outside handler no longer applies).
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     const overlay = document.getElementById('news-overlay');
@@ -1272,8 +1347,6 @@
             });
         }
 
-        // Tapping the bell now opens a full-screen reader with article
-        // images, rather than the cramped little dropdown it used to show.
         function toggleNotificationPanel() {
             unreadNewsCount = 0;
             updateNotificationBadge(0);
@@ -1297,8 +1370,6 @@
                 return;
             }
             container.innerHTML = newsDigestCache.map(item => {
-                // Not every article carries an image — when it's missing,
-                // render a text-only card instead of a broken image box.
                 const imageBlock = item.image
                     ? `<img src="${item.image}" alt="" loading="lazy"
                            class="w-full h-44 md:h-56 object-cover"
@@ -1360,8 +1431,8 @@
         function openPluginsModal() { document.getElementById('plugins-modal').classList.remove('hidden'); }
         function closePluginsModal() { document.getElementById('plugins-modal').classList.add('hidden'); }
         
-        function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); }
-        function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); }
+        function openModelModal() { document.getElementById('model-modal').classList.remove('hidden'); document.getElementById('model-modal').classList.add('flex'); }
+        function closeModelModal() { document.getElementById('model-modal').classList.add('hidden'); document.getElementById('model-modal').classList.remove('flex'); }
         function openAccountModal() { document.getElementById('account-modal').classList.remove('hidden'); }
         function closeAccountModal() { document.getElementById('account-modal').classList.add('hidden'); }
         function openGemsModal() { document.getElementById('gems-modal').classList.remove('hidden'); }
@@ -1385,28 +1456,13 @@
         let stepCount = parseInt(localStorage.getItem("daily_steps") || "0");
         let isStepCounterActive = false;
 
-        // --- STEP COUNTER v2 ---
-        // The old version counted a step on ANY acceleration delta above a
-        // fixed threshold — meaning setting the phone down, shifting in a
-        // chair, or a bump in a car could all register as "steps", with no
-        // limit on how many times per second it could fire. This rewrite
-        // uses the standard lightweight pedometer pattern: a moving-average
-        // smoothing filter (reduces sensor jitter), peak-then-valley
-        // detection with hysteresis (a step is only counted once the signal
-        // rises above a threshold AND then falls back below a lower one —
-        // not on every jiggle), and a minimum cooldown between steps (a
-        // real footstep takes at least ~300ms, so anything faster is noise).
-        // Honest caveat: this is still an approximation from raw
-        // accelerometer data — there's no standard Web API that exposes a
-        // phone's dedicated hardware step-counter sensor, so browser-based
-        // step counting can't match a native fitness app's accuracy.
         let motionBuffer = [];
         const MOTION_BUFFER_SIZE = 4;
-        let stepPhase = 'waiting_for_peak'; // or 'waiting_for_valley'
+        let stepPhase = 'waiting_for_peak';
         let lastStepTime = 0;
-        const STEP_PEAK_THRESHOLD = 11.2;   // smoothed magnitude above this = possible step
-        const STEP_VALLEY_THRESHOLD = 9.5;  // must fall back below this to complete the step
-        const STEP_COOLDOWN_MS = 300;       // fastest realistic step cadence
+        const STEP_PEAK_THRESHOLD = 11.2;
+        const STEP_VALLEY_THRESHOLD = 9.5;
+        const STEP_COOLDOWN_MS = 300;
 
         let stepMotionHandler = null;
 
@@ -1414,10 +1470,6 @@
             const stepDisplay = document.getElementById("nav-step-count");
             const stepBtn = document.getElementById("enable-steps-btn");
 
-            // Toggle: tapping while active now disables it, instead of doing
-            // nothing. Requires keeping a reference to the exact listener
-            // function so removeEventListener can actually find and remove it
-            // — an anonymous inline function (as before) can't be removed.
             if (isStepCounterActive) {
                 if (stepMotionHandler) {
                     window.removeEventListener("devicemotion", stepMotionHandler);
@@ -1565,7 +1617,6 @@
             renderCalendarEvents();
         }
 
-        // --- SCHEDULED PROMPTS (tab-open-only, see disclaimer in UI) ---
         let scheduledTasks = JSON.parse(localStorage.getItem('ranen_scheduled') || '[]');
         let scheduleCheckInterval = null;
 
@@ -1654,25 +1705,10 @@
             sendMessage(new Event('submit'));
         }
 
-        // --- EDITABLE CODE ARTIFACT ---
-        // --- PYTHON EXECUTION (Pyodide, runs in-browser) ---
-        // Python runs entirely client-side via Pyodide (CPython compiled to
-        // WebAssembly) — nothing is sent to the server, so there's no
-        // sandboxing/security burden on your backend and no risk of someone
-        // running arbitrary code on your Render instance. That was the exact
-        // reason a server-side code runner got declined earlier; this
-        // sidesteps it because the code executes in the user's own tab.
-        //
-        // Pinned to an exact version (not "latest") — the marked.js incident
-        // earlier in this project was caused by an unpinned CDN silently
-        // upgrading past a breaking change.
         const PYODIDE_VERSION = "0.26.4";
 
         function isPythonCode() {
             if (['python', 'py', 'python3'].includes(latestCodeLanguage)) return true;
-            // Fall back to content sniffing when the model omitted a language
-            // tag on the fence — common enough that requiring the tag would
-            // hide the Run button on plenty of valid Python.
             if (!latestCodeLanguage && latestExtractedCode) {
                 return /^\s*(import |from \w+ import|def |print\(|class |#!\/usr\/bin\/env python)/m.test(latestExtractedCode);
             }
@@ -1731,16 +1767,10 @@
                 }
                 const pyodide = await ensurePyodideLoaded();
 
-                // Redirect stdout/stderr so print() output is capturable.
                 let buffer = [];
                 pyodide.setStdout({ batched: (s) => buffer.push(s) });
                 pyodide.setStderr({ batched: (s) => buffer.push(s) });
 
-                // input() is real here now — wired to window.prompt(), which
-                // is a genuinely blocking, synchronous browser dialog, so it
-                // behaves like a real terminal prompt. Previously this threw
-                // an error instead, which broke any input()-driven script —
-                // a very common shape for generated Python (like this one).
                 pyodide.globals.set('__ranen_js_input', (promptText) => {
                     const result = window.prompt(promptText || '');
                     return result === null ? '' : result;
@@ -1782,7 +1812,6 @@ builtins.input = _input_override
                 btn.classList.remove('editing');
                 btn.innerHTML = `<i class="fa-solid fa-pen"></i> Edit`;
 
-                // Push the edited code into the live preview too
                 const previewFrame = document.getElementById('artifact-preview-view');
                 if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
                     previewFrame.srcdoc = latestExtractedCode;
@@ -1799,7 +1828,7 @@ builtins.input = _input_override
 
         function highlightActiveModelCard() {
             document.querySelectorAll('.model-card').forEach(card => {
-                card.classList.remove('active', 'border-blue-500');
+                card.classList.remove('active');
                 card.querySelector('.check-icon')?.classList.add('hidden');
             });
             const cardMap = {
@@ -1808,7 +1837,7 @@ builtins.input = _input_override
             };
             const activeCard = document.getElementById(cardMap[activeModelValue]);
             if (activeCard) {
-                activeCard.classList.add('active', 'border-blue-500');
+                activeCard.classList.add('active');
                 activeCard.querySelector('.check-icon')?.classList.remove('hidden');
             }
         }
@@ -1834,10 +1863,6 @@ builtins.input = _input_override
             } catch (e) { console.error(e); }
         }
 
-        // Bug fix: previously a custom gem's raw system_prompt was sent as-is,
-        // so if it didn't explicitly say "you are X", asking "who are you"
-        // fell through to the model's generic identity. Wrapping it here
-        // binds the persona's name/description to its identity every time.
         function setGem(prompt, name, description) {
             const identityWrap = `You are ${name}.${description ? ' ' + description + '.' : ''} `
                 + `If asked who you are, what your name is, or what you do, answer in character as ${name} `
@@ -1890,7 +1915,13 @@ builtins.input = _input_override
         async function fetchSessions() {
             try {
                 const res = await fetch('/api/sessions');
-                allSessions = await res.json();
+                let sessions = await res.json();
+                // Hide the currently-active temporary chat from the sidebar —
+                // that's the whole point of "temporary".
+                if (isTemporaryChat && currentSessionId) {
+                    sessions = sessions.filter(s => s.id !== currentSessionId);
+                }
+                allSessions = sessions;
                 renderSessionList(allSessions);
             } catch (e) {
                 console.error(e);
@@ -1942,11 +1973,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- FULL MESSAGE SEARCH ---
-        // Title filtering (client-side, instant) vs message-content search
-        // (server-side, since it needs to scan every message in every chat)
-        // are blended: short input still filters titles locally so it feels
-        // instant; anything meaningful also triggers a debounced full search.
         let searchDebounceTimer = null;
         let lastSearchQuery = '';
 
@@ -1966,7 +1992,6 @@ builtins.input = _input_override
             try {
                 const res = await fetch(`/api/search-messages?q=${encodeURIComponent(query)}`);
                 const results = await res.json();
-                // Guard against a slower, stale request landing after a newer one.
                 if (query === lastSearchQuery) {
                     renderMessageSearchResults(results, query);
                 }
@@ -2000,8 +2025,6 @@ builtins.input = _input_override
 
         async function openSearchResult(chatId, msgIndex, keyword, chatTitle) {
             await loadSession(chatId, chatTitle);
-            // Give the DOM a beat to paint the freshly-loaded messages
-            // before trying to find and scroll to the target one.
             setTimeout(() => scrollToAndHighlight(msgIndex, keyword), 300);
         }
 
@@ -2032,7 +2055,7 @@ builtins.input = _input_override
                 const span = document.createElement('span');
                 span.innerHTML = `${before}<mark class="search-highlight-box">${match}</mark>${after}`;
                 textNode.replaceWith(...span.childNodes);
-                break; // first match is enough to orient the user
+                break;
             }
         }
 
@@ -2070,12 +2093,11 @@ builtins.input = _input_override
         }
 
         async function createNewSession() {
-            // If already sitting in a blank chat, don't spawn yet another
-            // empty session — just close panels and stay put.
-            if (currentChatIsEmpty && currentSessionId) {
+            if (currentChatIsEmpty && currentSessionId && !isTemporaryChat) {
                 closeAllPanels();
                 return;
             }
+            await cleanupCurrentTemporaryChat();
             const res = await fetch('/api/new-session', { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
@@ -2088,6 +2110,7 @@ builtins.input = _input_override
         }
 
         async function loadSession(id, title) {
+            await cleanupCurrentTemporaryChat();
             currentSessionId = id;
             const titleEl = document.getElementById('current-chat-title');
             if (titleEl) titleEl.innerText = title;
@@ -2116,11 +2139,6 @@ builtins.input = _input_override
             document.getElementById('snap-solve-input').click();
         }
 
-        // --- VOICE INPUT ---
-        // Uses the browser's native SpeechRecognition API — no backend
-        // needed. Support varies: works well on Chrome (desktop + Android);
-        // not supported on Firefox and inconsistently supported on iOS
-        // Safari, so it fails with a clear message rather than silently.
         let voiceRecognition = null;
         let isRecording = false;
 
@@ -2173,7 +2191,6 @@ builtins.input = _input_override
             voiceRecognition.start();
         }
 
-        // --- EXPORT CHAT ---
         function exportChat() {
             const container = document.getElementById('messages-container');
             const bubbles = container.querySelectorAll('.user-msg-container, .assistant-msg-container');
@@ -2204,9 +2221,6 @@ builtins.input = _input_override
             URL.revokeObjectURL(url);
         }
 
-        // Snap & Solve: photograph a problem, send it straight to a vision-capable
-        // model with a solve-it prompt. Forces the vision model for just this one
-        // request — doesn't change your regular model selection.
         async function handleSnapAndSolve(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -2225,7 +2239,7 @@ builtins.input = _input_override
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
             formData.append('message', solvePrompt);
-            formData.append('model_choice', 'google:gemini-3.5-flash'); // vision-capable, regardless of current selection
+            formData.append('model_choice', 'google:gemini-3.5-flash');
             formData.append('files', file);
 
             const sendBtn = document.getElementById('send-btn');
@@ -2252,7 +2266,7 @@ builtins.input = _input_override
 
         function handleFileSelect(e) {
             addFilesToSelection(Array.from(e.target.files));
-            e.target.value = ''; // allow re-selecting the same file later
+            e.target.value = '';
         }
 
         function addFilesToSelection(newFiles) {
@@ -2295,7 +2309,6 @@ builtins.input = _input_override
             renderAttachmentChips();
         }
 
-        // --- DRAG & DROP ---
         function handleDragOver(e) {
             e.preventDefault();
             document.getElementById('drag-drop-overlay').classList.remove('hidden');
@@ -2312,13 +2325,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- THINKING / STATUS INDICATOR ---
-        // Purely a UI status cue while we wait on the backend — not a real
-        // step-by-step trace (that would need streaming/SSE, which this
-        // backend doesn't do). Previously cycled through phrases on a
-        // modulo loop, so a slow response visibly repeated the same 5 lines
-        // over and over — obviously fake. Now it progresses through the
-        // list once and holds on the last line instead of visibly looping.
         const THINKING_STEPS = [
             "Reading your message...",
             "Understanding intent...",
@@ -2348,7 +2354,7 @@ builtins.input = _input_override
                 if (stepIdx >= THINKING_STEPS.length - 1) {
                     clearInterval(thinkingInterval);
                     thinkingInterval = null;
-                    return; // hold on the final line instead of looping back
+                    return;
                 }
                 stepIdx++;
                 const textEl = document.getElementById('thinking-status-text');
@@ -2377,7 +2383,6 @@ builtins.input = _input_override
             const text = input.value.trim();
             if (!text && selectedFiles.length === 0) return;
 
-            // --- Local device-action command interceptor (torch / app deep links) ---
             if (selectedFiles.length === 0) {
                 const deviceCmd = detectDeviceCommand(text);
                 if (deviceCmd) {
@@ -2395,7 +2400,6 @@ builtins.input = _input_override
                 }
             }
 
-            // --- Local color-change command interceptor (no AI call needed) ---
             if (selectedFiles.length === 0) {
                 const colorCmd = detectColorCommand(text);
                 if (colorCmd) {
@@ -2462,7 +2466,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- STOP / CANCEL GENERATION ---
         let currentAbortController = null;
 
         function setSendButtonMode(mode) {
@@ -2499,9 +2502,6 @@ builtins.input = _input_override
             }
 
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            // Only animate freshly-received live responses (shouldScroll=true
-            // marks a live send/receive) — never replay the typing effect
-            // when loading past history from the sidebar.
             const shouldAnimate = !isUser && shouldScroll;
             const indexAttr = msgIndex !== null ? ` data-msg-index="${msgIndex}"` : '';
             let proseId = '';
@@ -2553,14 +2553,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- TYPEWRITER REVEAL ---
-        // Reveals already-rendered HTML progressively (whole tags render
-        // instantly, text content reveals word-by-word) instead of literal
-        // char-by-char, so markdown formatting (bold, code blocks, lists)
-        // never gets split mid-tag. This is cosmetic only — the full
-        // response already arrived from the backend; there's no real
-        // token-by-token streaming here since /api/chat isn't a streaming
-        // endpoint.
         function typewriterReveal(el, html, scrollContainer, speedMs = 8) {
             const tokens = html.match(/<[^>]+>|[^<]+/g) || [html];
             let i = 0;
@@ -2588,11 +2580,6 @@ builtins.input = _input_override
             step();
         }
 
-        // --- REGENERATE (fixed "Retry" bug) ---
-        // Previously this button called createNewSession(), which just
-        // opened a blank new chat instead of regenerating anything. Now it
-        // calls the backend's /api/regenerate, which drops the stored last
-        // response and produces a fresh one from the same conversation.
         async function regenerateResponse(btn) {
             if (!currentSessionId) return;
             const assistantContent = btn.closest('.assistant-content');
@@ -2628,12 +2615,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- EDIT & RESEND ---
-        // Repopulates the input box with the original text for editing, then
-        // you send it like normal. This does not retroactively rewrite the
-        // stored conversation history — it's a quick edit-and-resend, not a
-        // true "regenerate from this point" (that would need the backend to
-        // support truncating/branching stored history, which is a larger change).
         function editUserMessage(btn) {
             const wrapper = btn.closest('.flex.flex-col');
             const rawText = wrapper.querySelector('.raw-user-text').textContent;
@@ -2643,10 +2624,6 @@ builtins.input = _input_override
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // --- TEXT-TO-SPEECH READBACK ---
-        // Browser-native SpeechSynthesis API — pairs with the voice INPUT
-        // added earlier. Support is broad (Chrome, Edge, Safari, Firefox)
-        // but voice quality/availability varies by OS.
         function speakMessage(btn) {
             if (!window.speechSynthesis) {
                 alert("Text-to-speech isn't supported in this browser.");
@@ -2666,18 +2643,6 @@ builtins.input = _input_override
             window.speechSynthesis.speak(utterance);
         }
 
-        // --- LIVE CALL MODE (real-time, Gemini Live API) ---
-        // True full-duplex voice: continuous mic audio streams to the
-        // backend over a WebSocket, which relays it to Gemini's Live API
-        // session; audio responses stream back the same way and play as
-        // they arrive, with barge-in (interrupting mid-response) supported
-        // server-side. This is fundamentally different from a text request —
-        // there is no /api/chat call per turn; it's one persistent streaming
-        // connection for the whole call.
-        //
-        // Audio formats (per Gemini Live API spec): mic input is downsampled
-        // to 16-bit PCM, 16kHz, mono before sending; playback audio arrives
-        // as 16-bit PCM, 24kHz, mono.
         let callActive = false;
         let callMuted = false;
         let liveWs = null;
@@ -2759,9 +2724,6 @@ builtins.input = _input_override
             liveAudioContext = new (window.AudioContext || window.webkitAudioContext)();
             liveSourceNode = liveAudioContext.createMediaStreamSource(liveMicStream);
 
-            // ScriptProcessorNode: deprecated in spec but still broadly
-            // supported everywhere, and needs no separate AudioWorklet
-            // module file — chosen for reliability over "correctness" here.
             const bufferSize = 4096;
             liveProcessorNode = liveAudioContext.createScriptProcessor(bufferSize, 1, 1);
 
@@ -2774,10 +2736,6 @@ builtins.input = _input_override
                 }
             };
 
-            // A zero-gain node between processor and destination: required
-            // so onaudioprocess actually fires (ScriptProcessorNode needs to
-            // be connected into the graph), without playing raw mic input
-            // back out the speakers (which would cause audible echo/feedback).
             const silentGain = liveAudioContext.createGain();
             silentGain.gain.value = 0;
             liveSourceNode.connect(liveProcessorNode);
@@ -2814,11 +2772,6 @@ builtins.input = _input_override
                     livePlaybackContext = new (window.AudioContext || window.webkitAudioContext)();
                     livePlaybackTime = livePlaybackContext.currentTime;
                 }
-                // Int16Array requires an even byte length — a chunk arriving
-                // with an odd byte count (possible at stream boundaries)
-                // would throw a RangeError here uncaught, which is a likely
-                // cause of the call going dead after the first response:
-                // one bad chunk breaks this handler with nothing to catch it.
                 const usableLength = arrayBuffer.byteLength - (arrayBuffer.byteLength % 2);
                 if (usableLength <= 0) return;
                 const pcm16 = new Int16Array(arrayBuffer.slice(0, usableLength));
@@ -2833,8 +2786,6 @@ builtins.input = _input_override
                 source.buffer = audioBuffer;
                 source.connect(livePlaybackContext.destination);
 
-                // Schedule chunks back-to-back on a running cursor so playback
-                // is gapless instead of a new AudioContext clock per chunk.
                 const now = livePlaybackContext.currentTime;
                 const startTime = Math.max(now, livePlaybackTime);
                 source.start(startTime);
@@ -2844,8 +2795,6 @@ builtins.input = _input_override
                 };
                 liveActiveSources.push(source);
             } catch (e) {
-                // Skip this one bad chunk instead of letting an uncaught
-                // error silently kill audio processing for the rest of the call.
                 console.error('Live call audio chunk skipped (playback error):', e);
             }
         }
@@ -2932,8 +2881,6 @@ builtins.input = _input_override
             }
         }
 
-        // --- KEYBOARD SHORTCUTS ---
-        // Ctrl/Cmd+Enter: send. Esc: stop generation. Ctrl/Cmd+K: new chat.
         document.addEventListener('keydown', (e) => {
             const isMac = navigator.platform.toUpperCase().includes('MAC');
             const modKey = isMac ? e.metaKey : e.ctrlKey;
@@ -3035,15 +2982,6 @@ builtins.input = _input_override
         }
 
         function extractCodeForArtifacts(markdownText) {
-            // Was: /```(\w*)\n([\s\S]*?)```/g — required an exact \n right after
-            // the language tag. If a response ever used \r\n (carriage return),
-            // or had trailing spaces after the language tag, the match silently
-            // failed and the artifact panel just kept showing stale/placeholder
-            // content — which is why it only "fixed itself" after switching
-            // chats (that reload path re-parses the same text and can happen to
-            // work depending on how line endings got normalized along the way).
-            // \r?\n and trimming the language tag makes this match reliably
-            // regardless of exact whitespace/line-ending formatting.
             const codeBlockRegex = /```([\w.-]*)[ \t]*\r?\n([\s\S]*?)```/g;
             let match;
             let codeExtracted = "";
@@ -3153,10 +3091,6 @@ builtins.input = _input_override
             }
             if (tab === 'preview' && latestExtractedCode) {
                 if (isPythonCode()) {
-                    // Dumping raw Python into an iframe just renders as plain
-                    // text (not valid HTML) — that's exactly what looked like
-                    // "it doesn't run". Preview now points to the real fix:
-                    // the Run button on the Code tab.
                     activeView.srcdoc = `
                         <html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:-apple-system,sans-serif;background:#0a0a0a;color:#9ca3af;text-align:center;padding:24px;">
                             <div>
