@@ -1009,7 +1009,10 @@ def _perform_web_search(query: str, max_results: int = 5) -> str:
             return f"Web search failed: {e}"
     if not results:
         return "No results found for that search."
-    return "\n".join(f"- {r.get('title')}: {r.get('body')} (Source: {r.get('href')})" for r in results)
+    return "\n".join(f"- {r.get('title')}: {(r.get('body') or '')[:250]} (Source: {r.get('href')})" for r in results[:5])
+
+# Set ENABLE_WEB_SEARCH=0 on your host to turn the search tool off (for testing)
+ENABLE_WEB_SEARCH = os.getenv("ENABLE_WEB_SEARCH", "1") != "0"
 
 WEB_SEARCH_TOOL_GROQ = {
     "type": "function",
@@ -1044,6 +1047,12 @@ async def _call_groq_with_tools(model, base_messages_payload):
     """Tool-calling first. If the tool round-trip breaks for a NON-quota reason,
     fall back to a plain call on the same model. Rate-limit/auth errors are
     re-raised so the model chain can move on to the next model."""
+    if not ENABLE_WEB_SEARCH:
+        plain = await asyncio.to_thread(
+            groq_client.chat.completions.create,
+            model=model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
+        )
+        return _groq_text(plain.choices[0].message)
     try:
         messages_payload = list(base_messages_payload)
         first = await asyncio.to_thread(
@@ -1079,8 +1088,10 @@ async def _call_groq_with_tools(model, base_messages_payload):
 
     except Exception as e:
         low = str(e).lower()
-        if _is_rate_limit_error(e) or "api key" in low or "401" in low or "invalid_api_key" in low:
+        if "api key" in low or "401" in low or "invalid_api_key" in low:
             raise
+        # Includes rate limits: the tool round-trip is the heavy part, so a
+        # plain call (no search results) often still fits under the limit.
         print(f"[GROQ TOOL-CALLING FALLBACK on {model}]: {e}")
         plain = await asyncio.to_thread(
             groq_client.chat.completions.create,
