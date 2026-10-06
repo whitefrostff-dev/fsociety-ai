@@ -8,9 +8,6 @@ import uuid
 import os
 import re
 import io
-import base64
-import urllib.parse
-import shutil
 import httpx
 import json
 import time
@@ -24,14 +21,12 @@ from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
 
-# PDF text extraction dependency check
 try:
     from pypdf import PdfReader
     HAS_PYPDF = True
 except ImportError:
     HAS_PYPDF = False
 
-# DuckDuckGo Web & Image Search Dependency Check
 try:
     from ddgs import DDGS
     HAS_DDGS = True
@@ -40,9 +35,9 @@ except ImportError:
 
 app = FastAPI()
 
-# --- SEARCH CACHING & RATE-LIMIT PREVENTION SETUP ---
+# --- SEARCH CACHE ---
 search_cache = {}
-CACHE_TTL = 3600  # Cache search results for 1 hour
+CACHE_TTL = 3600
 search_lock = asyncio.Lock()
 
 def get_cached_search(query: str, search_type: str = "text"):
@@ -57,7 +52,7 @@ def set_cached_search(query: str, results, search_type: str = "text"):
     cache_key = f"{search_type}:{query.strip().lower()}"
     search_cache[cache_key] = (results, time.time())
 
-# --- POSTGRESQL DATABASE SETUP ---
+# --- POSTGRESQL ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
@@ -114,10 +109,9 @@ def init_db():
 
 init_db()
 
-# --- PERSISTENT FILE STORAGE & UPLOADS ---
+# --- FILE STORAGE ---
 DATA_DIR = os.getenv("DATABASE_DIR", "/data" if os.path.exists("/data") else "./data")
 os.makedirs(DATA_DIR, exist_ok=True)
-
 CHATS_FILE = os.path.join(DATA_DIR, "chats.json")
 
 def load_local_chats():
@@ -130,12 +124,7 @@ def load_local_chats():
     return {}
 
 def save_local_chats(data):
-    # Atomic write: write to a temp file then rename over the real one.
-    # Previously a crash or concurrent write mid-json.dump could leave
-    # chats.json truncated/corrupted, and the next load_local_chats() call
-    # would silently return {} — i.e. everyone's local-fallback history
-    # gone at once. os.replace() is atomic on POSIX, so readers only ever
-    # see a fully-written old or new file, never a partial one.
+    # Atomic write so a crash mid-write can't corrupt chats.json
     try:
         tmp_path = CHATS_FILE + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as f:
@@ -149,15 +138,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # --- FAVICON ---
-# Root-level files aren't served by the /uploads StaticFiles mount, so this
-# needs its own route. Looks for favicon.png next to index.html; falls back
-# to a 204 (no icon) if it's not there yet so the route never 500s.
 def _find_favicon_path():
-    candidates = [
-        os.path.join("..", "app", "favicon.png"),
-        "favicon.png",
-    ]
-    for path in candidates:
+    for path in [os.path.join("..", "app", "favicon.png"), "favicon.png"]:
         if os.path.exists(path):
             return path
     return None
@@ -171,32 +153,17 @@ async def favicon():
 
 @app.get("/favicon.ico")
 async def favicon_ico():
-    # Browsers request this by default even when a PNG <link> is set; point it
-    # at the same PNG so there's no broken-icon request in the network tab.
     path = _find_favicon_path()
     if path:
         return Response(content=open(path, "rb").read(), media_type="image/png")
     return Response(status_code=204)
 
-# --- PROXY & SECURE SESSION FIX ---
+# --- SESSION / PROXY ---
+# SECURITY: set SESSION_SECRET as an env var on your host (any long random string).
+SESSION_SECRET = os.getenv("SESSION_SECRET", "ranen_super_secret_session_string")
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key="ranen_super_secret_session_string",
-    https_only=False,
-    same_site="lax"
-)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False, same_site="lax")
 
-# --- GUARANTEED GUEST COOKIE ---
-# BUG FIX: previously the guest_id cookie was only set inside the "/" and
-# "/api/guest-mode" route handlers. Any request that hit another endpoint
-# first (e.g. /api/chat) without a cookie already present fell back to a
-# single shared identifier literally named "unknown_guest" — meaning that
-# session's chat history got mixed into one bucket shared by every affected
-# guest, and became permanently unreachable once a real guest_id was later
-# issued. This middleware generates the ID *before* the route handler runs
-# (via request.state) so even a brand-new guest's very first request gets a
-# correct, unique identifier — not just requests after this one.
 @app.middleware("http")
 async def ensure_guest_cookie(request: Request, call_next):
     existing_guest_id = request.cookies.get("guest_id")
@@ -208,26 +175,41 @@ async def ensure_guest_cookie(request: Request, call_next):
         request.state.guest_id = existing_guest_id
 
     response = await call_next(request)
-
     if new_guest_id:
         response.set_cookie(key="guest_id", value=new_guest_id, max_age=31536000, httponly=True)
     return response
 
-# --- ENVIRONMENT VARIABLES ---
-# Per your request: only Groq and Google Gemini remain configured — simpler
-# to reason about, fewer moving parts, one less set of API keys to manage.
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# --- ENV ---
+# .strip() fixes the classic bug of a stray space/quote/newline pasted into the key
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip().strip('"').strip("'")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = (os.getenv("GOOGLE_API_KEY") or "").strip().strip('"').strip("'")
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
-# Init API Clients
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
 
-# --- GOOGLE OAUTH SETUP ---
+print(f"[STARTUP] Groq key set: {bool(GROQ_API_KEY)} | Google key set: {bool(GOOGLE_API_KEY)}")
+
+# --- MODEL CHAINS ---
+# GROQ IS PRIMARY for every text request. Each Groq model has its own quota,
+# so if one is rate-limited the next is tried before Gemini is ever touched.
+# Override with env vars (comma-separated) without editing code.
+GROQ_MODELS = [m.strip() for m in os.getenv(
+    "GROQ_MODELS", "openai/gpt-oss-120b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant"
+).split(",") if m.strip()]
+
+# Gemini: images (vision) + last-resort fallback for text.
+GEMINI_MODELS = [m.strip() for m in os.getenv(
+    "GEMINI_MODELS", "gemini-3.5-flash,gemini-2.5-flash-lite"
+).split(",") if m.strip()]
+
+def _model_chain(provider: str):
+    return GROQ_MODELS if provider == "groq" else GEMINI_MODELS
+
+# --- OAUTH ---
 oauth = OAuth()
 oauth.register(
     name='google',
@@ -244,17 +226,10 @@ def get_identifier(request: Request):
     user = request.session.get('user')
     if user and user.get('email'):
         return ("user_email", user['email'])
-
-    # Prefer the ID the middleware resolved for this exact request (always
-    # present now), falling back to the raw cookie for safety.
     guest_id = getattr(request.state, "guest_id", None) or request.cookies.get("guest_id")
     return ("guest_id", guest_id if guest_id else "unknown_guest")
 
 def get_identifier_ws(websocket) -> str:
-    """Same identity resolution as get_identifier, adapted for WebSocket
-    connections (Live Call), which don't have request.state set by the HTTP
-    middleware. Used so Live Call sessions count against the same daily
-    limit as regular chat instead of being a free, unmetered loophole."""
     try:
         session_user = websocket.session.get('user') if hasattr(websocket, 'session') else None
     except Exception:
@@ -265,11 +240,8 @@ def get_identifier_ws(websocket) -> str:
     return guest_id if guest_id else "unknown_guest"
 
 # --- DAILY MESSAGE LIMIT ---
-# Groq and Gemini free-tier rate limits apply per API key/org, not per user
-# — meaning every guest of this app shares ONE pool. Without a per-user cap,
-# a single heavy user can exhaust the whole app's shared daily quota.
 DAILY_MESSAGE_LIMIT = int(os.getenv("DAILY_MESSAGE_LIMIT", "20"))
-_local_usage_counts = {}  # fallback when no DB: {(identifier, date_str): count}
+_local_usage_counts = {}
 
 def _today_str() -> str:
     return datetime.now().strftime("%Y-%m-%d")
@@ -315,17 +287,17 @@ def increment_today_usage(identifier: str):
     key = (identifier, today)
     _local_usage_counts[key] = _local_usage_counts.get(key, 0) + 1
 
+def under_daily_limit(identifier: str) -> bool:
+    return get_today_usage(identifier) < DAILY_MESSAGE_LIMIT
+
 def check_and_increment_usage(identifier: str) -> bool:
-    """Returns True and increments if under the daily limit; False if the
-    limit is already reached (caller should refuse the request)."""
-    if get_today_usage(identifier) >= DAILY_MESSAGE_LIMIT:
+    # Used by Live Call (one call = one unit)
+    if not under_daily_limit(identifier):
         return False
     increment_today_usage(identifier)
     return True
 
-# --- FILE TEXT EXTRACTION HELPER ---
-# Caps how much extracted text we stuff into the model context so a huge
-# PDF doesn't blow past the model's context window / your max_tokens budget.
+# --- FILE TEXT EXTRACTION ---
 MAX_FILE_CHARS = 12000
 
 def extract_pdf_text(file_bytes: bytes) -> str:
@@ -348,9 +320,7 @@ def extract_pdf_text(file_bytes: bytes) -> str:
         return "[Could not extract text from this PDF — it may be corrupted or encrypted]"
 
 def extract_file_text(file_bytes: bytes, filename: str, mime_type: str) -> str:
-    """Return best-effort plain text for a non-image upload, truncated to a safe size."""
     is_pdf = (mime_type == "application/pdf") or filename.lower().endswith(".pdf")
-
     if is_pdf:
         text = extract_pdf_text(file_bytes)
     else:
@@ -358,13 +328,11 @@ def extract_file_text(file_bytes: bytes, filename: str, mime_type: str) -> str:
             text = file_bytes.decode('utf-8', errors='ignore')
         except Exception:
             text = "[Binary or unreadable file content]"
-
     if len(text) > MAX_FILE_CHARS:
         text = text[:MAX_FILE_CHARS] + f"\n\n[... truncated — file was longer than {MAX_FILE_CHARS} characters ...]"
-
     return text
 
-# --- DATABASE HELPER FUNCTIONS ---
+# --- DB HELPERS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
     conn = get_db_connection()
     if conn:
@@ -373,7 +341,7 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
                 cur.execute("""
                     INSERT INTO user_chats (user_email, chat_id, title, messages)
                     VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (user_email, chat_id) 
+                    ON CONFLICT (user_email, chat_id)
                     DO UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages;
                 """, (user_email, str(chat_id), title, json.dumps(messages)))
                 conn.commit()
@@ -383,14 +351,11 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
             print(f"DATABASE UPSERT ERROR: {e}")
             if conn:
                 conn.close()
-    
+
     local_chats = load_local_chats()
     if user_email not in local_chats:
         local_chats[user_email] = {}
-    local_chats[user_email][str(chat_id)] = {
-        "title": title,
-        "messages": messages
-    }
+    local_chats[user_email][str(chat_id)] = {"title": title, "messages": messages}
     save_local_chats(local_chats)
     return True
 
@@ -403,26 +368,10 @@ async def google_verification():
 async def sitemap():
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>https://ranen.duckdns.org/</loc>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>https://ranen.duckdns.org/terms</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.3</priority>
-    </url>
-    <url>
-        <loc>https://ranen.duckdns.org/privacy</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.3</priority>
-    </url>
-    <url>
-        <loc>https://ranen.duckdns.org/about</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.6</priority>
-    </url>
+    <url><loc>https://ranen.duckdns.org/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+    <url><loc>https://ranen.duckdns.org/terms</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+    <url><loc>https://ranen.duckdns.org/privacy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+    <url><loc>https://ranen.duckdns.org/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
 
@@ -431,17 +380,16 @@ async def serve_frontend(request: Request):
     html_path = os.path.join("..", "app", "index.html")
     if not os.path.exists(html_path):
         html_path = "index.html"
-    
+
     content = "<h3>index.html not found.</h3>"
     if os.path.exists(html_path):
         with open(html_path, "r", encoding="utf-8") as f:
             content = f.read()
-            
+
     response = HTMLResponse(content=content)
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
-        
     return response
 
 LEGAL_PAGE_STYLE = """
@@ -488,7 +436,7 @@ async def terms_page():
     </ul>
 
     <h2>2. AI Output Disclaimer</h2>
-    <p>Ranen is powered by third-party large language models (including but not limited to Groq, Google Gemini, OpenRouter, and SiliconFlow). Outputs may contain errors, outdated information, or hallucinations. Do not rely on Ranen as a substitute for professional medical, legal, financial, or safety-critical advice. Always verify important information independently.</p>
+    <p>Ranen is powered by third-party large language models (Groq and Google Gemini). Outputs may contain errors, outdated information, or hallucinations. Do not rely on Ranen as a substitute for professional medical, legal, financial, or safety-critical advice. Always verify important information independently.</p>
 
     <h2>3. Accounts &amp; Guest Access</h2>
     <p>You may use Ranen as a signed-in user (via Google OAuth) or as an anonymous guest. Guest sessions are tied to a browser cookie and are not guaranteed to persist indefinitely. You are responsible for safeguarding access to your account.</p>
@@ -573,12 +521,6 @@ async def privacy_page():
 
 @app.get("/about", response_class=HTMLResponse)
 async def about_page():
-    # AEO-structured: leads with the exact question people search ("Who is
-    # X?") followed by a direct 1-2 sentence answer, matches wording between
-    # visible text and JSON-LD, and adds FAQPage schema — this is what
-    # AI-Overview-style systems are documented to extract from, not a hack.
-    # Still no guarantee: inclusion depends heavily on independent
-    # corroborating sources this page alone can't manufacture.
     direct_answer = (
         "Nwodili Yaemerie Convenant is an 18-year-old cybersecurity student and web developer "
         "from Anambra State, Nigeria, studying at Abia State University. He is the creator of "
@@ -690,11 +632,6 @@ async def get_current_user(request: Request):
 
 @app.get("/api/debug/storage")
 async def debug_storage():
-    """Diagnostic endpoint — tells you which chat storage is actually active.
-    If 'using' is 'local_file_fallback', your chat history lives on Render's
-    EPHEMERAL disk and WILL be wiped on every redeploy or restart — this is
-    almost certainly why history disappears. Fix: add DATABASE_URL (a real
-    Postgres instance) as an environment variable on Render."""
     conn = get_db_connection()
     db_connected = conn is not None
     if conn:
@@ -704,12 +641,52 @@ async def debug_storage():
         "database_currently_reachable": db_connected,
         "using": "postgres" if db_connected else "local_file_fallback",
         "local_fallback_path": CHATS_FILE,
-        "warning": (
-            None if db_connected else
-            "Chat history is on ephemeral local disk and will be LOST on every "
-            "redeploy/restart unless DATABASE_URL is set to a real Postgres instance."
-        )
+        "warning": None if db_connected else
+            "Chat history is on ephemeral local disk and will be LOST on every redeploy/restart unless DATABASE_URL is set."
     }
+
+@app.get("/api/debug/providers")
+async def debug_providers():
+    """Open /api/debug/providers in your browser to see EXACTLY why Groq or
+    Gemini is failing. Never reveals the keys. Set DEBUG_ENDPOINTS=0 on your
+    host to disable it once everything works."""
+    if os.getenv("DEBUG_ENDPOINTS", "1") == "0":
+        return {"disabled": True}
+
+    out = {
+        "groq_key_set": bool(GROQ_API_KEY),
+        "groq_key_length": len(GROQ_API_KEY),
+        "google_key_set": bool(GOOGLE_API_KEY),
+        "groq_models": GROQ_MODELS,
+        "gemini_models": GEMINI_MODELS,
+        "groq_results": {},
+        "gemini_results": {},
+    }
+
+    if not groq_client:
+        out["groq_results"] = "NO CLIENT — GROQ_API_KEY is missing from your host's environment variables."
+    else:
+        for model in GROQ_MODELS:
+            try:
+                await asyncio.to_thread(
+                    groq_client.chat.completions.create,
+                    model=model, messages=[{"role": "user", "content": "say hi"}], max_tokens=30,
+                )
+                out["groq_results"][model] = "OK"
+            except Exception as e:
+                out["groq_results"][model] = str(e)[:300]
+
+    if not genai_client:
+        out["gemini_results"] = "NO CLIENT — GOOGLE_API_KEY is missing."
+    else:
+        for model in GEMINI_MODELS:
+            try:
+                await asyncio.to_thread(genai_client.models.generate_content, model=model, contents="say hi")
+                out["gemini_results"][model] = "OK"
+            except Exception as e:
+                out["gemini_results"][model] = str(e)[:300]
+
+    return out
 
 @app.get('/auth/login')
 async def login(request: Request):
@@ -724,10 +701,7 @@ async def auth(request: Request):
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
         if user_info:
-            request.session['user'] = {
-                'name': user_info.get('name'),
-                'email': user_info.get('email')
-            }
+            request.session['user'] = {'name': user_info.get('name'), 'email': user_info.get('email')}
     except Exception as e:
         print(f"Auth error: {e}")
     return RedirectResponse(url="/")
@@ -762,7 +736,7 @@ async def get_user_sessions(request: Request):
             print(f"DATABASE FETCH SESSIONS ERROR: {e}")
             if conn:
                 conn.close()
-    
+
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
@@ -779,9 +753,6 @@ def _make_search_snippet(content: str, query_lower: str, context_chars: int = 40
 
 @app.get("/api/search-messages")
 async def search_messages(request: Request, q: str = ""):
-    """Full-text search across every message in every one of the user's
-    chats — not just chat titles. Returns which chat and which message index
-    matched, so the frontend can jump straight to it and highlight the term."""
     col, val = get_identifier(request)
     query_lower = q.strip().lower()
     if not query_lower:
@@ -817,8 +788,7 @@ async def search_messages(request: Request, q: str = ""):
         local_chats = load_local_chats()
         user_data = local_chats.get(val, {})
         for chat_id, info in user_data.items():
-            msgs = info.get("messages", [])
-            for idx, m in enumerate(msgs):
+            for idx, m in enumerate(info.get("messages", [])):
                 content = m.get("content", "") or ""
                 if query_lower in content.lower():
                     results.append({
@@ -829,13 +799,10 @@ async def search_messages(request: Request, q: str = ""):
                         "snippet": _make_search_snippet(content, query_lower),
                     })
 
-    return results[:50]  # cap payload size
+    return results[:50]
 
 @app.get("/api/news-digest")
 async def news_digest():
-    """Daily popular world/tech news for the notification bell. Cached for
-    an hour via the existing search cache so it isn't re-fetched on every
-    poll — this is a shared digest, not personalized per user."""
     cache_key = "daily_news_digest"
     cached = get_cached_search(cache_key, search_type="news")
     if cached is not None:
@@ -846,10 +813,6 @@ async def news_digest():
         async with search_lock:
             with DDGS() as ddgs:
                 results = list(ddgs.news("world news technology", max_results=8))
-        # DDGS news results carry an "image" field for the article's lead
-        # image and "body" for the excerpt — both were previously dropped.
-        # Not every article has an image, so the frontend must handle a
-        # missing/blank one gracefully rather than rendering a broken tile.
         items = [
             {
                 "title": r.get("title"),
@@ -884,7 +847,7 @@ async def get_session_history(request: Request, session_id: str):
             print(f"DATABASE FETCH HISTORY ERROR: {e}")
             if conn:
                 conn.close()
-    
+
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
     if str(session_id) in user_data:
@@ -912,12 +875,11 @@ async def delete_session(request: Request, session_id: str):
             print(f"DATABASE DELETE ERROR: {e}")
             if conn:
                 conn.close()
-            
+
     local_chats = load_local_chats()
     if val in local_chats and str(session_id) in local_chats[val]:
         del local_chats[val][str(session_id)]
         save_local_chats(local_chats)
-        
     return {"status": "success"}
 
 @app.get("/api/gems")
@@ -925,9 +887,9 @@ async def get_gems(request: Request):
     col, val = get_identifier(request)
     default_gems = [
         {
-            "id": 1, 
-            "name": "Ranen Core", 
-            "description": "Standard elite assistant created by Nwodili Yaemerie Convenant", 
+            "id": 1,
+            "name": "Ranen Core",
+            "description": "Standard elite assistant created by Nwodili Yaemerie Convenant",
             "system_prompt": (
                 "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
                 "Reason carefully like a top-tier frontier model: think through problems step by step "
@@ -935,7 +897,7 @@ async def get_gems(request: Request):
                 "answers. Be direct and concise — no filler, no repeating the question, no unnecessary "
                 "caveats. Match your depth to the question: quick questions get quick answers; hard "
                 "technical or reasoning questions get a real, careful breakdown."
-            ), 
+            ),
             "icon": "fa-terminal"
         }
     ]
@@ -955,7 +917,6 @@ async def get_gems(request: Request):
         print(f"DATABASE GEMS ERROR: {e}")
         if conn:
             conn.close()
-
     return default_gems
 
 @app.post("/api/gems")
@@ -1016,41 +977,23 @@ async def github_plugin_callback(request: Request, code: str):
         res = await client.post(
             "https://github.com/login/oauth/access_token",
             headers={"Accept": "application/json"},
-            data={
-                "client_id": GITHUB_CLIENT_ID,
-                "client_secret": GITHUB_CLIENT_SECRET,
-                "code": code,
-            },
+            data={"client_id": GITHUB_CLIENT_ID, "client_secret": GITHUB_CLIENT_SECRET, "code": code},
         )
         data = res.json()
         access_token = data.get("access_token")
-        
         if access_token:
             request.session['github_token'] = access_token
             return RedirectResponse(url="/?plugin=github&status=connected")
         return RedirectResponse(url="/?plugin=github&status=failed")
 
+# --- WEB SEARCH TOOL ---
 RATE_LIMIT_MARKERS = ["429", "rate limit", "rate_limit", "quota", "resource_exhausted", "too many requests", "capacity"]
 
 def _is_rate_limit_error(err: Exception) -> bool:
     msg = str(err).lower()
     return any(marker in msg for marker in RATE_LIMIT_MARKERS)
 
-PROVIDER_DEFAULT_MODEL = {
-    "groq": "openai/gpt-oss-120b",
-    "google": "gemini-3.5-flash",
-}
-
-# --- REAL TOOL/FUNCTION CALLING ---
-# Replaces the old crude keyword-matching search interceptor ("news",
-# "latest", "research", etc. triggering a blind search every time those
-# words appeared). Now the model itself decides when a question needs live
-# web data and calls a tool for it — this is what "the AI can call things"
-# and "search the internet when it needs to" actually means in a modern
-# LLM app, versus regex guessing at intent.
-
 def _perform_web_search(query: str, max_results: int = 5) -> str:
-    """The actual web_search tool implementation, shared by both providers."""
     if not HAS_DDGS:
         return "Web search is unavailable — the `ddgs` package isn't installed on the server."
     cache_key = f"{query}:{max_results}"
@@ -1066,9 +1009,7 @@ def _perform_web_search(query: str, max_results: int = 5) -> str:
             return f"Web search failed: {e}"
     if not results:
         return "No results found for that search."
-    return "\n".join(
-        f"- {r.get('title')}: {r.get('body')} (Source: {r.get('href')})" for r in results
-    )
+    return "\n".join(f"- {r.get('title')}: {r.get('body')} (Source: {r.get('href')})" for r in results)
 
 WEB_SEARCH_TOOL_GROQ = {
     "type": "function",
@@ -1081,41 +1022,45 @@ WEB_SEARCH_TOOL_GROQ = {
         ),
         "parameters": {
             "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "The search query"}
-            },
+            "properties": {"query": {"type": "string", "description": "The search query"}},
             "required": ["query"],
         },
     },
 }
 
-def _tool_call_to_dict(tc):
-    if hasattr(tc, "model_dump"):
-        return tc.model_dump()
-    return {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+def _clean_tool_call(tc) -> dict:
+    # Send back ONLY the fields Groq accepts. model_dump() can include extra
+    # None fields that trigger a 400 on the follow-up request.
+    return {
+        "id": tc.id,
+        "type": "function",
+        "function": {"name": tc.function.name, "arguments": tc.function.arguments or "{}"},
+    }
 
-async def _call_groq_with_tools(actual_model, base_messages_payload):
-    """Tries real tool-calling first. If the SDK's tool-calling shape doesn't
-    match what's coded here (API versions drift), falls back to a plain call
-    using the untouched original payload — a signature mismatch degrades
-    gracefully instead of breaking the whole chat."""
+def _groq_text(message) -> str:
+    return (getattr(message, "content", None) or "").strip()
+
+async def _call_groq_with_tools(model, base_messages_payload):
+    """Tool-calling first. If the tool round-trip breaks for a NON-quota reason,
+    fall back to a plain call on the same model. Rate-limit/auth errors are
+    re-raised so the model chain can move on to the next model."""
     try:
         messages_payload = list(base_messages_payload)
         first = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=messages_payload, temperature=0.75, max_tokens=2048,
             tools=[WEB_SEARCH_TOOL_GROQ], tool_choice="auto",
         )
         choice = first.choices[0]
         tool_calls = getattr(choice.message, "tool_calls", None)
 
         if not tool_calls:
-            return choice.message.content
+            return _groq_text(choice.message)
 
         messages_payload.append({
             "role": "assistant",
             "content": choice.message.content or "",
-            "tool_calls": [_tool_call_to_dict(tc) for tc in tool_calls],
+            "tool_calls": [_clean_tool_call(tc) for tc in tool_calls],
         })
 
         for tc in tool_calls:
@@ -1123,41 +1068,33 @@ async def _call_groq_with_tools(actual_model, base_messages_payload):
                 args = json.loads(tc.function.arguments)
             except Exception:
                 args = {}
-            query = args.get("query", "")
-            result_text = await asyncio.to_thread(_perform_web_search, query)
-            messages_payload.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": result_text,
-            })
+            result_text = await asyncio.to_thread(_perform_web_search, args.get("query", ""))
+            messages_payload.append({"role": "tool", "tool_call_id": tc.id, "content": result_text})
 
         second = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=actual_model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=messages_payload, temperature=0.75, max_tokens=2048,
         )
-        return second.choices[0].message.content
+        return _groq_text(second.choices[0].message)
 
     except Exception as e:
-        print(f"[GROQ TOOL-CALLING FALLBACK]: {e}")
+        low = str(e).lower()
+        if _is_rate_limit_error(e) or "api key" in low or "401" in low or "invalid_api_key" in low:
+            raise
+        print(f"[GROQ TOOL-CALLING FALLBACK on {model}]: {e}")
         plain = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=actual_model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
         )
-        return plain.choices[0].message.content
+        return _groq_text(plain.choices[0].message)
 
-async def _call_google_with_tools(actual_model, system_prompt, base_contents):
-    """Same graceful-fallback approach as the Groq version — genai's function
-    calling API shape can vary by SDK version, so any mismatch here falls
-    back to a plain (non-tool) call rather than erroring out."""
+async def _call_google_with_tools(model, system_prompt, base_contents):
     try:
         contents = list(base_contents)
         tool = types.Tool(function_declarations=[
             types.FunctionDeclaration(
                 name="web_search",
-                description=(
-                    "Search the live web for current, up-to-date information — news, prices, "
-                    "recent events, or anything that may have changed since training."
-                ),
+                description="Search the live web for current, up-to-date information — news, prices, recent events.",
                 parameters=types.Schema(
                     type="OBJECT",
                     properties={"query": types.Schema(type="STRING", description="The search query")},
@@ -1166,8 +1103,7 @@ async def _call_google_with_tools(actual_model, system_prompt, base_contents):
             )
         ])
         config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7, tools=[tool])
-
-        resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+        resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=contents, config=config)
 
         candidate = resp.candidates[0]
         function_call_part = None
@@ -1187,19 +1123,18 @@ async def _call_google_with_tools(actual_model, system_prompt, base_contents):
             role="user",
             parts=[types.Part.from_function_response(name="web_search", response={"result": result_text})],
         ))
-        resp2 = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+        resp2 = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=contents, config=config)
         return resp2.text
 
     except Exception as e:
-        print(f"[GOOGLE TOOL-CALLING FALLBACK]: {e}")
+        if _is_rate_limit_error(e):
+            raise  # don't burn another request on a quota error
+        print(f"[GOOGLE TOOL-CALLING FALLBACK on {model}]: {e}")
         config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
-        resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=base_contents, config=config)
+        resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=base_contents, config=config)
         return resp.text
 
-async def _call_provider(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
-    """Dispatches one AI call to the given provider. Raises on failure —
-    callers handle retries/fallback. Image analysis bypasses tool-calling
-    entirely (vision requests don't need web search)."""
+async def _call_provider(provider, model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
     if provider == "google":
         if not genai_client:
             raise RuntimeError("GOOGLE_API_KEY is missing.")
@@ -1209,45 +1144,31 @@ async def _call_provider(provider, actual_model, system_prompt, recent_history, 
             contents.append(f"{role_prefix}: {msg['content']}")
 
         if is_image and file_bytes:
-            image_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-            contents.append(image_part)
+            contents.append(types.Part.from_bytes(data=file_bytes, mime_type=mime_type))
             contents.append(effective_message)
             config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
-            resp = await asyncio.to_thread(genai_client.models.generate_content, model=actual_model, contents=contents, config=config)
+            resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=contents, config=config)
             return resp.text
 
         contents.append(effective_message)
-        return await _call_google_with_tools(actual_model, system_prompt, contents)
+        return await _call_google_with_tools(model, system_prompt, contents)
 
-    else:  # groq
-        if not groq_client:
-            raise RuntimeError("GROQ_API_KEY is missing from environment variables.")
-        if "70b" in actual_model or "versatile" in actual_model:
-            actual_model = "openai/gpt-oss-120b"
-        elif "8b" in actual_model or "instant" in actual_model or not actual_model:
-            actual_model = "openai/gpt-oss-20b"
-        else:
-            actual_model = "openai/gpt-oss-120b"
-
-        messages_payload = [{"role": "system", "content": system_prompt}]
-        for msg in recent_history[:-1]:
-            messages_payload.append({"role": msg["role"], "content": msg["content"]})
-        messages_payload.append({"role": "user", "content": effective_message})
-
-        return await _call_groq_with_tools(actual_model, messages_payload)
-
+    # groq
+    if not groq_client:
+        raise RuntimeError("GROQ_API_KEY is missing from environment variables.")
+    messages_payload = [{"role": "system", "content": system_prompt}]
+    for msg in recent_history[:-1]:
+        messages_payload.append({"role": msg["role"], "content": msg["content"]})
+    messages_payload.append({"role": "user", "content": effective_message})
+    return await _call_groq_with_tools(model, messages_payload)
 
 async def _generate_smart_title(user_message: str, ai_response: str) -> Optional[str]:
-    """Classic ChatGPT/Claude-style behavior: generate a short, meaningful
-    chat title from the first exchange instead of just truncating the raw
-    message. Uses Groq for speed/cost; falls back to None (caller keeps the
-    truncated title) on any failure — never blocks the main response."""
     if not groq_client:
         return None
     try:
         result = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model="openai/gpt-oss-20b",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": (
                     "Generate a short chat title (3-6 words, no quotes, no punctuation at the "
@@ -1265,7 +1186,6 @@ async def _generate_smart_title(user_message: str, ai_response: str) -> Optional
     except Exception as e:
         print(f"[SMART TITLE ERROR]: {e}")
         return None
-
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
@@ -1296,52 +1216,53 @@ DEFAULT_SYSTEM_PROMPT = (
     "something plain or unfinished unless they explicitly asked for bare-bones."
 )
 
-async def _generate_with_fallback(provider, actual_model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
-    """Shared by /api/chat and /api/regenerate. Tries the chosen provider,
-    then falls back to the other one (Groq<->Google) on ANY failure. Raises
-    the last error if both fail. Image requests only ever use Google — Groq
-    has no vision support in this app."""
-    all_providers = ["groq", "google"]
-    fallback_order = [provider] + [p for p in all_providers if p != provider]
-    if is_image:
-        fallback_order = [p for p in fallback_order if p == "google"]
+async def _generate_with_fallback(system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
+    """GROQ FIRST for every text request, whatever model is picked in the UI.
+    Walks every Groq model in GROQ_MODELS, and only if ALL of them fail does it
+    try Gemini. Image requests go to Gemini only (no Groq vision here). Every
+    failure is collected, so you see the real Groq error, not just Gemini's."""
+    order = ["google"] if is_image else ["groq", "google"]
 
-    last_error = None
-    for attempt_provider in fallback_order:
-        attempt_model = actual_model if attempt_provider == provider else PROVIDER_DEFAULT_MODEL.get(attempt_provider, actual_model)
-        try:
-            ai_response = await _call_provider(
-                attempt_provider, attempt_model, system_prompt, recent_history,
-                effective_message, is_image, file_bytes, mime_type
-            )
-            if attempt_provider != provider:
-                print(f"[FALLBACK] {provider} unavailable, served by {attempt_provider} instead.")
-            return ai_response
-        except Exception as e:
-            last_error = e
-            print(f"[{attempt_provider.upper()} API ERROR]: {str(e)}")
-            continue
+    errors = []
+    for p in order:
+        for model in _model_chain(p):
+            try:
+                resp = await _call_provider(
+                    p, model, system_prompt, recent_history,
+                    effective_message, is_image, file_bytes, mime_type
+                )
+                if resp and resp.strip():
+                    print(f"[SERVED BY] {p}/{model}")
+                    return resp
+                errors.append(f"{p}/{model}: empty response")
+            except Exception as e:
+                msg = str(e)
+                print(f"[{p.upper()} ERROR on {model}]: {msg[:400]}")
+                errors.append(f"{p}/{model}: {msg[:200]}")
+                if "is missing" in msg.lower():
+                    break  # no key for this provider — skip its remaining models
 
-    raise RuntimeError(str(last_error))
+    raise RuntimeError(" || ".join(errors))
 
+BUSY_MESSAGE = "Ranen is a bit overloaded right now. Please try again in a minute."
 
 @app.post("/api/chat")
 async def chat_with_assistant(
     request: Request,
-    session_id: str = Form(...), 
-    message: str = Form(""), 
+    session_id: str = Form(...),
+    message: str = Form(""),
     files: List[UploadFile] = File(default=[]),
-    model_choice: str = Form("groq:openai/gpt-oss-120b"), 
+    model_choice: str = Form("groq:openai/gpt-oss-120b"),
     gem_prompt: Optional[str] = Form(None)
 ):
     col, val = get_identifier(request)
 
-    if not check_and_increment_usage(val):
+    if not under_daily_limit(val):
         return {"response": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight. Thanks for using Ranen!"}
 
     existing_messages = []
     chat_title = "New Chat"
-    
+
     conn = get_db_connection()
     if conn:
         try:
@@ -1363,7 +1284,7 @@ async def chat_with_assistant(
         existing_messages = user_data.get("messages", [])
         chat_title = user_data.get("title", "New Chat")
 
-    file_bytes = None   # bytes of the first image attached, if any
+    file_bytes = None
     mime_type = ""
     is_image = False
     file_text_content = ""
@@ -1400,12 +1321,6 @@ async def chat_with_assistant(
 
         if f_is_image:
             if file_bytes is None:
-                # Only the first image gets sent to the vision model — the
-                # providers wired up here (Gemini / OpenRouter vision) take
-                # one image per call in this implementation. Additional
-                # images are still saved as assets, just not visually
-                # analyzed. True multi-image analysis would need per-provider
-                # multi-part payloads, a larger change than this pass covers.
                 file_bytes = f_bytes
                 mime_type = f_mime
                 is_image = True
@@ -1421,36 +1336,29 @@ async def chat_with_assistant(
         display_message += f" [Attached Files: {', '.join(attached_names)}]"
 
     existing_messages.append({"role": "user", "content": display_message})
-    
+
     is_first_message = chat_title in ["New Chat", ""] and bool(message)
     if is_first_message:
-        # Immediate fallback title so the sidebar isn't blank while we wait —
-        # replaced with an AI-generated one below if that succeeds.
         chat_title = (message[:28] + '...') if len(message) > 28 else message
 
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
-    
-    # --- Robust Image Search Interceptor ---
+
+    # --- Image search interceptor (whole-word match so "image" inside other words doesn't trigger) ---
     image_trigger_words = ["pic", "pics", "picture", "pictures", "image", "images", "photo", "photos"]
-    has_image_intent = any(w in lower_prompt for w in image_trigger_words)
-    
+    has_image_intent = any(re.search(r'\b' + w + r'\b', lower_prompt) for w in image_trigger_words)
+
     if has_image_intent and not attached_names:
         clean_prompt = message
         match = re.search(r'(?:picture|pic|image|photo)s?\s+(?:of\s+)?(.*)', message, re.IGNORECASE)
         if match and match.group(1).strip():
             clean_prompt = match.group(1).strip()
-            
-        noise_words = [
-            "search", "find", "get", "show", "me", "generate", "create", 
-            "duckduckgo", "can you", "please", "i want", "a", "an", "the", "some"
-        ]
-        
+
+        noise_words = ["search", "find", "get", "show", "me", "generate", "create",
+                       "duckduckgo", "can you", "please", "i want", "a", "an", "the", "some"]
         for noise in noise_words:
             clean_prompt = re.sub(r'\b' + noise + r'\b', '', clean_prompt, flags=re.IGNORECASE)
-            
-        clean_prompt = ' '.join(clean_prompt.split()).strip()
-        clean_prompt = clean_prompt or message
+        clean_prompt = ' '.join(clean_prompt.split()).strip() or message
 
         ai_response = f"Ah, my bad bro. I tried pulling up a picture of **\"{clean_prompt}\"**, but my search is acting up. Give it another try in a bit!"
         if HAS_DDGS:
@@ -1460,7 +1368,7 @@ async def chat_with_assistant(
             else:
                 async with search_lock:
                     try:
-                        await asyncio.sleep(0.5) 
+                        await asyncio.sleep(0.5)
                         with DDGS() as ddgs:
                             results = list(ddgs.images(clean_prompt, max_results=1))
                             set_cached_search(clean_prompt, results, search_type="image")
@@ -1475,56 +1383,41 @@ async def chat_with_assistant(
             else:
                 ai_response = f"Man, I scoured the web for **\"{clean_prompt}\"** but couldn't grab a good image right now. Try asking me again later!"
         else:
-             ai_response = "I'd love to show you a picture, but my image search engine isn't wired up right now. We need the `ddgs` package!"
-        
+            ai_response = "I'd love to show you a picture, but my image search engine isn't wired up right now. We need the `ddgs` package!"
+
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # --- Web search is now handled by real tool-calling inside the provider
-    # call itself (see _call_groq_with_tools / _call_google_with_tools) —
-    # the model decides when a question needs live web data and calls the
-    # web_search tool, instead of a fixed keyword list guessing at intent.
-    effective_message = message
     current_date_str = datetime.now().strftime("%A, %B %d, %Y")
-    effective_message = f"{effective_message}\n\n[Current date: {current_date_str}]"
-
-    # --- Inject File Text Content into Message Payload if Present ---
-    # file_text_content is already fully wrapped per-file (built in the
-    # upload loop above, since there can be multiple non-image files now).
+    effective_message = f"{message}\n\n[Current date: {current_date_str}]"
     if file_text_content:
         effective_message = f"{effective_message}{file_text_content}"
 
-    # --- Standard AI Chat Processing ---
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
 
-    provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
-
-    if provider == "google":
-        # "gemini-3.5-flash" was never a real model name — confirmed via
-        # Google's actual lineup. gemini-3.5-flash is their current GA
-        # (non-preview) flagship, specifically the one they recommend for
-        # coding/agentic tasks — exactly what "build me a website" needs.
-        actual_model = "gemini-3.6-flash"
-
+    succeeded = True
     try:
         ai_response = await _generate_with_fallback(
-            provider, actual_model, system_prompt, recent_history,
-            effective_message, is_image, file_bytes, mime_type
+            system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type
         )
     except Exception as e:
-        ai_response = f"Whoops, looks like every configured AI provider hit a snag. Last error: {str(e)}"
+        print(f"ALL PROVIDERS FAILED: {e}")
+        ai_response = BUSY_MESSAGE
+        succeeded = False
 
-    if is_first_message:
+    # Only charge the daily limit for replies that actually worked
+    if succeeded:
+        increment_today_usage(val)
+
+    if is_first_message and succeeded:
         smart_title = await _generate_smart_title(message, ai_response)
         if smart_title:
             chat_title = smart_title
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
-
     return {"response": ai_response}
-
 
 @app.post("/api/regenerate")
 async def regenerate_response(
@@ -1533,13 +1426,9 @@ async def regenerate_response(
     model_choice: str = Form("groq:openai/gpt-oss-120b"),
     gem_prompt: Optional[str] = Form(None)
 ):
-    """Fixes the previously-broken 'Retry' button, which was calling
-    createNewSession() and just starting a blank chat instead of actually
-    regenerating anything. This properly drops the last assistant reply and
-    re-generates a fresh one from the same conversation, in place."""
     col, val = get_identifier(request)
 
-    if not check_and_increment_usage(val):
+    if not under_daily_limit(val):
         return JSONResponse(status_code=200, content={"error": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
 
     existing_messages = []
@@ -1569,7 +1458,7 @@ async def regenerate_response(
     if not existing_messages or existing_messages[-1]["role"] != "assistant":
         return JSONResponse(status_code=400, content={"error": "No response to regenerate."})
 
-    existing_messages.pop()  # drop the response we're replacing
+    existing_messages.pop()
 
     last_user_message = None
     for m in reversed(existing_messages):
@@ -1583,38 +1472,25 @@ async def regenerate_response(
     recent_history = existing_messages[-12:]
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
 
-    provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
-    if provider == "google":
-        actual_model = "gemini-3.5-flash"
-
+    succeeded = True
     try:
         ai_response = await _generate_with_fallback(
-            provider, actual_model, system_prompt, recent_history,
-            last_user_message, False, None, ""
+            system_prompt, recent_history, last_user_message, False, None, ""
         )
     except Exception as e:
-        ai_response = f"Whoops, looks like every configured AI provider hit a snag. Last error: {str(e)}"
+        print(f"ALL PROVIDERS FAILED (regenerate): {e}")
+        ai_response = BUSY_MESSAGE
+        succeeded = False
+
+    if succeeded:
+        increment_today_usage(val)
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
-
     return {"response": ai_response}
 
-
-# --- LIVE CALL MODE: real-time Gemini Live API relay ---
-# This is fundamentally different from /api/chat — it's a persistent
-# WebSocket relay between the browser and a Gemini Live session, not a
-# request/response call. Two concurrent tasks run for the life of the call:
-# one forwarding mic audio from the browser into the Gemini session, one
-# forwarding Gemini's audio responses back to the browser. Audio format per
-# Gemini Live API spec: 16-bit PCM, 16kHz mono in; 16-bit PCM, 24kHz mono out.
-#
-# Honest flag: this is a preview-tier model and a streaming audio pipeline —
-# the one part of this whole build that genuinely could not be validated
-# without a live browser, live mic, and a live API key. Static analysis
-# (syntax checks, etc.) cannot catch audio-format or timing issues; this
-# needs real testing after deploy.
-LIVE_CALL_MODEL = "gemini-3.1-flash-live-preview"
+# --- LIVE CALL (Gemini Live API relay) ---
+LIVE_CALL_MODEL = os.getenv("LIVE_CALL_MODEL", "gemini-3.1-flash-live-preview")
 
 @app.websocket("/ws/live-call")
 async def live_call_websocket(websocket: WebSocket):
@@ -1625,19 +1501,13 @@ async def live_call_websocket(websocket: WebSocket):
         await websocket.close()
         return
 
-    # A whole live call session counts as one unit against the daily limit —
-    # otherwise Live Call would be a free, unmetered way around the exact
-    # quota protection the message limit exists for.
     ws_identifier = get_identifier_ws(websocket)
     if not check_and_increment_usage(ws_identifier):
         await websocket.send_json({"type": "error", "message": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
         await websocket.close()
         return
 
-    live_config = {
-        "response_modalities": ["AUDIO"],
-        "system_instruction": DEFAULT_SYSTEM_PROMPT,
-    }
+    live_config = {"response_modalities": ["AUDIO"], "system_instruction": DEFAULT_SYSTEM_PROMPT}
 
     try:
         async with genai_client.aio.live.connect(model=LIVE_CALL_MODEL, config=live_config) as session:
@@ -1651,21 +1521,14 @@ async def live_call_websocket(websocket: WebSocket):
                             break
                         try:
                             if message.get("bytes") is not None:
-                                pcm_chunk = message["bytes"]
                                 await session.send_realtime_input(
-                                    audio=types.Blob(data=pcm_chunk, mime_type="audio/pcm;rate=16000")
+                                    audio=types.Blob(data=message["bytes"], mime_type="audio/pcm;rate=16000")
                                 )
                             elif message.get("text") is not None:
                                 payload = json.loads(message["text"])
                                 if payload.get("type") == "end":
                                     break
                         except Exception as inner_e:
-                            # A single malformed/unexpected frame shouldn't
-                            # end the whole call — this was the likely cause
-                            # of the call dying right after one exchange:
-                            # previously ANY exception here killed the
-                            # entire relay task, which tears down the whole
-                            # session via the FIRST_COMPLETED wait below.
                             print(f"[LIVE CALL] browser->gemini frame skipped: {inner_e}")
                             continue
                 except WebSocketDisconnect:
@@ -1680,7 +1543,6 @@ async def live_call_websocket(websocket: WebSocket):
                             audio_data = getattr(response, "data", None)
                             if audio_data:
                                 await websocket.send_bytes(audio_data)
-
                             server_content = getattr(response, "server_content", None)
                             if server_content is not None:
                                 if getattr(server_content, "interrupted", False):
@@ -1688,8 +1550,6 @@ async def live_call_websocket(websocket: WebSocket):
                                 if getattr(server_content, "turn_complete", False):
                                     await websocket.send_json({"type": "turn_complete"})
                         except Exception as inner_e:
-                            # Same principle as the other relay direction —
-                            # one odd message shouldn't kill the whole call.
                             print(f"[LIVE CALL] gemini message skipped: {inner_e}")
                             continue
                 except Exception as e:
@@ -1697,10 +1557,7 @@ async def live_call_websocket(websocket: WebSocket):
 
             browser_task = asyncio.create_task(relay_browser_to_gemini())
             gemini_task = asyncio.create_task(relay_gemini_to_browser())
-
-            done, pending = await asyncio.wait(
-                [browser_task, gemini_task], return_when=asyncio.FIRST_COMPLETED
-            )
+            done, pending = await asyncio.wait([browser_task, gemini_task], return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
 
@@ -1709,7 +1566,7 @@ async def live_call_websocket(websocket: WebSocket):
     except Exception as e:
         print(f"[LIVE CALL] session error: {e}")
         try:
-            await websocket.send_json({"type": "error", "message": f"Live call session failed: {str(e)}"})
+            await websocket.send_json({"type": "error", "message": "Live call session failed. Please try again."})
         except Exception:
             pass
     finally:
@@ -1717,7 +1574,6 @@ async def live_call_websocket(websocket: WebSocket):
             await websocket.close()
         except Exception:
             pass
-
 
 if __name__ == "__main__":
     import uvicorn
