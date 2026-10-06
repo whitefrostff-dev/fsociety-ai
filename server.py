@@ -1501,11 +1501,11 @@ async def chat_with_assistant(
     provider, actual_model = model_choice.split(":", 1) if ":" in model_choice else ("groq", model_choice)
 
     if provider == "google":
-        # "gemini-3.6-flash" was never a real model name — confirmed via
+        # "gemini-3.5-flash" was never a real model name — confirmed via
         # Google's actual lineup. gemini-3.5-flash is their current GA
         # (non-preview) flagship, specifically the one they recommend for
         # coding/agentic tasks — exactly what "build me a website" needs.
-        actual_model = "gemini-3.5-flash"
+        actual_model = "gemini-3.6-flash"
 
     try:
         ai_response = await _generate_with_fallback(
