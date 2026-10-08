@@ -12,6 +12,7 @@ import httpx
 import json
 import time
 import asyncio
+import secrets
 from datetime import datetime
 from pydantic import BaseModel
 from groq import Groq
@@ -20,6 +21,9 @@ from google.genai import types
 from authlib.integrations.starlette_client import OAuth
 import psycopg2
 import psycopg2.extras
+
+# [ADMIN] admin panel (admin.py must sit next to this file)
+from admin import create_admin_router, require_admin
 
 try:
     from pypdf import PdfReader
@@ -159,10 +163,16 @@ async def favicon_ico():
     return Response(status_code=204)
 
 # --- SESSION / PROXY ---
-# SECURITY: set SESSION_SECRET as an env var on your host (any long random string).
-SESSION_SECRET = os.getenv("SESSION_SECRET", "ranen_super_secret_session_string")
+# [FIX] The old default secret was public on GitHub, which would let anyone forge
+# an admin cookie. Set SESSION_SECRET on your host. If it's missing we generate a
+# random one at startup (safe, but everyone gets logged out on each restart).
+SESSION_SECRET = os.getenv("SESSION_SECRET")
+if not SESSION_SECRET:
+    print("[WARNING] SESSION_SECRET is not set — using a random one. Set it in your host's env vars so logins survive restarts.")
+    SESSION_SECRET = secrets.token_urlsafe(48)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False, same_site="lax")
+# [FIX] Secure cookies when running on Render (HTTPS); stays off for local http testing.
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=bool(os.getenv("RENDER")), same_site="lax")
 
 @app.middleware("http")
 async def ensure_guest_cookie(request: Request, call_next):
@@ -630,8 +640,11 @@ async def get_current_user(request: Request):
         return {"logged_in": True, "name": user.get('name'), "email": user.get('email')}
     return {"logged_in": False, "name": "Guest User"}
 
+# [FIX] Debug endpoints were public — /api/debug/providers fires real requests at
+# Groq/Gemini on every hit. Now admin-only.
 @app.get("/api/debug/storage")
-async def debug_storage():
+async def debug_storage(request: Request):
+    require_admin(request)
     conn = get_db_connection()
     db_connected = conn is not None
     if conn:
@@ -646,12 +659,10 @@ async def debug_storage():
     }
 
 @app.get("/api/debug/providers")
-async def debug_providers():
-    """Open /api/debug/providers in your browser to see EXACTLY why Groq or
-    Gemini is failing. Never reveals the keys. Set DEBUG_ENDPOINTS=0 on your
-    host to disable it once everything works."""
-    if os.getenv("DEBUG_ENDPOINTS", "1") == "0":
-        return {"disabled": True}
+async def debug_providers(request: Request):
+    """Admin-only. Open /api/debug/providers while logged in as the admin to see
+    EXACTLY why Groq or Gemini is failing. Never reveals the keys."""
+    require_admin(request)
 
     out = {
         "groq_key_set": bool(GROQ_API_KEY),
@@ -701,7 +712,12 @@ async def auth(request: Request):
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
         if user_info:
-            request.session['user'] = {'name': user_info.get('name'), 'email': user_info.get('email')}
+            # [ADMIN] email_verified is stored so the admin check can reject unverified emails
+            request.session['user'] = {
+                'name': user_info.get('name'),
+                'email': user_info.get('email'),
+                'email_verified': user_info.get('email_verified', False),
+            }
     except Exception as e:
         print(f"Auth error: {e}")
     return RedirectResponse(url="/")
@@ -1310,7 +1326,10 @@ async def chat_with_assistant(
         f_mime = f.content_type or "application/octet-stream"
         f_is_image = f_mime.startswith("image/")
 
-        stored_filename = f"{uuid.uuid4().hex}_{f.filename}"
+        # [FIX] Strip any path from the uploaded filename — "../../x" could previously
+        # write outside the uploads folder (path traversal).
+        safe_name = os.path.basename(f.filename.replace("\\", "/")).replace(" ", "_") or "file"
+        stored_filename = f"{uuid.uuid4().hex}_{safe_name}"
         filepath = os.path.join(UPLOAD_DIR, stored_filename)
         with open(filepath, "wb") as fh:
             fh.write(f_bytes)
@@ -1389,8 +1408,10 @@ async def chat_with_assistant(
 
             if results:
                 image_url = results[0].get('image')
-                title = results[0].get('title', 'DuckDuckGo Image')
-                ai_response = f'Here is the image I found for **"{clean_prompt}"**:<br><br><img src="{image_url}" alt="{title}" style="max-width:100%; border-radius:8px; margin-top:10px;" />'
+                title = (results[0].get('title') or 'Image').replace('[', '').replace(']', '')
+                # [FIX] Return markdown instead of raw HTML. The frontend now escapes raw
+                # HTML in messages (XSS fix), and its markdown renderer already styles images.
+                ai_response = f'Here is the image I found for **"{clean_prompt}"**:\n\n![{title}]({image_url})'
             else:
                 ai_response = f"Man, I scoured the web for **\"{clean_prompt}\"** but couldn't grab a good image right now. Try asking me again later!"
         else:
@@ -1585,6 +1606,12 @@ async def live_call_websocket(websocket: WebSocket):
             await websocket.close()
         except Exception:
             pass
+
+# [ADMIN] Mount the admin routes (/admin and /api/admin/*)
+app.include_router(create_admin_router(
+    get_db_connection, load_local_chats, save_local_chats,
+    _local_usage_counts, lambda: DAILY_MESSAGE_LIMIT
+))
 
 if __name__ == "__main__":
     import uvicorn
