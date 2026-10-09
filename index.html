@@ -7,6 +7,11 @@
     <meta name="description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant, a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University.">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#080a0f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Ranen">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
     <meta name="google-site-verification" content="aJLbQxe0H--GagBnc7GuiZUBCuDwoh_pvVsTFqchLYc" />
     <script type="application/ld+json">
@@ -712,6 +717,14 @@
                     </div>
                     <p class="text-[9px] text-gray-500 mt-2">Tip: you can also just type "make the chat pink" in the chat box.</p>
                 </div>
+
+                <div id="install-section" class="hidden">
+                    <p class="text-[13px] md:text-sm font-semibold mb-2">Install App</p>
+                    <button id="install-btn" onclick="installApp()" class="w-full border border-[var(--border-color)] py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition-colors">
+                        <i class="fa-solid fa-download mr-1"></i> Install Ranen
+                    </button>
+                </div>
+                <p id="ios-install-hint" class="hidden text-[10px] text-gray-400">On iPhone: tap the Share icon, then "Add to Home Screen" to install Ranen.</p>
 
                 <div class="pt-2">
                     <p class="text-[13px] md:text-sm font-semibold mb-2">About & Legal</p>
@@ -3111,6 +3124,38 @@ builtins.input = _input_override
                 }
             }
             if (tab === 'assets') fetchAssets();
+        }
+
+        // --- INSTALL AS APP (PWA) ---
+        let deferredInstallPrompt = null;
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(e => console.log('Service worker failed', e));
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            document.getElementById('install-section').classList.remove('hidden');
+        });
+
+        async function installApp() {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            document.getElementById('install-section').classList.add('hidden');
+        }
+
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('install-section').classList.add('hidden');
+        });
+
+        // iPhone Safari has no install prompt, so show manual instructions instead
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        if (isIOS && !isStandalone) {
+            document.getElementById('ios-install-hint').classList.remove('hidden');
         }
 
         document.addEventListener('DOMContentLoaded', init);
