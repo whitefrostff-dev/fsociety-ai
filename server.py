@@ -1607,6 +1607,68 @@ async def live_call_websocket(websocket: WebSocket):
         except Exception:
             pass
 
+# --- PWA (installable app) ---
+@app.get("/manifest.webmanifest")
+async def pwa_manifest():
+    return JSONResponse({
+        "name": "Ranen",
+        "short_name": "Ranen",
+        "description": "Ranen AI assistant by Nwodili Yaemerie Convenant",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#080a0f",
+        "theme_color": "#080a0f",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+        ],
+    }, media_type="application/manifest+json")
+
+def _serve_icon(name: str):
+    # Uses icon-192.png / icon-512.png if you added them, otherwise falls back to favicon.png
+    for path in [name, os.path.join("..", "app", name), "favicon.png", os.path.join("..", "app", "favicon.png")]:
+        if os.path.exists(path):
+            return Response(content=open(path, "rb").read(), media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+    return Response(status_code=404)
+
+@app.get("/icon-192.png")
+async def icon_192():
+    return _serve_icon("icon-192.png")
+
+@app.get("/icon-512.png")
+async def icon_512():
+    return _serve_icon("icon-512.png")
+
+SERVICE_WORKER_JS = """
+const CACHE = 'ranen-shell-v1';
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET' || req.mode !== 'navigate') return;   // never touch API calls
+  e.respondWith(
+    fetch(req).then(res => {
+      if (new URL(req.url).pathname === '/') {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put('/', copy));
+      }
+      return res;
+    }).catch(() => caches.match('/'))
+  );
+});
+"""
+
+@app.get("/sw.js")
+async def service_worker():
+    # Must be served from the site root so it can control the whole app
+    return Response(content=SERVICE_WORKER_JS, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache"})
+
 # [ADMIN] Mount the admin routes (/admin and /api/admin/*)
 app.include_router(create_admin_router(
     get_db_connection, load_local_chats, save_local_chats,
