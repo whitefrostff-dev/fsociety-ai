@@ -69,11 +69,6 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        /* --- DESIGN TOKENS ---
-           Redesigned from flat near-black to a deeper, layered slate palette
-           with a teal/gold accent drawn from the Ranen logo. The old scheme
-           read "old" largely because every surface was the same flat dark
-           grey with no depth, no accent colour, and hard 1px borders. */
         :root {
             --bg-main: #080a0f;
             --bg-elevated: #0e1119;
@@ -289,9 +284,6 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* --- SEND BUTTON: matches the header's gold-teal shine so the
-           single most-clicked element in the app carries the same premium
-           material instead of being plain black-and-white. --- */
         .send-btn-shine {
             background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent) 60%, #fef3c7 100%);
             background-size: 220% 220%;
@@ -341,7 +333,6 @@
         
         body.light-mode .badge-tag { background: var(--accent-soft); color: var(--accent); }
 
-        /* --- BOTTOM SHEET (model selector) --- */
         @keyframes sheetUp {
             from { transform: translateY(24px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -388,7 +379,6 @@
         .calendar-cell.active-day { border-color: var(--text-main); font-weight: bold; background-color: var(--bg-card-hover); }
         .calendar-cell.today { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; font-weight: bold; box-shadow: 0 0 12px rgba(59, 130, 246, 0.4); }
 
-        /* --- THINKING / STATUS INDICATOR --- */
         .thinking-container { display: flex; gap: 12px; width: 100%; margin: 20px 0; align-items: flex-start; }
         .thinking-bubble {
             display: flex;
@@ -413,7 +403,6 @@
         }
         #thinking-status-text { transition: opacity 0.25s ease; }
 
-        /* --- EDITABLE CODE ARTIFACT --- */
         #artifact-code-view[contenteditable="true"] {
             outline: none;
             border-color: rgba(96, 165, 250, 0.5) !important;
@@ -426,10 +415,8 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* --- SUGGESTED PROMPT CHIPS --- */
         #welcome-screen button:hover { border-color: var(--border-glow); }
 
-        /* --- CODE CARD (chat inline) --- */
         .code-card {
             display: flex;
             align-items: center;
@@ -456,7 +443,6 @@
 
         .msg-timestamp { font-size: 10px; color: var(--text-muted); opacity: 0.7; }
 
-        /* --- MESSAGE SEARCH HIGHLIGHT --- */
         .search-highlight-box {
             background: rgba(59, 130, 246, 0.35);
             border: 1px solid rgba(59, 130, 246, 0.6);
@@ -465,7 +451,6 @@
             color: inherit;
         }
 
-        /* --- NOTIFICATION BELL --- */
         @keyframes bellShake {
             0%, 100% { transform: rotate(0deg); }
             10%, 30% { transform: rotate(-15deg); }
@@ -476,7 +461,6 @@
         }
         .bell-shake { animation: bellShake 0.6s ease-in-out; transform-origin: top center; display: inline-block; }
 
-        /* --- TEMPORARY CHAT --- */
         #temp-chat-btn.active { color: #a78bfa !important; }
         #temp-chat-banner {
             background: linear-gradient(90deg, rgba(167,139,250,0.12), rgba(167,139,250,0.04));
@@ -536,7 +520,11 @@
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-[#1e1e1e] border border-gray-700 text-white" id="user-initials">G</div>
                     <span id="user-display-name" class="text-sm font-medium text-gray-200 truncate max-w-[120px]">Guest User</span>
                 </div>
-                <a id="auth-btn" href="/auth/login" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#1e1e1e] hover:bg-gray-700 transition-colors" onclick="event.stopPropagation()">Login</a>
+                <div class="flex items-center gap-2">
+                    <!-- [ADMIN] only shown when the server confirms the logged-in email is the admin -->
+                    <a id="admin-link" href="/admin" class="hidden text-xs px-3 py-1.5 rounded-lg font-medium bg-[#1e1e1e] hover:bg-gray-700 transition-colors" style="color: var(--accent-gold);" onclick="event.stopPropagation()">Admin</a>
+                    <a id="auth-btn" href="/auth/login" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#1e1e1e] hover:bg-gray-700 transition-colors" onclick="event.stopPropagation()">Login</a>
+                </div>
             </div>
         </div>
     </aside>
@@ -682,7 +670,7 @@
                 <pre id="python-output-content" class="p-3 overflow-auto text-[11px] font-mono text-green-400 whitespace-pre-wrap leading-relaxed" style="max-height:200px;"></pre>
             </div>
 
-            <iframe id="artifact-preview-view" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
+            <iframe id="artifact-preview-view" sandbox="allow-scripts allow-forms allow-modals allow-popups" class="flex-1 w-full bg-white rounded-xl border border-[var(--border-color)] hidden"></iframe>
             <div id="artifact-assets-view" class="flex-1 overflow-y-auto space-y-2 hidden"></div>
             
             <div id="artifact-architecture-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] bg-white hidden flex justify-center items-start">
@@ -935,8 +923,6 @@
     </div>
 
     <!-- LIVE CALL MODE -->
-    <!-- True full-duplex voice via a WebSocket relay to Gemini's Live API —
-         see server.py for the backend half. -->
     <div id="call-overlay" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
         <div class="flex flex-col items-center gap-6 px-6">
             <div id="call-avatar" class="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl transition-transform duration-300">
@@ -963,22 +949,45 @@
     </div>
 
     <script>
-        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
+
+        // [FIX] Escape helper lives at the top: every place that puts server/AI/user text
+        // into innerHTML goes through this so it can never run as HTML.
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Only allow http(s) (and data: for images). Blocks javascript: URLs.
+        function safeUrl(u, allowData) {
+            try {
+                const p = new URL(u, window.location.origin);
+                const ok = ['http:', 'https:'].concat(allowData ? ['data:'] : []);
+                if (ok.includes(p.protocol)) return escapeHtml(u);
+            } catch (e) {}
+            return '#';
+        }
 
         marked.use({
             renderer: {
+                // [FIX] Raw HTML inside messages is shown as text instead of being executed.
+                html(token) {
+                    return escapeHtml(token.text || token.raw || '');
+                },
                 image(token) {
-                    const url = token.href;
-                    const altText = token.text;
+                    const url = safeUrl(token.href, true);
+                    const altText = escapeHtml(token.text);
                     return `<img src="${url}" alt="${altText || 'Ranen Image'}" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                 },
                 link(token) {
-                    const url = token.href;
+                    const rawUrl = token.href || '';
+                    const url = safeUrl(rawUrl, false);
                     const linkText = this.parser.parseInline(token.tokens);
-                    if (url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
+                    if (rawUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
                         return `<img src="${url}" alt="Embedded Image" class="max-w-full h-auto rounded-xl border border-[var(--border-color)] my-3 shadow-lg" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs text-red-400 italic\\'>[Unable to load image preview]</span>';" />`;
                     }
-                    return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
+                    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
                 },
                 code(token) {
                     const codeText = token.text || '';
@@ -990,7 +999,7 @@
                             <div class="code-card-icon" style="background:${meta.color}22; color:${meta.color};"><i class="fa-solid ${meta.icon}"></i></div>
                             <div class="code-card-info">
                                 <div class="code-card-title">${meta.label}</div>
-                                <div class="code-card-sub">Code &middot; ${meta.ext} &middot; ${lineCount} lines</div>
+                                <div class="code-card-sub">Code &middot; ${escapeHtml(meta.ext)} &middot; ${lineCount} lines</div>
                             </div>
                             <i class="fa-solid fa-chevron-right code-card-chevron"></i>
                         </div>
@@ -1014,8 +1023,6 @@
         let currentUserName = "Guest User";
         let isCodeEditing = false;
 
-        // Maps a fenced code block's language tag to how its chat card looks
-        // and which Artifact tab it should open.
         const LANG_EXT_LABELS = {
             py: 'PY', python: 'PY', js: 'JS', javascript: 'JS', jsx: 'JSX', ts: 'TS', typescript: 'TS',
             html: 'HTML', css: 'CSS', json: 'JSON', sql: 'SQL', java: 'JAVA', c: 'C', cpp: 'C++',
@@ -1043,11 +1050,16 @@
             switchArtifactTab(tab);
         }
 
+        // [FIX] Local-time date key. toISOString() converts to UTC, which in Nigeria (UTC+1)
+        // shifted every event to the previous day.
+        function dateKeyOf(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         let calCurrentDate = new Date();
         let calSelectedDate = new Date();
         let calEvents = JSON.parse(localStorage.getItem('ranen_cal_events') || '{}');
 
-        // --- CHAT BUBBLE COLOR SYSTEM ---
         const BUBBLE_COLORS = {
             default: null,
             pink:   { bg: 'linear-gradient(135deg, rgba(236,72,153,0.28) 0%, rgba(236,72,153,0.12) 100%)', text: '#fbcfe8', border: 'rgba(236,72,153,0.5)' },
@@ -1078,14 +1090,9 @@
         }
 
         // --- TEMPORARY CHAT ---
-        // Genuinely not saved: starts a real chat (the backend still needs a
-        // session_id to generate responses) but it's deleted the moment you
-        // leave it, hidden from the sidebar while active, and best-effort
-        // cleaned up on tab close too. Not a purely client-side simulation —
-        // it really does get removed from storage, not just hidden.
         async function toggleTemporaryChat() {
             if (!isTemporaryChat) {
-                await cleanupCurrentTemporaryChat(); // in case one was already active
+                await cleanupCurrentTemporaryChat();
                 const res = await fetch('/api/new-session', { method: 'POST' });
                 const data = await res.json();
                 currentSessionId = data.session_id;
@@ -1132,9 +1139,6 @@
             }
         }
 
-        // Best-effort cleanup if the tab/app closes while a temp chat is
-        // active. keepalive lets the request survive page teardown, but
-        // this is not guaranteed on every browser/OS combination.
         window.addEventListener('beforeunload', () => {
             if (isTemporaryChat && currentSessionId) {
                 try {
@@ -1144,13 +1148,6 @@
         });
 
         // --- DEVICE ACTIONS (torch + app deep links) ---
-        // Browsers deliberately block webpages from launching arbitrary
-        // native apps or controlling hardware without explicit permission —
-        // this is NOT a Ranen limitation, it's a security boundary every
-        // website is under. What actually works: camera-torch control (with
-        // permission) and URL-scheme deep links for apps that support them
-        // (WhatsApp, phone dialer, SMS, maps). "Open any app" in general is
-        // not something a website can do.
         let torchStream = null;
         let torchOn = false;
 
@@ -1216,8 +1213,6 @@
             return "I couldn't handle that device action.";
         }
 
-        // Returns a color name if the message is a color-change command, else null.
-        // Handled entirely client-side so it's instant and doesn't burn an AI call.
         function detectColorCommand(text) {
             const lower = text.toLowerCase();
             const wantsChange = /(make|change|turn|set)\s+(the\s+)?(chat|bubble|text|message)?s?\s*(color\s+)?(to\s+)?/.test(lower)
@@ -1369,22 +1364,24 @@
                 container.innerHTML = `<div class="text-sm text-gray-500 text-center py-10">No news available right now.</div>`;
                 return;
             }
+            // [FIX] All news fields come from the web, so everything is escaped / URL-checked.
             container.innerHTML = newsDigestCache.map(item => {
                 const imageBlock = item.image
-                    ? `<img src="${item.image}" alt="" loading="lazy"
+                    ? `<img src="${safeUrl(item.image, false)}" alt="" loading="lazy"
                            class="w-full h-44 md:h-56 object-cover"
                            onerror="this.style.display='none'">`
                     : '';
+                const dateStr = item.date && !isNaN(new Date(item.date)) ? new Date(item.date).toLocaleDateString() : '';
                 return `
-                    <a href="${item.url}" target="_blank" rel="noopener"
+                    <a href="${safeUrl(item.url, false)}" target="_blank" rel="noopener noreferrer"
                        class="block rounded-2xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-glow)] transition-all">
                         ${imageBlock}
                         <div class="p-4">
-                            <div class="text-sm md:text-base font-semibold text-[var(--text-main)] leading-snug">${item.title}</div>
-                            ${item.excerpt ? `<p class="text-xs text-gray-400 mt-2 leading-relaxed">${item.excerpt}</p>` : ''}
+                            <div class="text-sm md:text-base font-semibold text-[var(--text-main)] leading-snug">${escapeHtml(item.title)}</div>
+                            ${item.excerpt ? `<p class="text-xs text-gray-400 mt-2 leading-relaxed">${escapeHtml(item.excerpt)}</p>` : ''}
                             <div class="flex items-center gap-2 mt-3 text-[10px] text-gray-500">
-                                <span class="font-medium">${item.source || ''}</span>
-                                ${item.date ? `<span>&middot;</span><span>${new Date(item.date).toLocaleDateString()}</span>` : ''}
+                                <span class="font-medium">${escapeHtml(item.source || '')}</span>
+                                ${dateStr ? `<span>&middot;</span><span>${escapeHtml(dateStr)}</span>` : ''}
                             </div>
                         </div>
                     </a>
@@ -1401,6 +1398,7 @@
                     const initials = document.getElementById('user-initials');
                     const authBtn = document.getElementById('auth-btn');
                     const headerAvatar = document.getElementById('header-user-avatar');
+                    const adminLink = document.getElementById('admin-link');
 
                     if (user && user.logged_in) {
                         currentUserName = user.name || user.email;
@@ -1409,6 +1407,14 @@
                         if (headerAvatar) headerAvatar.innerText = currentUserName[0].toUpperCase();
                         authBtn.innerText = 'Logout';
                         authBtn.href = '/auth/logout';
+
+                        // [ADMIN] Ask the server whether this account is the admin. This only
+                        // controls the button; the server re-checks on every /api/admin/* call.
+                        try {
+                            const adminRes = await fetch('/api/admin/me');
+                            const adminData = await adminRes.json();
+                            if (adminLink) adminLink.classList.toggle('hidden', !adminData.is_admin);
+                        } catch (e) {}
                     } else {
                         currentUserName = 'Guest User';
                         nameDisplay.innerText = currentUserName;
@@ -1416,6 +1422,7 @@
                         if (headerAvatar) headerAvatar.innerText = 'G';
                         authBtn.innerText = 'Login';
                         authBtn.href = '/auth/login';
+                        if (adminLink) adminLink.classList.add('hidden');
                     }
                     if (document.getElementById('welcome-screen')) {
                         renderEmptyState();
@@ -1550,10 +1557,9 @@
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const today = new Date();
 
-            calendarDays.innerHTML = '';
-
+            let html = '';
             for (let i = 0; i < firstDay; i++) {
-                calendarDays.innerHTML += `<div class="calendar-cell"></div>`;
+                html += `<div class="calendar-cell"></div>`;
             }
 
             for (let d = 1; d <= daysInMonth; d++) {
@@ -1564,8 +1570,9 @@
                 if (isToday) classes += ' today rounded-full';
                 else if (isSelected) classes += ' active-day border-gray-500 rounded-full';
 
-                calendarDays.innerHTML += `<div class="${classes}" onclick="selectCalendarDate(${year}, ${month}, ${d})">${d}</div>`;
+                html += `<div class="${classes}" onclick="selectCalendarDate(${year}, ${month}, ${d})">${d}</div>`;
             }
+            calendarDays.innerHTML = html;
             renderCalendarEvents();
         }
 
@@ -1580,7 +1587,7 @@
         }
 
         function renderCalendarEvents() {
-            const dateKey = calSelectedDate.toISOString().split('T')[0];
+            const dateKey = dateKeyOf(calSelectedDate);
             const label = document.getElementById('cal-selected-date-label');
             const container = document.getElementById('cal-events-list');
             if (label) label.innerText = `Agenda: ${calSelectedDate.toDateString()}`;
@@ -1595,7 +1602,7 @@
 
             container.innerHTML = events.map((ev, idx) => `
                 <div class="flex items-center justify-between p-1.5 border border-gray-700 bg-[#2a2a2a] rounded">
-                    <span class="text-gray-200">${ev}</span>
+                    <span class="text-gray-200">${escapeHtml(ev)}</span>
                     <button onclick="removeCalendarEvent('${dateKey}', ${idx})" class="text-[10px] text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `).join('');
@@ -1604,7 +1611,7 @@
         function addCalendarEvent() {
             const title = prompt("Enter event title:");
             if (!title) return;
-            const dateKey = calSelectedDate.toISOString().split('T')[0];
+            const dateKey = dateKeyOf(calSelectedDate);
             if (!calEvents[dateKey]) calEvents[dateKey] = [];
             calEvents[dateKey].push(title);
             localStorage.setItem('ranen_cal_events', JSON.stringify(calEvents));
@@ -1629,7 +1636,7 @@
             }
             container.innerHTML = scheduledTasks.map((t, idx) => `
                 <div class="flex items-center justify-between p-1.5 border border-gray-700 bg-[#2a2a2a] rounded">
-                    <span class="text-gray-200 truncate pr-2">${t.fired ? '✅ ' : '⏳ '}${t.prompt} — ${new Date(t.time).toLocaleString()}</span>
+                    <span class="text-gray-200 truncate pr-2">${t.fired ? '✅ ' : '⏳ '}${escapeHtml(t.prompt)} — ${escapeHtml(new Date(t.time).toLocaleString())}</span>
                     <button onclick="removeScheduledPrompt(${idx})" class="text-[10px] text-red-400 hover:text-red-300 shrink-0"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `).join('');
@@ -1645,7 +1652,8 @@
                 alert("Couldn't parse that date/time. Try format: YYYY-MM-DD HH:MM");
                 return;
             }
-            if (Notification && Notification.permission === 'default') {
+            // [FIX] `Notification` doesn't exist on iPhone Safari — the old check threw a ReferenceError.
+            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
             scheduledTasks.push({ prompt: promptText, time: time.getTime(), fired: false });
@@ -1667,7 +1675,7 @@
                     task.fired = true;
                     changed = true;
 
-                    if (Notification && Notification.permission === 'granted') {
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                         new Notification('Ranen — Scheduled prompt', { body: task.prompt });
                     }
 
@@ -1847,20 +1855,22 @@ builtins.input = _input_override
                 const res = await fetch('/api/gems');
                 const gems = await res.json();
                 const container = document.getElementById('gems-list');
-                container.innerHTML = '';
-                gems.forEach(g => {
-                    const safeDesc = (g.description || '').replace(/'/g, "\\'");
-                    container.innerHTML += `
-                        <div onclick="setGem('${g.system_prompt.replace(/'/g, "\\'")}', '${g.name}', '${safeDesc}')" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
-                            <div>
-                                <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${g.icon || 'fa-gem'} text-amber-400"></i> ${g.name}</h4>
-                                <p class="text-[9px] md:text-[10px] text-gray-400">${g.description}</p>
-                            </div>
-                            <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
+                // [FIX] Gem fields go into data-attributes (escaped) instead of being spliced
+                // into an onclick string — a quote in a gem name used to break the button.
+                container.innerHTML = gems.map(g => `
+                    <div data-prompt="${escapeHtml(g.system_prompt)}" data-name="${escapeHtml(g.name)}" data-desc="${escapeHtml(g.description || '')}" onclick="setGemFromEl(this)" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
+                        <div>
+                            <h4 class="text-[11px] md:text-xs font-bold flex items-center gap-2 text-white"><i class="fa-solid ${escapeHtml(g.icon || 'fa-gem')} text-amber-400"></i> ${escapeHtml(g.name)}</h4>
+                            <p class="text-[9px] md:text-[10px] text-gray-400">${escapeHtml(g.description || '')}</p>
                         </div>
-                    `;
-                });
+                        <i class="fa-solid fa-chevron-right text-[10px] md:text-xs text-gray-500"></i>
+                    </div>
+                `).join('');
             } catch (e) { console.error(e); }
+        }
+
+        function setGemFromEl(el) {
+            setGem(el.dataset.prompt, el.dataset.name, el.dataset.desc);
         }
 
         function setGem(prompt, name, description) {
@@ -1896,19 +1906,16 @@ builtins.input = _input_override
                 const res = await fetch('/api/assets');
                 const assets = await res.json();
                 const container = document.getElementById('artifact-assets-view');
-                container.innerHTML = '';
                 if (assets.length === 0) {
                     container.innerHTML = `<div class="text-xs text-center py-4 text-gray-400">No uploaded files found.</div>`;
                     return;
                 }
-                assets.forEach(a => {
-                    container.innerHTML += `
-                        <div class="p-2.5 border border-gray-700 bg-[#1e1e1e] rounded-xl flex items-center justify-between text-xs">
-                            <span class="truncate w-32 md:w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${a.file_name}</span>
-                            <a href="${a.file_path}" target="_blank" class="hover:bg-gray-700 text-[10px] px-2 py-1 rounded border border-gray-600 transition-colors">View</a>
-                        </div>
-                    `;
-                });
+                container.innerHTML = assets.map(a => `
+                    <div class="p-2.5 border border-gray-700 bg-[#1e1e1e] rounded-xl flex items-center justify-between text-xs">
+                        <span class="truncate w-32 md:w-48 text-gray-200"><i class="fa-solid fa-file mr-2 text-gray-400"></i>${escapeHtml(a.file_name)}</span>
+                        <a href="${safeUrl(a.file_path, false)}" target="_blank" rel="noopener noreferrer" class="hover:bg-gray-700 text-[10px] px-2 py-1 rounded border border-gray-600 transition-colors">View</a>
+                    </div>
+                `).join('');
             } catch (e) { console.error(e); }
         }
 
@@ -1916,8 +1923,6 @@ builtins.input = _input_override
             try {
                 const res = await fetch('/api/sessions');
                 let sessions = await res.json();
-                // Hide the currently-active temporary chat from the sidebar —
-                // that's the whole point of "temporary".
                 if (isTemporaryChat && currentSessionId) {
                     sessions = sessions.filter(s => s.id !== currentSessionId);
                 }
@@ -1930,24 +1935,23 @@ builtins.input = _input_override
 
         function renderSessionList(sessions) {
             const list = document.getElementById('session-list');
-            list.innerHTML = '';
             if (sessions.length > 0) {
-                sessions.forEach(s => {
-                    const safeTitle = s.title || 'New Chat'; 
+                // [FIX] Titles come from user text; they're escaped and read back via data-attributes.
+                list.innerHTML = sessions.map(s => {
+                    const safeTitle = s.title || 'New Chat';
                     const isActive = currentSessionId === s.id;
                     const activeClasses = isActive 
                         ? 'active-session'
                         : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
-
-                    list.innerHTML += `
-                        <div class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors group ${activeClasses}" onclick="loadSession('${s.id}', '${safeTitle.replace(/'/g, "\\'")}')">
-                            <span class="truncate pr-2">${safeTitle}</span>
-                            <button onclick="deleteSession(event, '${s.id}')" title="Delete chat" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-gray-400 transition-opacity">
+                    return `
+                        <div data-id="${escapeHtml(s.id)}" data-title="${escapeHtml(safeTitle)}" class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors group ${activeClasses}" onclick="loadSession(this.dataset.id, this.dataset.title)">
+                            <span class="truncate pr-2">${escapeHtml(safeTitle)}</span>
+                            <button onclick="deleteSession(event, this.closest('[data-id]').dataset.id)" title="Delete chat" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-gray-400 transition-opacity">
                                 <i class="fa-solid fa-trash-can text-xs"></i>
                             </button>
                         </div>
                     `;
-                });
+                }).join('');
             } else {
                 list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No past chats yet.</div>`;
             }
@@ -1978,7 +1982,7 @@ builtins.input = _input_override
 
         function handleChatSearchInput(value) {
             const trimmed = value.trim();
-            renderSessionList(allSessions.filter(s => s.title.toLowerCase().includes(trimmed.toLowerCase())));
+            renderSessionList(allSessions.filter(s => (s.title || '').toLowerCase().includes(trimmed.toLowerCase())));
 
             clearTimeout(searchDebounceTimer);
             if (trimmed.length < 2) {
@@ -2007,16 +2011,17 @@ builtins.input = _input_override
         function renderMessageSearchResults(results, query) {
             const list = document.getElementById('session-list');
             if (results.length === 0) {
-                list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No messages found for "${query}".</div>`;
+                list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No messages found for "${escapeHtml(query)}".</div>`;
                 return;
             }
-            const re = new RegExp(`(${escapeRegex(query)})`, 'ig');
+            // [FIX] Escape the snippet first, then highlight the (escaped) query inside it.
+            const re = new RegExp(`(${escapeRegex(escapeHtml(query))})`, 'ig');
             list.innerHTML = results.map(r => {
-                const safeTitle = (r.chat_title || 'Untitled Chat').replace(/'/g, "\\'");
-                const highlightedSnippet = r.snippet.replace(re, '<mark class="search-highlight-box">$1</mark>');
+                const title = r.chat_title || 'Untitled Chat';
+                const highlightedSnippet = escapeHtml(r.snippet).replace(re, '<mark class="search-highlight-box">$1</mark>');
                 return `
-                    <div class="px-3 py-2.5 mb-1 rounded-xl cursor-pointer text-sm transition-colors hover:bg-[#2a2a2a] text-gray-300" onclick="openSearchResult('${r.chat_id}', ${r.message_index}, '${query.replace(/'/g, "\\'")}', '${safeTitle}')">
-                        <div class="font-medium truncate text-gray-200">${r.chat_title || 'Untitled Chat'}</div>
+                    <div data-chat="${escapeHtml(r.chat_id)}" data-idx="${Number(r.message_index)}" data-q="${escapeHtml(query)}" data-title="${escapeHtml(title)}" class="px-3 py-2.5 mb-1 rounded-xl cursor-pointer text-sm transition-colors hover:bg-[#2a2a2a] text-gray-300" onclick="openSearchResult(this.dataset.chat, Number(this.dataset.idx), this.dataset.q, this.dataset.title)">
+                        <div class="font-medium truncate text-gray-200">${escapeHtml(title)}</div>
                         <div class="text-[11px] text-gray-500 truncate mt-0.5">${highlightedSnippet}</div>
                     </div>
                 `;
@@ -2053,7 +2058,8 @@ builtins.input = _input_override
                 const match = text.slice(idx, idx + keyword.length);
                 const after = text.slice(idx + keyword.length);
                 const span = document.createElement('span');
-                span.innerHTML = `${before}<mark class="search-highlight-box">${match}</mark>${after}`;
+                // [FIX] Text nodes can contain "<" characters — escape before re-parsing as HTML.
+                span.innerHTML = `${escapeHtml(before)}<mark class="search-highlight-box">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
                 textNode.replaceWith(...span.childNodes);
                 break;
             }
@@ -2070,7 +2076,7 @@ builtins.input = _input_override
             container.innerHTML = `
                 <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-5 pt-16">
                     <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
-                        Hi ${currentUserName}, Where should we start?
+                        Hi ${escapeHtml(currentUserName)}, Where should we start?
                     </h1>
                     <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
                     <div class="flex flex-col gap-2 w-full max-w-sm mx-auto px-4">
@@ -2290,7 +2296,7 @@ builtins.input = _input_override
                 return `
                     <div class="flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-[#1a1a1a] border border-[var(--border-color)]">
                         ${isImg ? `<img src="${URL.createObjectURL(f)}" class="w-9 h-9 object-cover rounded-lg border border-gray-700">` : icon}
-                        <span class="text-[10px] text-white font-medium truncate max-w-[80px]">${f.name}</span>
+                        <span class="text-[10px] text-white font-medium truncate max-w-[80px]">${escapeHtml(f.name)}</span>
                         <button type="button" onclick="removeSelectedFile(${idx})" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xs"></i></button>
                     </div>
                 `;
@@ -2440,7 +2446,6 @@ builtins.input = _input_override
             input.value = '';
             clearAttachment();
 
-            const sendBtn = document.getElementById('send-btn');
             currentAbortController = new AbortController();
             setSendButtonMode('stop');
 
@@ -2483,10 +2488,6 @@ builtins.input = _input_override
                 sendBtn.disabled = false;
                 sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
             }
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function renderMessage(role, content, shouldScroll = true, msgIndex = null) {
@@ -2544,7 +2545,9 @@ builtins.input = _input_override
                 `;
             }
 
-            container.innerHTML += msgHtml;
+            // [FIX] insertAdjacentHTML instead of innerHTML += : the old way re-parsed the whole
+            // chat on every message (slow) and wiped any message still being typed out.
+            container.insertAdjacentHTML('beforeend', msgHtml);
             if (shouldScroll) container.scrollTop = container.scrollHeight;
 
             if (shouldAnimate) {
@@ -2597,11 +2600,10 @@ builtins.input = _input_override
 
             try {
                 const res = await fetch('/api/regenerate', { method: 'POST', body: formData });
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.error || `HTTP ${res.status}`);
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.error) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
                 }
-                const data = await res.json();
                 extractCodeForArtifacts(data.response);
                 const newHtml = marked.parse(data.response);
                 proseEl.innerHTML = '';
@@ -3019,7 +3021,12 @@ builtins.input = _input_override
 
             if (mermaidExtracted.trim()) {
                 const container = document.getElementById('mermaid-container');
-                container.innerHTML = `<div class="mermaid">${mermaidExtracted.trim()}</div>`;
+                // [FIX] textContent, not innerHTML — diagram source is untrusted AI output.
+                container.innerHTML = '';
+                const diagramEl = document.createElement('div');
+                diagramEl.className = 'mermaid';
+                diagramEl.textContent = mermaidExtracted.trim();
+                container.appendChild(diagramEl);
                 
                 try {
                     mermaid.init(undefined, container.querySelectorAll('.mermaid'));
