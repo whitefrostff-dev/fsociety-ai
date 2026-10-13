@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>RANEN</title>
-    <meta name="description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant, a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University.">
+    <meta name="description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant, a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University. Managed by Tinu Tom.">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
     <link rel="manifest" href="/manifest.webmanifest">
@@ -63,6 +63,24 @@
         "name": "Nwodili Yaemerie Convenant"
       },
       "url": "https://ranen.duckdns.org/"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Ranen",
+      "url": "https://ranen.duckdns.org/",
+      "founder": {
+        "@type": "Person",
+        "name": "Nwodili Yaemerie Convenant",
+        "sameAs": ["https://github.com/whitefrostff-dev"]
+      },
+      "employee": {
+        "@type": "Person",
+        "name": "Tinu Tom",
+        "jobTitle": "Manager"
+      }
     }
     </script>
 
@@ -249,6 +267,30 @@
         .assistant-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
         .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
         .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
+
+        /* ChatGPT-style assistant text: bolder weight everywhere, extra-bold emphasis and headings.
+           In light mode the text is pure black. (Black on the dark theme would be invisible,
+           so dark mode keeps light text with the same bold weight.) */
+        .assistant-content { font-weight: 500; }
+        .assistant-content strong,
+        .assistant-content b,
+        .assistant-content h1,
+        .assistant-content h2,
+        .assistant-content h3,
+        .assistant-content h4 { font-weight: 800; }
+
+        body.light-mode .assistant-content,
+        body.light-mode .assistant-content p,
+        body.light-mode .assistant-content li,
+        body.light-mode .assistant-content h1,
+        body.light-mode .assistant-content h2,
+        body.light-mode .assistant-content h3,
+        body.light-mode .assistant-content h4,
+        body.light-mode .assistant-content strong,
+        body.light-mode .assistant-content em,
+        body.light-mode .assistant-content td,
+        body.light-mode .assistant-content th,
+        body.light-mode .assistant-content blockquote { color: #000000 !important; }
 
         code, pre { font-family: 'JetBrains Mono', monospace !important; max-width: 100%; overflow-x: auto; }
 
@@ -900,9 +942,10 @@
             <p class="text-xs text-gray-400 mb-6">Your AI assistant, ready when you are.</p>
 
             <div class="w-full space-y-3">
-                <a href="/auth/login" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg">
+                <!-- [NEW] Firebase Google sign-in (popup) instead of the old /auth/login redirect -->
+                <button onclick="firebaseGoogleLogin()" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg">
                     <i class="fa-brands fa-google"></i> Continue with Google
-                </a>
+                </button>
                 <div class="flex items-center gap-3 py-1">
                     <div class="flex-1 h-px bg-[var(--border-color)]"></div>
                     <span class="text-[10px] text-gray-500 uppercase tracking-wider">or</span>
@@ -1279,7 +1322,9 @@
         }
 
         async function init() {
-            if (localStorage.getItem('ranen_theme') === 'light') setTheme('light');
+            // [NEW] Light mode is the default (black assistant text needs a light background).
+            // Anyone who picked Dark in Settings keeps Dark.
+            if (localStorage.getItem('ranen_theme') !== 'dark') setTheme('light');
             loadSavedBubbleColor();
 
             await checkUserStatus();
@@ -1293,6 +1338,12 @@
             
             if (allSessions.length > 0 && !currentSessionId) {
                 loadSession(allSessions[0].id, allSessions[0].title);
+            }
+
+            // [NEW] The old /auth/login link redirects here with ?login=1 -> open the login popup
+            if (new URLSearchParams(location.search).get('login')) {
+                openAccountModal();
+                history.replaceState(null, '', '/');
             }
         }
 
@@ -3159,6 +3210,44 @@ builtins.input = _input_override
         }
 
         document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- [NEW] FIREBASE LOGIN
+         Fill in the 4 values below from Firebase console -> Project settings -> General -> Your apps -> Web app.
+         These values are public and safe to keep in this file (the secret service-account key lives only on Render). -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        window.firebaseGoogleLogin = async () => {
+            try {
+                const result = await signInWithPopup(auth, new GoogleAuthProvider());
+                const idToken = await result.user.getIdToken();
+                const res = await fetch('/auth/firebase', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_token: idToken })
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Login failed. Please try again.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Login was cancelled or blocked. If this keeps happening, make sure your domain is listed under Firebase → Authentication → Settings → Authorized domains.');
+            }
+        };
     </script>
 </body>
 </html>
