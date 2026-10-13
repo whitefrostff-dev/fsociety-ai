@@ -25,6 +25,12 @@ import psycopg2.extras
 # [ADMIN] admin panel (admin.py must sit next to this file)
 from admin import create_admin_router, require_admin
 
+# [NEW] MongoDB Atlas mirror + Firebase login (integrations.py must sit next to this file)
+from integrations import (
+    mongo_save_chat, mongo_get_chat, mongo_list_chats, mongo_delete_chat,
+    firebase_ready, verify_firebase_token, MONGODB_URI,
+)
+
 try:
     from pypdf import PdfReader
     HAS_PYPDF = True
@@ -56,13 +62,15 @@ def set_cached_search(query: str, results, search_type: str = "text"):
     cache_key = f"{search_type}:{query.strip().lower()}"
     search_cache[cache_key] = (results, time.time())
 
-# --- POSTGRESQL ---
+# --- POSTGRESQL (Neon) ---
+# Set DATABASE_URL on Render to your Neon connection string (the pooled one, with ?sslmode=require)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
     if DATABASE_URL:
         try:
-            return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+            # [NEW] connect_timeout: Neon sleeps when idle and needs a moment to wake up
+            return psycopg2.connect(DATABASE_URL, connect_timeout=10, cursor_factory=psycopg2.extras.RealDictCursor)
         except Exception as e:
             print(f"Database connection error: {e}")
     return None
@@ -219,7 +227,7 @@ GEMINI_MODELS = [m.strip() for m in os.getenv(
 def _model_chain(provider: str):
     return GROQ_MODELS if provider == "groq" else GEMINI_MODELS
 
-# --- OAUTH ---
+# --- OAUTH (old Google login via authlib; kept so /auth/callback still works) ---
 oauth = OAuth()
 oauth.register(
     name='google',
@@ -344,6 +352,9 @@ def extract_file_text(file_bytes: bytes, filename: str, mime_type: str) -> str:
 
 # --- DB HELPERS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
+    # [NEW] Always mirror to MongoDB Atlas (background thread, never blocks the reply)
+    mongo_save_chat(user_email, chat_id, title, messages)
+
     conn = get_db_connection()
     if conn:
         try:
@@ -368,6 +379,39 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
     local_chats[user_email][str(chat_id)] = {"title": title, "messages": messages}
     save_local_chats(local_chats)
     return True
+
+def get_chat_record(val: str, session_id: str):
+    """[NEW] Read a chat: Neon first, then MongoDB Atlas, then the local file.
+    Returns (messages, title). A failed Neon read no longer silently becomes an
+    empty chat (which used to get saved over the real history)."""
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s",
+                    (val, str(session_id))
+                )
+                row = cur.fetchone()
+            conn.close()
+            if row:
+                msgs = row.get("messages") or []
+                if isinstance(msgs, str):
+                    msgs = json.loads(msgs)
+                return msgs, (row.get("title") or "New Chat")
+        except Exception as e:
+            print(f"NEON READ ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    doc = mongo_get_chat(val, str(session_id))
+    if doc:
+        return doc.get("messages", []), (doc.get("title") or "New Chat")
+
+    local = load_local_chats().get(val, {}).get(str(session_id), {})
+    return local.get("messages", []), local.get("title", "New Chat")
 
 # --- ROUTES ---
 @app.get("/google0b211ab21a1539ad.html", response_class=HTMLResponse)
@@ -489,7 +533,7 @@ async def privacy_page():
     <h2>1. Data We Collect</h2>
     <ul>
         <li><b>Chat content:</b> messages you send, and any files or images you upload.</li>
-        <li><b>Account info:</b> if you sign in with Google, we receive your name and email address via OAuth.</li>
+        <li><b>Account info:</b> if you sign in with Google, we receive your name and email address via Firebase Authentication.</li>
         <li><b>Guest identifiers:</b> a random cookie ID for anonymous sessions, with no personal info attached.</li>
         <li><b>Basic technical logs:</b> connection metadata (e.g., timestamps, error logs) used for debugging and abuse prevention.</li>
     </ul>
@@ -501,11 +545,11 @@ async def privacy_page():
         <li>To improve reliability and fix bugs.</li>
     </ul>
 
-    <h2>3. Third-Party AI Providers</h2>
-    <p>Your prompts, uploaded files, and images are sent to third-party AI providers (Groq and Google Gemini) to generate responses. Each provider processes this data under its own privacy and data-handling terms. We do not control how these providers internally process requests beyond what their APIs document.</p>
+    <h2>3. Third-Party Providers</h2>
+    <p>Your prompts, uploaded files, and images are sent to third-party AI providers (Groq and Google Gemini) to generate responses. Each provider processes this data under its own privacy and data-handling terms. We do not control how these providers internally process requests beyond what their APIs document. Sign-in is handled by Firebase Authentication (Google).</p>
 
     <h2>4. Data Storage</h2>
-    <p>Chat history and uploaded files are stored on our servers (PostgreSQL database and file storage) to provide session continuity. This data persists until you delete a chat or request deletion of your account data.</p>
+    <p>Chat history is stored in a PostgreSQL database (Neon) with a backup copy in MongoDB Atlas, and uploaded files are stored on our servers, to provide session continuity. This data persists until you delete a chat or request deletion of your account data.</p>
 
     <h2>5. Data We Do Not Sell</h2>
     <p>We do not sell your personal data, chat histories, or uploaded files to advertisers or data brokers.</p>
@@ -545,10 +589,15 @@ async def about_page():
         "with multiple AI models, generate and edit code, analyze uploaded images and documents, "
         "search the web for current information, and make live voice calls to the assistant."
     )
+    # [NEW] Manager
+    manager_answer = (
+        "Tinu Tom is the manager of Ranen, working alongside its creator "
+        "Nwodili Yaemerie Convenant."
+    )
     return f"""
     <html><head>
-    <title>Who is Nwodili Yaemerie Convenant? — Creator of Ranen</title>
-    <meta name="description" content="{direct_answer}">
+    <title>Nwodili Yaemerie Convenant &amp; Tinu Tom — Creator and Manager of Ranen</title>
+    <meta name="description" content="{direct_answer} Managed by Tinu Tom.">
     <link rel="canonical" href="https://ranen.duckdns.org/about">
     <script type="application/ld+json">
     {{
@@ -569,8 +618,31 @@ async def about_page():
           "@type": "Question",
           "name": "What is Ranen?",
           "acceptedAnswer": {{ "@type": "Answer", "text": "{what_is_ranen_answer}" }}
+        }},
+        {{
+          "@type": "Question",
+          "name": "Who is Tinu Tom?",
+          "acceptedAnswer": {{ "@type": "Answer", "text": "{manager_answer}" }}
         }}
       ]
+    }}
+    </script>
+    <script type="application/ld+json">
+    {{
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Ranen",
+      "url": "https://ranen.duckdns.org/",
+      "founder": {{
+        "@type": "Person",
+        "name": "Nwodili Yaemerie Convenant",
+        "sameAs": ["https://github.com/whitefrostff-dev"]
+      }},
+      "employee": {{
+        "@type": "Person",
+        "name": "Tinu Tom",
+        "jobTitle": "Manager"
+      }}
     }}
     </script>
     {LEGAL_PAGE_STYLE}
@@ -607,6 +679,16 @@ async def about_page():
 
     <h2>Did Nwodili Yaemerie Convenant make Ranen?</h2>
     <p class="direct-answer">{did_make_answer}</p>
+
+    <h2>Who is Tinu Tom?</h2>
+    <div class="profile-header">
+        <div class="profile-avatar">TT</div>
+        <div>
+            <h1 style="margin-bottom:2px; font-size:1.3rem;">Tinu Tom</h1>
+            <p style="color:#9ca3af; font-size:0.9rem; margin:0;">Manager of Ranen</p>
+        </div>
+    </div>
+    <p class="direct-answer">{manager_answer}</p>
 
     <h2>What does he work on?</h2>
     <p>
@@ -653,9 +735,11 @@ async def debug_storage(request: Request):
         "database_url_configured": bool(DATABASE_URL),
         "database_currently_reachable": db_connected,
         "using": "postgres" if db_connected else "local_file_fallback",
+        "mongodb_uri_configured": bool(MONGODB_URI),
+        "firebase_ready": firebase_ready,
         "local_fallback_path": CHATS_FILE,
         "warning": None if db_connected else
-            "Chat history is on ephemeral local disk and will be LOST on every redeploy/restart unless DATABASE_URL is set."
+            "Neon is unreachable. Chats are being read from MongoDB Atlas if available, otherwise from ephemeral local disk."
     }
 
 @app.get("/api/debug/providers")
@@ -699,13 +783,41 @@ async def debug_providers(request: Request):
 
     return out
 
+# --- AUTH ---
+# [NEW] Login now happens in the browser through Firebase (popup). The old /auth/login
+# link just sends people back to the page and opens the login popup.
 @app.get('/auth/login')
-async def login(request: Request):
-    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host", request.url.netloc)
-    redirect_uri = f"{scheme}://{host}/auth/callback"
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+async def login():
+    return RedirectResponse(url="/?login=1")
 
+@app.post("/auth/firebase")
+async def firebase_login(request: Request):
+    if not firebase_ready:
+        return JSONResponse({"error": "Firebase is not configured on the server"}, status_code=500)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Bad request"}, status_code=400)
+    try:
+        decoded = await asyncio.to_thread(verify_firebase_token, body.get("id_token", ""))
+    except Exception as e:
+        print(f"Firebase token verify failed: {e}")
+        return JSONResponse({"error": "Invalid token"}, status_code=401)
+
+    email = decoded.get("email")
+    # Chats are keyed by email, so an unverified email must never be accepted.
+    if not email or not decoded.get("email_verified"):
+        return JSONResponse({"error": "A verified email is required"}, status_code=401)
+
+    request.session['user'] = {
+        'name': decoded.get('name') or email.split('@')[0],
+        'email': email,
+        'email_verified': True,
+        'uid': decoded.get('uid'),
+    }
+    return {"status": "success"}
+
+# Old authlib callback (unused now, safe to delete later)
 @app.get('/auth/callback')
 async def auth(request: Request):
     try:
@@ -745,13 +857,19 @@ async def get_user_sessions(request: Request):
             with conn.cursor() as cur:
                 cur.execute("SELECT chat_id, title, created_at FROM user_chats WHERE user_email = %s ORDER BY created_at DESC", (val,))
                 rows = cur.fetchall()
-                conn.close()
-                if rows:
-                    return [{"id": r["chat_id"], "title": r.get("title", "Untitled Chat"), "is_pinned": 0} for r in rows]
+            conn.close()
+            return [{"id": r["chat_id"], "title": r.get("title") or "Untitled Chat", "is_pinned": 0} for r in rows]
         except Exception as e:
             print(f"DATABASE FETCH SESSIONS ERROR: {e}")
-            if conn:
+            try:
                 conn.close()
+            except Exception:
+                pass
+
+    # Neon unreachable -> try MongoDB Atlas, then the local file
+    mongo_rows = mongo_list_chats(val)
+    if mongo_rows:
+        return mongo_rows
 
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
@@ -849,26 +967,8 @@ async def news_digest():
 @app.get("/api/history/{session_id}")
 async def get_session_history(request: Request, session_id: str):
     col, val = get_identifier(request)
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT messages FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
-                row = cur.fetchone()
-                conn.close()
-                if row and row.get("messages"):
-                    msgs = row["messages"]
-                    return msgs if isinstance(msgs, list) else json.loads(msgs)
-        except Exception as e:
-            print(f"DATABASE FETCH HISTORY ERROR: {e}")
-            if conn:
-                conn.close()
-
-    local_chats = load_local_chats()
-    user_data = local_chats.get(val, {})
-    if str(session_id) in user_data:
-        return user_data[str(session_id)].get("messages", [])
-    return []
+    msgs, _title = get_chat_record(val, session_id)
+    return msgs
 
 @app.post("/api/new-session")
 async def create_new_session(request: Request):
@@ -880,6 +980,10 @@ async def create_new_session(request: Request):
 @app.delete("/api/delete-session/{session_id}")
 async def delete_session(request: Request, session_id: str):
     col, val = get_identifier(request)
+
+    # [NEW] remove the Atlas copy too
+    mongo_delete_chat(val, session_id)
+
     conn = get_db_connection()
     if conn:
         try:
@@ -1029,6 +1133,56 @@ def _perform_web_search(query: str, max_results: int = 5) -> str:
 
 # Set ENABLE_WEB_SEARCH=0 on your host to turn the search tool off (for testing)
 ENABLE_WEB_SEARCH = os.getenv("ENABLE_WEB_SEARCH", "1") != "0"
+
+# [NEW] SERVER-SIDE SEARCH ROUTER
+# The old setup relied on the model choosing to call the search tool, and smaller models
+# almost never did. Now the server decides: if the message looks like it needs fresh
+# information, it searches first and puts the results into the prompt. This works with
+# every model (Groq or Gemini). The tool-calling path below stays as a backup.
+_SEARCH_PATTERNS = [re.compile(p, re.I) for p in [
+    r"\b(search|google|look ?up|browse)\b",
+    r"\b(latest|newest|current(ly)?|recent(ly)?|breaking|trending|up[- ]to[- ]date)\b",
+    r"\b(today|tonight|yesterday|this (week|month|year)|right now|as of now)\b",
+    r"\bnews\b|\bheadlines\b",
+    r"\b(score|scores|fixtures?|standings|who won|match result)\b",
+    r"\b(weather|forecast)\b",
+    r"\b(price|prices|cost)\b.*\b(of|for|in)\b",
+    r"\b(stock|stocks|crypto|bitcoin|btc|ethereum|exchange rate|naira|dollar)\b",
+    r"\bwho is (the )?(current |new )?(president|prime minister|ceo|governor|minister|champion)\b",
+    r"\b(release date|when (is|was|does|did).{0,40}(release|launch|come out))\b",
+    r"\b202[5-9]\b",
+]]
+
+def needs_web_search(message: str, has_files: bool = False) -> bool:
+    if has_files or "```" in message or len(message.strip()) < 6:
+        return False
+    return any(p.search(message) for p in _SEARCH_PATTERNS)
+
+async def build_effective_message(message: str, file_text_content: str = "") -> str:
+    """The text the model actually sees: the user's message + today's date
+    (+ live web results when needed) (+ uploaded file text). Only the plain
+    message is saved in the chat history, never the search results."""
+    date_str = datetime.now().strftime("%A, %B %d, %Y")
+    out = f"{message}\n\n[Current date: {date_str}]"
+
+    if ENABLE_WEB_SEARCH and needs_web_search(message, bool(file_text_content)):
+        query = re.sub(
+            r"(?i)\b(please|can you|could you|search( the web| the internet)?( for)?|google|look up)\b",
+            "", message
+        )
+        query = " ".join(query.split())[:150] or message[:150]
+        results = await asyncio.to_thread(_perform_web_search, query)
+        bad_starts = ("Web search failed", "Web search is unavailable", "No results")
+        if results and not results.startswith(bad_starts):
+            out += (
+                "\n\n[LIVE WEB SEARCH RESULTS — fetched just now. Prefer these over your training "
+                "data, mention the source names, and say so if they don't fully answer the question.]\n"
+                f"{results}\n[END SEARCH RESULTS]"
+            )
+
+    if file_text_content:
+        out += file_text_content
+    return out
 
 WEB_SEARCH_TOOL_GROQ = {
     "type": "function",
@@ -1226,10 +1380,12 @@ DEFAULT_SYSTEM_PROMPT = (
     "concise does not mean shallow.\n"
     "4. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
     "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'\n"
-    "6. You have a web_search tool. Use it whenever a question depends on current events, "
-    "prices, recent releases, or anything that could have changed since your training — don't "
-    "guess or say you can't access the internet, just call the tool. Don't use it for timeless "
-    "facts, math, or general knowledge you already know.\n"
+    "6. You have live web access. When a message contains a block marked LIVE WEB SEARCH RESULTS, "
+    "those results were fetched just now — use them as your primary source, mention the source "
+    "names, and never say you can't access the internet. You also have a web_search tool: use it "
+    "whenever a question depends on current events, prices, recent releases, or anything that "
+    "could have changed since your training. Don't use it for timeless facts, math, or general "
+    "knowledge you already know.\n"
     "7. When asked to build a website, app, or any code project: pick the best approach "
     "yourself and build it directly — never respond with a list of design options or ask which "
     "style the person wants before writing code. State any assumption in one line if needed, "
@@ -1287,29 +1443,8 @@ async def chat_with_assistant(
     if not under_daily_limit(val):
         return {"response": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight. Thanks for using Ranen!"}
 
-    existing_messages = []
-    chat_title = "New Chat"
-
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
-                row = cur.fetchone()
-                conn.close()
-                if row:
-                    msgs = row.get("messages", [])
-                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
-                    chat_title = row.get("title", "New Chat")
-        except Exception as e:
-            print(f"DATABASE FETCH ERROR IN /api/chat: {e}")
-            if conn:
-                conn.close()
-    else:
-        local_chats = load_local_chats()
-        user_data = local_chats.get(val, {}).get(str(session_id), {})
-        existing_messages = user_data.get("messages", [])
-        chat_title = user_data.get("title", "New Chat")
+    # [NEW] Neon -> MongoDB Atlas -> local file (a failed read no longer wipes the chat)
+    existing_messages, chat_title = get_chat_record(val, session_id)
 
     file_bytes = None
     mime_type = ""
@@ -1421,10 +1556,8 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    current_date_str = datetime.now().strftime("%A, %B %d, %Y")
-    effective_message = f"{message}\n\n[Current date: {current_date_str}]"
-    if file_text_content:
-        effective_message = f"{effective_message}{file_text_content}"
+    # [NEW] date + (live web results when the message needs them) + uploaded file text
+    effective_message = await build_effective_message(message, file_text_content)
 
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
 
@@ -1463,29 +1596,8 @@ async def regenerate_response(
     if not under_daily_limit(val):
         return JSONResponse(status_code=200, content={"error": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
 
-    existing_messages = []
-    chat_title = "New Chat"
-
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT messages, title FROM user_chats WHERE user_email = %s AND chat_id = %s", (val, str(session_id)))
-                row = cur.fetchone()
-                conn.close()
-                if row:
-                    msgs = row.get("messages", [])
-                    existing_messages = msgs if isinstance(msgs, list) else json.loads(msgs) if msgs else []
-                    chat_title = row.get("title", "New Chat")
-        except Exception as e:
-            print(f"DATABASE FETCH ERROR IN /api/regenerate: {e}")
-            if conn:
-                conn.close()
-    else:
-        local_chats = load_local_chats()
-        user_data = local_chats.get(val, {}).get(str(session_id), {})
-        existing_messages = user_data.get("messages", [])
-        chat_title = user_data.get("title", "New Chat")
+    # [NEW] Neon -> MongoDB Atlas -> local file
+    existing_messages, chat_title = get_chat_record(val, session_id)
 
     if not existing_messages or existing_messages[-1]["role"] != "assistant":
         return JSONResponse(status_code=400, content={"error": "No response to regenerate."})
@@ -1504,10 +1616,13 @@ async def regenerate_response(
     recent_history = existing_messages[-12:]
     system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
 
+    # [NEW] regenerate now also gets the date and live search when needed
+    effective_message = await build_effective_message(last_user_message)
+
     succeeded = True
     try:
         ai_response = await _generate_with_fallback(
-            system_prompt, recent_history, last_user_message, False, None, ""
+            system_prompt, recent_history, effective_message, False, None, ""
         )
     except Exception as e:
         print(f"ALL PROVIDERS FAILED (regenerate): {e}")
