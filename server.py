@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional, List
+from urllib.parse import urlparse
 import uuid
 import os
 import re
@@ -25,7 +26,7 @@ import psycopg2.extras
 # [ADMIN] admin panel (admin.py must sit next to this file)
 from admin import create_admin_router, require_admin
 
-# [NEW] MongoDB Atlas mirror + Firebase login (integrations.py must sit next to this file)
+# MongoDB Atlas mirror + Firebase login (integrations.py must sit next to this file)
 from integrations import (
     mongo_save_chat, mongo_get_chat, mongo_list_chats, mongo_delete_chat,
     firebase_ready, verify_firebase_token, MONGODB_URI,
@@ -63,61 +64,119 @@ def set_cached_search(query: str, results, search_type: str = "text"):
     search_cache[cache_key] = (results, time.time())
 
 # --- POSTGRESQL (Neon) ---
-# Set DATABASE_URL on Render to your Neon connection string (the pooled one, with ?sslmode=require)
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# [FIXED] Set DATABASE_URL on Render to your Neon connection string (the pooled one).
+# Common Neon problems this block now handles automatically:
+#   1. The string was pasted with quotes, spaces, or a leading "psql " -> cleaned.
+#   2. "channel_binding=require" (Neon adds it by default) breaks some psycopg2 builds -> removed.
+#   3. sslmode missing -> added (Neon only accepts SSL).
+#   4. Neon sleeps when idle, so the first connect can time out -> retried.
+#   5. Tables were only created once at startup; if Neon was asleep then, they were NEVER
+#      created and every query failed -> tables are now created on the first good connection.
+#   6. If Neon is truly down, requests no longer freeze for 10s each -> 20s cool-down, then
+#      the app falls back to MongoDB Atlas / local file.
+def _clean_database_url(raw):
+    if not raw:
+        return None
+    url = raw.strip().strip('"').strip("'").strip()
+    if url.lower().startswith("psql "):
+        url = url[5:].strip().strip('"').strip("'").strip()
+    url = re.sub(r"([?&])channel_binding=[^&]*&?", r"\1", url).rstrip("?&")
+    if "sslmode=" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return url or None
+
+DATABASE_URL = _clean_database_url(os.environ.get("DATABASE_URL"))
+
+_last_db_error = None
+_db_tables_ready = False
+_db_down_until = 0.0
+
+DB_SCHEMA_SQL = """
+    CREATE TABLE IF NOT EXISTS user_chats (
+        user_email TEXT,
+        chat_id TEXT,
+        title TEXT,
+        messages JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_email, chat_id)
+    );
+    ALTER TABLE user_chats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    CREATE TABLE IF NOT EXISTS gems (
+        id SERIAL PRIMARY KEY,
+        user_email TEXT,
+        name TEXT,
+        description TEXT,
+        system_prompt TEXT,
+        icon TEXT DEFAULT 'fa-robot'
+    );
+    CREATE TABLE IF NOT EXISTS assets (
+        id SERIAL PRIMARY KEY,
+        user_email TEXT,
+        file_name TEXT,
+        file_path TEXT,
+        file_type TEXT
+    );
+    CREATE TABLE IF NOT EXISTS usage_limits (
+        identifier TEXT,
+        usage_date DATE,
+        message_count INTEGER DEFAULT 0,
+        PRIMARY KEY (identifier, usage_date)
+    );
+"""
+
+def _ensure_tables(conn):
+    global _db_tables_ready
+    if _db_tables_ready:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(DB_SCHEMA_SQL)
+        conn.commit()
+        _db_tables_ready = True
+        print("PostgreSQL tables ready.")
+    except Exception as e:
+        print(f"Error creating PostgreSQL tables: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 def get_db_connection():
-    if DATABASE_URL:
+    global _last_db_error, _db_down_until
+    if not DATABASE_URL:
+        return None
+    if time.time() < _db_down_until:
+        return None
+
+    last_err = None
+    for attempt in range(2):
         try:
-            # [NEW] connect_timeout: Neon sleeps when idle and needs a moment to wake up
-            return psycopg2.connect(DATABASE_URL, connect_timeout=10, cursor_factory=psycopg2.extras.RealDictCursor)
+            conn = psycopg2.connect(
+                DATABASE_URL,
+                connect_timeout=10,
+                cursor_factory=psycopg2.extras.RealDictCursor,
+                keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
+            )
+            _last_db_error = None
+            _db_down_until = 0.0
+            _ensure_tables(conn)
+            return conn
         except Exception as e:
-            print(f"Database connection error: {e}")
+            last_err = e
+            if attempt == 0:
+                time.sleep(1.5)  # give a sleeping Neon database a moment to wake up
+
+    _last_db_error = str(last_err)[:300]
+    _db_down_until = time.time() + 20
+    print(f"Database connection error: {last_err}")
     return None
 
 def init_db():
     conn = get_db_connection()
     if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS user_chats (
-                        user_email TEXT,
-                        chat_id TEXT,
-                        title TEXT,
-                        messages JSONB,
-                        created_at TIMESTAMPTZ DEFAULT NOW(),
-                        PRIMARY KEY (user_email, chat_id)
-                    );
-                    CREATE TABLE IF NOT EXISTS gems (
-                        id SERIAL PRIMARY KEY,
-                        user_email TEXT,
-                        name TEXT,
-                        description TEXT,
-                        system_prompt TEXT,
-                        icon TEXT DEFAULT 'fa-robot'
-                    );
-                    CREATE TABLE IF NOT EXISTS assets (
-                        id SERIAL PRIMARY KEY,
-                        user_email TEXT,
-                        file_name TEXT,
-                        file_path TEXT,
-                        file_type TEXT
-                    );
-                    CREATE TABLE IF NOT EXISTS usage_limits (
-                        identifier TEXT,
-                        usage_date DATE,
-                        message_count INTEGER DEFAULT 0,
-                        PRIMARY KEY (identifier, usage_date)
-                    );
-                """)
-                conn.commit()
-            conn.close()
-            print("PostgreSQL tables initialized successfully.")
-        except Exception as e:
-            print(f"Error initializing PostgreSQL tables: {e}")
-            if conn:
-                conn.close()
+        conn.close()
+        print("PostgreSQL connected.")
 
 init_db()
 
@@ -171,7 +230,7 @@ async def favicon_ico():
     return Response(status_code=204)
 
 # --- SESSION / PROXY ---
-# [FIX] The old default secret was public on GitHub, which would let anyone forge
+# The old default secret was public on GitHub, which would let anyone forge
 # an admin cookie. Set SESSION_SECRET on your host. If it's missing we generate a
 # random one at startup (safe, but everyone gets logged out on each restart).
 SESSION_SECRET = os.getenv("SESSION_SECRET")
@@ -179,7 +238,7 @@ if not SESSION_SECRET:
     print("[WARNING] SESSION_SECRET is not set — using a random one. Set it in your host's env vars so logins survive restarts.")
     SESSION_SECRET = secrets.token_urlsafe(48)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-# [FIX] Secure cookies when running on Render (HTTPS); stays off for local http testing.
+# Secure cookies when running on Render (HTTPS); stays off for local http testing.
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=bool(os.getenv("RENDER")), same_site="lax")
 
 @app.middleware("http")
@@ -209,7 +268,7 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 genai_client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
 
-print(f"[STARTUP] Groq key set: {bool(GROQ_API_KEY)} | Google key set: {bool(GOOGLE_API_KEY)}")
+print(f"[STARTUP] Groq key set: {bool(GROQ_API_KEY)} | Google key set: {bool(GOOGLE_API_KEY)} | Neon URL set: {bool(DATABASE_URL)}")
 
 # --- MODEL CHAINS ---
 # GROQ IS PRIMARY for every text request. Each Groq model has its own quota,
@@ -352,7 +411,7 @@ def extract_file_text(file_bytes: bytes, filename: str, mime_type: str) -> str:
 
 # --- DB HELPERS ---
 def save_chat_history(user_email: str, chat_id: str, title: str, messages: list):
-    # [NEW] Always mirror to MongoDB Atlas (background thread, never blocks the reply)
+    # Always mirror to MongoDB Atlas (background thread, never blocks the reply)
     mongo_save_chat(user_email, chat_id, title, messages)
 
     conn = get_db_connection()
@@ -360,18 +419,20 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO user_chats (user_email, chat_id, title, messages)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO user_chats (user_email, chat_id, title, messages, updated_at)
+                    VALUES (%s, %s, %s, %s, NOW())
                     ON CONFLICT (user_email, chat_id)
-                    DO UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages;
-                """, (user_email, str(chat_id), title, json.dumps(messages)))
+                    DO UPDATE SET title = EXCLUDED.title, messages = EXCLUDED.messages, updated_at = NOW();
+                """, (user_email, str(chat_id), title, psycopg2.extras.Json(messages)))
                 conn.commit()
             conn.close()
             return True
         except Exception as e:
             print(f"DATABASE UPSERT ERROR: {e}")
-            if conn:
+            try:
                 conn.close()
+            except Exception:
+                pass
 
     local_chats = load_local_chats()
     if user_email not in local_chats:
@@ -381,7 +442,7 @@ def save_chat_history(user_email: str, chat_id: str, title: str, messages: list)
     return True
 
 def get_chat_record(val: str, session_id: str):
-    """[NEW] Read a chat: Neon first, then MongoDB Atlas, then the local file.
+    """Read a chat: Neon first, then MongoDB Atlas, then the local file.
     Returns (messages, title). A failed Neon read no longer silently becomes an
     empty chat (which used to get saved over the real history)."""
     conn = get_db_connection()
@@ -423,11 +484,25 @@ async def sitemap():
     sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url><loc>https://ranen.duckdns.org/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+    <url><loc>https://ranen.duckdns.org/about</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
     <url><loc>https://ranen.duckdns.org/terms</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
     <url><loc>https://ranen.duckdns.org/privacy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
-    <url><loc>https://ranen.duckdns.org/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 </urlset>"""
     return Response(content=sitemap_content, media_type="application/xml")
+
+# [NEW] robots.txt — helps Google find the sitemap and skip the private parts
+@app.get("/robots.txt", response_class=Response)
+async def robots_txt():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /admin\n"
+        "Disallow: /api/\n"
+        "Disallow: /auth/\n"
+        "\n"
+        "Sitemap: https://ranen.duckdns.org/sitemap.xml\n"
+    )
+    return Response(content=body, media_type="text/plain")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
@@ -479,7 +554,7 @@ async def terms_page():
     <h1>Terms of Service</h1>
     <div class="updated">Last updated: 2026</div>
 
-    <p>These Terms govern your use of Ranen ("the Service"), an AI assistant platform built and operated by Nwodili Yaemerie Convenant. By using Ranen, you agree to these Terms. If you do not agree, please do not use the Service.</p>
+    <p>These Terms govern your use of Ranen ("the Service"), an AI assistant platform built and operated by Nwodili Yaemerie Convenant and managed by Tinu Tom. By using Ranen, you agree to these Terms. If you do not agree, please do not use the Service.</p>
 
     <h2>1. Acceptable Use</h2>
     <ul>
@@ -589,16 +664,24 @@ async def about_page():
         "with multiple AI models, generate and edit code, analyze uploaded images and documents, "
         "search the web for current information, and make live voice calls to the assistant."
     )
-    # [NEW] Manager
+    # Manager (only the name and role are published — no age or location)
     manager_answer = (
-        "Tinu Tom is the manager of Ranen, working alongside its creator "
-        "Nwodili Yaemerie Convenant."
+        "Tinu Tom is the manager of Ranen and handles its business administration, working "
+        "alongside its creator Nwodili Yaemerie Convenant."
+    )
+    who_manages_answer = (
+        "Ranen is managed by Tinu Tom, who works alongside its creator, Nwodili Yaemerie Convenant."
     )
     return f"""
     <html><head>
     <title>Nwodili Yaemerie Convenant &amp; Tinu Tom — Creator and Manager of Ranen</title>
     <meta name="description" content="{direct_answer} Managed by Tinu Tom.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="canonical" href="https://ranen.duckdns.org/about">
+    <meta property="og:type" content="profile">
+    <meta property="og:title" content="Nwodili Yaemerie Convenant &amp; Tinu Tom — Creator and Manager of Ranen">
+    <meta property="og:description" content="Ranen is built by Nwodili Yaemerie Convenant and managed by Tinu Tom.">
+    <meta property="og:url" content="https://ranen.duckdns.org/about">
     <script type="application/ld+json">
     {{
       "@context": "https://schema.org",
@@ -623,6 +706,11 @@ async def about_page():
           "@type": "Question",
           "name": "Who is Tinu Tom?",
           "acceptedAnswer": {{ "@type": "Answer", "text": "{manager_answer}" }}
+        }},
+        {{
+          "@type": "Question",
+          "name": "Who manages Ranen?",
+          "acceptedAnswer": {{ "@type": "Answer", "text": "{who_manages_answer}" }}
         }}
       ]
     }}
@@ -642,6 +730,21 @@ async def about_page():
         "@type": "Person",
         "name": "Tinu Tom",
         "jobTitle": "Manager"
+      }}
+    }}
+    </script>
+    <script type="application/ld+json">
+    {{
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Tinu Tom",
+      "jobTitle": "Manager",
+      "description": "Tinu Tom is the manager of Ranen and handles its business administration.",
+      "url": "https://ranen.duckdns.org/about",
+      "worksFor": {{
+        "@type": "Organization",
+        "name": "Ranen",
+        "url": "https://ranen.duckdns.org/"
       }}
     }}
     </script>
@@ -680,6 +783,18 @@ async def about_page():
     <h2>Did Nwodili Yaemerie Convenant make Ranen?</h2>
     <p class="direct-answer">{did_make_answer}</p>
 
+    <h2>What does Nwodili work on?</h2>
+    <p>
+        Nwodili builds full-stack web applications and AI-powered tools, with a particular interest in
+        ethical hacking and vulnerability research alongside his development work.
+    </p>
+    <ul>
+        <li>Cybersecurity &amp; ethical hacking fundamentals</li>
+        <li>Full-stack web development (Python/FastAPI, JavaScript)</li>
+        <li>Building AI-powered tools and assistants — including Ranen</li>
+        <li>Linux system administration</li>
+    </ul>
+
     <h2>Who is Tinu Tom?</h2>
     <div class="profile-header">
         <div class="profile-avatar">TT</div>
@@ -690,23 +805,21 @@ async def about_page():
     </div>
     <p class="direct-answer">{manager_answer}</p>
 
-    <h2>What does he work on?</h2>
-    <p>
-        He builds full-stack web applications and AI-powered tools, with a particular interest in
-        ethical hacking and vulnerability research alongside his development work.
-    </p>
-    <ul>
-        <li>Cybersecurity &amp; ethical hacking fundamentals</li>
-        <li>Full-stack web development (Python/FastAPI, JavaScript)</li>
-        <li>Building AI-powered tools and assistants — including Ranen</li>
-        <li>Linux system administration</li>
-    </ul>
+    <div class="fact-grid">
+        <div class="fact-item"><div class="fact-label">Role</div><div class="fact-value">Manager</div></div>
+        <div class="fact-item"><div class="fact-label">Field</div><div class="fact-value">Business Administration</div></div>
+        <div class="fact-item"><div class="fact-label">Works on</div><div class="fact-value">Ranen</div></div>
+    </div>
+
+    <h2>Who manages Ranen?</h2>
+    <p class="direct-answer">{who_manages_answer}</p>
 
     <h2>What is Ranen?</h2>
     <p class="direct-answer">{what_is_ranen_answer}</p>
 
     <h2>Links</h2>
     <ul>
+        <li><a href="https://ranen.duckdns.org/">Ranen — the AI assistant</a></li>
         <li><a href="https://github.com/whitefrostff-dev" target="_blank">GitHub — whitefrostff-dev</a></li>
     </ul>
 
@@ -722,8 +835,7 @@ async def get_current_user(request: Request):
         return {"logged_in": True, "name": user.get('name'), "email": user.get('email')}
     return {"logged_in": False, "name": "Guest User"}
 
-# [FIX] Debug endpoints were public — /api/debug/providers fires real requests at
-# Groq/Gemini on every hit. Now admin-only.
+# Debug endpoints are admin-only. /api/debug/providers fires real requests at Groq/Gemini.
 @app.get("/api/debug/storage")
 async def debug_storage(request: Request):
     require_admin(request)
@@ -731,15 +843,25 @@ async def debug_storage(request: Request):
     db_connected = conn is not None
     if conn:
         conn.close()
+    db_host = None
+    if DATABASE_URL:
+        try:
+            db_host = urlparse(DATABASE_URL).hostname
+        except Exception:
+            db_host = "unreadable"
     return {
         "database_url_configured": bool(DATABASE_URL),
+        "database_host": db_host,
+        "using_neon_pooler": bool(db_host and "-pooler" in db_host),
         "database_currently_reachable": db_connected,
+        "tables_ready": _db_tables_ready,
+        "last_database_error": _last_db_error,
         "using": "postgres" if db_connected else "local_file_fallback",
         "mongodb_uri_configured": bool(MONGODB_URI),
         "firebase_ready": firebase_ready,
         "local_fallback_path": CHATS_FILE,
         "warning": None if db_connected else
-            "Neon is unreachable. Chats are being read from MongoDB Atlas if available, otherwise from ephemeral local disk."
+            "Neon is unreachable. Chats are being read from MongoDB Atlas if available, otherwise from ephemeral local disk. See last_database_error."
     }
 
 @app.get("/api/debug/providers")
@@ -784,7 +906,7 @@ async def debug_providers(request: Request):
     return out
 
 # --- AUTH ---
-# [NEW] Login now happens in the browser through Firebase (popup). The old /auth/login
+# Login happens in the browser through Firebase (popup). The old /auth/login
 # link just sends people back to the page and opens the login popup.
 @app.get('/auth/login')
 async def login():
@@ -855,7 +977,7 @@ async def get_user_sessions(request: Request):
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT chat_id, title, created_at FROM user_chats WHERE user_email = %s ORDER BY created_at DESC", (val,))
+                cur.execute("SELECT chat_id, title FROM user_chats WHERE user_email = %s ORDER BY updated_at DESC NULLS LAST, created_at DESC", (val,))
                 rows = cur.fetchall()
             conn.close()
             return [{"id": r["chat_id"], "title": r.get("title") or "Untitled Chat", "is_pinned": 0} for r in rows]
@@ -981,7 +1103,7 @@ async def create_new_session(request: Request):
 async def delete_session(request: Request, session_id: str):
     col, val = get_identifier(request)
 
-    # [NEW] remove the Atlas copy too
+    # remove the Atlas copy too
     mongo_delete_chat(val, session_id)
 
     conn = get_db_connection()
@@ -1009,15 +1131,8 @@ async def get_gems(request: Request):
         {
             "id": 1,
             "name": "Ranen Core",
-            "description": "Standard elite assistant created by Nwodili Yaemerie Convenant",
-            "system_prompt": (
-                "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
-                "Reason carefully like a top-tier frontier model: think through problems step by step "
-                "internally, catch your own mistakes before answering, and give precise, well-structured "
-                "answers. Be direct and concise — no filler, no repeating the question, no unnecessary "
-                "caveats. Match your depth to the question: quick questions get quick answers; hard "
-                "technical or reasoning questions get a real, careful breakdown."
-            ),
+            "description": "Standard elite assistant created by Nwodili Yaemerie Convenant and managed by Tinu Tom",
+            "system_prompt": DEFAULT_SYSTEM_PROMPT,
             "icon": "fa-terminal"
         }
     ]
@@ -1134,7 +1249,7 @@ def _perform_web_search(query: str, max_results: int = 5) -> str:
 # Set ENABLE_WEB_SEARCH=0 on your host to turn the search tool off (for testing)
 ENABLE_WEB_SEARCH = os.getenv("ENABLE_WEB_SEARCH", "1") != "0"
 
-# [NEW] SERVER-SIDE SEARCH ROUTER
+# SERVER-SIDE SEARCH ROUTER
 # The old setup relied on the model choosing to call the search tool, and smaller models
 # almost never did. Now the server decides: if the message looks like it needs fresh
 # information, it searches first and puts the results into the prompt. This works with
@@ -1158,12 +1273,38 @@ def needs_web_search(message: str, has_files: bool = False) -> bool:
         return False
     return any(p.search(message) for p in _SEARCH_PATTERNS)
 
+# [NEW] COMPLEX-PROBLEM DETECTOR
+# Hard questions (math, logic, algorithms, debugging, design, long messages) get the
+# strongest reasoning setting, a lower temperature and a bigger answer budget.
+_COMPLEX_RE = re.compile(
+    r"\b(solve|prove|proof|derive|calculate|compute|simplify|integrate|differentiate|optimi[sz]e|"
+    r"algorithm|complexity|big-?o|debug|refactor|architecture|system design|design a|implement|"
+    r"step[- ]by[- ]step|why does|why is|explain why|how would you|trade-?offs?|"
+    r"integral|derivative|equation|matrix|probability|theorem|puzzle|riddle|logic|regex|sql|"
+    r"statistics|physics|chemistry|calculus|algebra)\b"
+    r"|[=^∫∑√]|\d\s*[+\-*/×÷]\s*\d",
+    re.I,
+)
+
+def is_complex_request(message: str) -> bool:
+    m = message or ""
+    if "```" in m or len(m) > 350:
+        return True
+    return bool(_COMPLEX_RE.search(m))
+
 async def build_effective_message(message: str, file_text_content: str = "") -> str:
     """The text the model actually sees: the user's message + today's date
     (+ live web results when needed) (+ uploaded file text). Only the plain
     message is saved in the chat history, never the search results."""
     date_str = datetime.now().strftime("%A, %B %d, %Y")
     out = f"{message}\n\n[Current date: {date_str}]"
+
+    if is_complex_request(message):
+        out += (
+            "\n\n[This looks like a hard problem. Work through it carefully step by step, "
+            "double-check your result (re-derive it or test it with an example), fix any mistake "
+            "you find, and only then give a clear final answer.]"
+        )
 
     if ENABLE_WEB_SEARCH and needs_web_search(message, bool(file_text_content)):
         query = re.sub(
@@ -1213,21 +1354,34 @@ def _clean_tool_call(tc) -> dict:
 def _groq_text(message) -> str:
     return (getattr(message, "content", None) or "").strip()
 
-async def _call_groq_with_tools(model, base_messages_payload):
+def _groq_kwargs(model: str, complex_mode: bool) -> dict:
+    """[NEW] Per-model generation settings. The gpt-oss models are reasoning models:
+    their 'thinking' counts against max_tokens, so the old 2048 limit could cut them off
+    before they answered. They also accept reasoning_effort (low / medium / high)."""
+    kw = {
+        "temperature": 0.3 if complex_mode else 0.7,
+        "max_tokens": 4096 if complex_mode else 3072,
+    }
+    if "gpt-oss" in model:
+        kw["reasoning_effort"] = "high" if complex_mode else "medium"
+    return kw
+
+async def _call_groq_with_tools(model, base_messages_payload, complex_mode=False):
     """Tool-calling first. If the tool round-trip breaks for a NON-quota reason,
     fall back to a plain call on the same model. Rate-limit/auth errors are
     re-raised so the model chain can move on to the next model."""
+    kw = _groq_kwargs(model, complex_mode)
     if not ENABLE_WEB_SEARCH:
         plain = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=base_messages_payload, **kw,
         )
         return _groq_text(plain.choices[0].message)
     try:
         messages_payload = list(base_messages_payload)
         first = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=messages_payload, **kw,
             tools=[WEB_SEARCH_TOOL_GROQ], tool_choice="auto",
         )
         choice = first.choices[0]
@@ -1252,7 +1406,7 @@ async def _call_groq_with_tools(model, base_messages_payload):
 
         second = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=model, messages=messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=messages_payload, **kw,
         )
         return _groq_text(second.choices[0].message)
 
@@ -1265,11 +1419,12 @@ async def _call_groq_with_tools(model, base_messages_payload):
         print(f"[GROQ TOOL-CALLING FALLBACK on {model}]: {e}")
         plain = await asyncio.to_thread(
             groq_client.chat.completions.create,
-            model=model, messages=base_messages_payload, temperature=0.75, max_tokens=2048,
+            model=model, messages=base_messages_payload, **kw,
         )
         return _groq_text(plain.choices[0].message)
 
-async def _call_google_with_tools(model, system_prompt, base_contents):
+async def _call_google_with_tools(model, system_prompt, base_contents, complex_mode=False):
+    temperature = 0.4 if complex_mode else 0.7
     try:
         contents = list(base_contents)
         tool = types.Tool(function_declarations=[
@@ -1283,7 +1438,7 @@ async def _call_google_with_tools(model, system_prompt, base_contents):
                 ),
             )
         ])
-        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7, tools=[tool])
+        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=temperature, tools=[tool])
         resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=contents, config=config)
 
         candidate = resp.candidates[0]
@@ -1311,11 +1466,11 @@ async def _call_google_with_tools(model, system_prompt, base_contents):
         if _is_rate_limit_error(e):
             raise  # don't burn another request on a quota error
         print(f"[GOOGLE TOOL-CALLING FALLBACK on {model}]: {e}")
-        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
+        config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=temperature)
         resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=base_contents, config=config)
         return resp.text
 
-async def _call_provider(provider, model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
+async def _call_provider(provider, model, system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode=False):
     if provider == "google":
         if not genai_client:
             raise RuntimeError("GOOGLE_API_KEY is missing.")
@@ -1327,12 +1482,12 @@ async def _call_provider(provider, model, system_prompt, recent_history, effecti
         if is_image and file_bytes:
             contents.append(types.Part.from_bytes(data=file_bytes, mime_type=mime_type))
             contents.append(effective_message)
-            config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.7)
+            config = types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.4 if complex_mode else 0.7)
             resp = await asyncio.to_thread(genai_client.models.generate_content, model=model, contents=contents, config=config)
             return resp.text
 
         contents.append(effective_message)
-        return await _call_google_with_tools(model, system_prompt, contents)
+        return await _call_google_with_tools(model, system_prompt, contents, complex_mode)
 
     # groq
     if not groq_client:
@@ -1341,7 +1496,7 @@ async def _call_provider(provider, model, system_prompt, recent_history, effecti
     for msg in recent_history[:-1]:
         messages_payload.append({"role": msg["role"], "content": msg["content"]})
     messages_payload.append({"role": "user", "content": effective_message})
-    return await _call_groq_with_tools(model, messages_payload)
+    return await _call_groq_with_tools(model, messages_payload, complex_mode)
 
 async def _generate_smart_title(user_message: str, ai_response: str) -> Optional[str]:
     if not groq_client:
@@ -1368,30 +1523,55 @@ async def _generate_smart_title(user_message: str, ai_response: str) -> Optional
         print(f"[SMART TITLE ERROR]: {e}")
         return None
 
-DEFAULT_SYSTEM_PROMPT = (
-    "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant. "
+# [UPDATED] Facts the AI knows about its own team. Tinu Tom's age, location and other personal
+# details are deliberately NOT included, so the AI can't repeat them.
+ABOUT_FACTS = (
+    "FACTS ABOUT RANEN (use these when someone asks about Ranen, who built it, or who runs it):\n"
+    "- Ranen is an AI assistant platform created by Nwodili Yaemerie Convenant, a cybersecurity "
+    "student and web developer from Anambra State, Nigeria, studying at Abia State University.\n"
+    "- Ranen is managed by Tinu Tom, the manager of Ranen, who handles its business administration "
+    "and works alongside the creator. If someone asks 'Who is Tinu Tom?', answer: 'Tinu Tom is the "
+    "manager of Ranen, working alongside its creator, Nwodili Yaemerie Convenant.'\n"
+    "- Ranen's website is https://ranen.duckdns.org/ and the about page is https://ranen.duckdns.org/about. "
+    "Contact: whitefrostff@gmail.com.\n"
+    "- Personal details about Tinu Tom beyond his name and role (such as his age or where he lives) "
+    "are private. If asked, politely say you don't share personal details about people and point "
+    "to the about page for what is public."
+)
+
+CORE_SYSTEM_PROMPT = (
+    "You are Ranen, an elite AI assistant created by Nwodili Yaemerie Convenant and managed by Tinu Tom. "
     "CORE DIRECTIVES:\n"
-    "1. Reason like a top-tier frontier model (Sonnet/Fable-class): think through problems "
-    "carefully and internally before answering, break down hard problems step by step, catch "
-    "your own errors, and never guess when you can reason it out.\n"
-    "2. Act natural and humanoid. Speak like a real developer/peer, not a machine.\n"
-    "3. BE CONCISE by default. No filler, no repeating the question, no unnecessary preamble. "
+    "1. Reason like a top-tier frontier model. For anything beyond a trivial question, work it out "
+    "carefully BEFORE you answer: restate what is really being asked, break the problem into parts, "
+    "consider more than one approach on hard problems, and pick the one that holds up. Then verify: "
+    "re-derive the result, plug numbers back in, test edge cases, and fix any mistake you find. "
+    "Never guess when you can reason it out. If something is genuinely uncertain, say exactly what "
+    "you're unsure about instead of bluffing.\n"
+    "2. Math, logic, science and puzzles: show the key steps clearly and in order, keep the "
+    "arithmetic exact, and put the final answer on its own line so it's easy to find.\n"
+    "3. Code: write complete, correct, runnable code. Mentally run it on at least one example and "
+    "think about edge cases before you send it. When debugging, find the root cause, explain it in "
+    "a sentence or two, then give the fixed code.\n"
+    "4. Act natural and humanoid. Speak like a real developer/peer, not a machine.\n"
+    "5. BE CONCISE by default. No filler, no repeating the question, no unnecessary preamble. "
     "But when a question is genuinely technical or multi-step, give it the depth it needs — "
     "concise does not mean shallow.\n"
-    "4. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
-    "5. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by Nwodili Yaemerie Convenant.'\n"
-    "6. You have live web access. When a message contains a block marked LIVE WEB SEARCH RESULTS, "
+    "6. Eliminate robotic filler, meta-commentary, and empty politeness.\n"
+    "7. Identity: If asked who made you or what your name is, state clearly: 'I am Ranen, created by "
+    "Nwodili Yaemerie Convenant.' If asked who manages Ranen, say it is managed by Tinu Tom.\n"
+    "8. You have live web access. When a message contains a block marked LIVE WEB SEARCH RESULTS, "
     "those results were fetched just now — use them as your primary source, mention the source "
     "names, and never say you can't access the internet. You also have a web_search tool: use it "
     "whenever a question depends on current events, prices, recent releases, or anything that "
     "could have changed since your training. Don't use it for timeless facts, math, or general "
     "knowledge you already know.\n"
-    "7. When asked to build a website, app, or any code project: pick the best approach "
+    "9. When asked to build a website, app, or any code project: pick the best approach "
     "yourself and build it directly — never respond with a list of design options or ask which "
     "style the person wants before writing code. State any assumption in one line if needed, "
     "then deliver complete, working, production-quality output in a single response — no "
     "placeholders, no 'add your logic here' stubs, no half-finished sections.\n"
-    "8. Never use inline style=\"...\" attributes on HTML elements. Put CSS in a single "
+    "10. Never use inline style=\"...\" attributes on HTML elements. Put CSS in a single "
     "organized <style> block (single-file output) or one shared external stylesheet (multi-file "
     "output, e.g. Flask templates) — never duplicate a <style> block across multiple pages of the "
     "same project. Use semantic HTML and make it visually polished by default (real layout, "
@@ -1399,7 +1579,18 @@ DEFAULT_SYSTEM_PROMPT = (
     "something plain or unfinished unless they explicitly asked for bare-bones."
 )
 
-async def _generate_with_fallback(system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type):
+DEFAULT_SYSTEM_PROMPT = CORE_SYSTEM_PROMPT + "\n\n" + ABOUT_FACTS
+
+def build_system_prompt(gem_prompt: Optional[str]) -> str:
+    """Custom personas (gems) keep their own personality but still get the Ranen facts."""
+    gem = (gem_prompt or "").strip()
+    if not gem:
+        return DEFAULT_SYSTEM_PROMPT
+    if "FACTS ABOUT RANEN" in gem:
+        return gem
+    return gem + "\n\n" + ABOUT_FACTS
+
+async def _generate_with_fallback(system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode=False):
     """GROQ FIRST for every text request, whatever model is picked in the UI.
     Walks every Groq model in GROQ_MODELS, and only if ALL of them fail does it
     try Gemini. Image requests go to Gemini only (no Groq vision here). Every
@@ -1412,10 +1603,10 @@ async def _generate_with_fallback(system_prompt, recent_history, effective_messa
             try:
                 resp = await _call_provider(
                     p, model, system_prompt, recent_history,
-                    effective_message, is_image, file_bytes, mime_type
+                    effective_message, is_image, file_bytes, mime_type, complex_mode
                 )
                 if resp and resp.strip():
-                    print(f"[SERVED BY] {p}/{model}")
+                    print(f"[SERVED BY] {p}/{model} (complex={complex_mode})")
                     return resp
                 errors.append(f"{p}/{model}: empty response")
             except Exception as e:
@@ -1443,7 +1634,7 @@ async def chat_with_assistant(
     if not under_daily_limit(val):
         return {"response": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight. Thanks for using Ranen!"}
 
-    # [NEW] Neon -> MongoDB Atlas -> local file (a failed read no longer wipes the chat)
+    # Neon -> MongoDB Atlas -> local file (a failed read no longer wipes the chat)
     existing_messages, chat_title = get_chat_record(val, session_id)
 
     file_bytes = None
@@ -1461,7 +1652,7 @@ async def chat_with_assistant(
         f_mime = f.content_type or "application/octet-stream"
         f_is_image = f_mime.startswith("image/")
 
-        # [FIX] Strip any path from the uploaded filename — "../../x" could previously
+        # Strip any path from the uploaded filename — "../../x" could previously
         # write outside the uploads folder (path traversal).
         safe_name = os.path.basename(f.filename.replace("\\", "/")).replace(" ", "_") or "file"
         stored_filename = f"{uuid.uuid4().hex}_{safe_name}"
@@ -1544,7 +1735,7 @@ async def chat_with_assistant(
             if results:
                 image_url = results[0].get('image')
                 title = (results[0].get('title') or 'Image').replace('[', '').replace(']', '')
-                # [FIX] Return markdown instead of raw HTML. The frontend now escapes raw
+                # Return markdown instead of raw HTML. The frontend escapes raw
                 # HTML in messages (XSS fix), and its markdown renderer already styles images.
                 ai_response = f'Here is the image I found for **"{clean_prompt}"**:\n\n![{title}]({image_url})'
             else:
@@ -1556,15 +1747,16 @@ async def chat_with_assistant(
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
         return {"response": ai_response}
 
-    # [NEW] date + (live web results when the message needs them) + uploaded file text
+    # date + (live web results when the message needs them) + uploaded file text
     effective_message = await build_effective_message(message, file_text_content)
 
-    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
+    system_prompt = build_system_prompt(gem_prompt)
+    complex_mode = is_complex_request(message)
 
     succeeded = True
     try:
         ai_response = await _generate_with_fallback(
-            system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type
+            system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode
         )
     except Exception as e:
         print(f"ALL PROVIDERS FAILED: {e}")
@@ -1596,7 +1788,7 @@ async def regenerate_response(
     if not under_daily_limit(val):
         return JSONResponse(status_code=200, content={"error": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight."})
 
-    # [NEW] Neon -> MongoDB Atlas -> local file
+    # Neon -> MongoDB Atlas -> local file
     existing_messages, chat_title = get_chat_record(val, session_id)
 
     if not existing_messages or existing_messages[-1]["role"] != "assistant":
@@ -1614,15 +1806,16 @@ async def regenerate_response(
         return JSONResponse(status_code=400, content={"error": "No user message found to regenerate from."})
 
     recent_history = existing_messages[-12:]
-    system_prompt = (gem_prompt.strip() if (gem_prompt and gem_prompt.strip()) else None) or DEFAULT_SYSTEM_PROMPT
+    system_prompt = build_system_prompt(gem_prompt)
 
-    # [NEW] regenerate now also gets the date and live search when needed
+    # regenerate also gets the date, live search and the complex-problem boost when needed
     effective_message = await build_effective_message(last_user_message)
+    complex_mode = is_complex_request(last_user_message)
 
     succeeded = True
     try:
         ai_response = await _generate_with_fallback(
-            system_prompt, recent_history, effective_message, False, None, ""
+            system_prompt, recent_history, effective_message, False, None, "", complex_mode
         )
     except Exception as e:
         print(f"ALL PROVIDERS FAILED (regenerate): {e}")
@@ -1728,7 +1921,7 @@ async def pwa_manifest():
     return JSONResponse({
         "name": "Ranen",
         "short_name": "Ranen",
-        "description": "Ranen AI assistant by Nwodili Yaemerie Convenant",
+        "description": "Ranen AI assistant by Nwodili Yaemerie Convenant, managed by Tinu Tom",
         "start_url": "/",
         "scope": "/",
         "display": "standalone",
