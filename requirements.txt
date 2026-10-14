@@ -12,3 +12,5 @@ ddgs
 starlette
 supabase
 psycopg2-binary
+pymongo
+firebase-admin
