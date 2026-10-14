@@ -3,8 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RANEN</title>
+    <title>Ranen — AI Assistant by Nwodili Yaemerie Convenant, Managed by Tinu Tom</title>
     <meta name="description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant, a cybersecurity student and web developer from Anambra State, Nigeria, studying at Abia State University. Managed by Tinu Tom.">
+    <meta name="author" content="Nwodili Yaemerie Convenant">
+    <link rel="canonical" href="https://ranen.duckdns.org/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Ranen">
+    <meta property="og:title" content="Ranen — AI Assistant by Nwodili Yaemerie Convenant, Managed by Tinu Tom">
+    <meta property="og:description" content="Ranen is an AI assistant built by Nwodili Yaemerie Convenant and managed by Tinu Tom. Chat, code, analyze images and documents, search the web and talk by voice.">
+    <meta property="og:url" content="https://ranen.duckdns.org/">
+    <meta property="og:image" content="https://ranen.duckdns.org/icon-512.png">
+    <meta name="twitter:card" content="summary">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
     <link rel="manifest" href="/manifest.webmanifest">
@@ -57,7 +66,7 @@
       "name": "Ranen",
       "applicationCategory": "AI Assistant",
       "operatingSystem": "Web",
-      "description": "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant. It lets users chat with multiple AI models, generate and edit code, analyze uploaded images and documents, search the web for current information, and make live voice calls to the assistant.",
+      "description": "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant and managed by Tinu Tom. It lets users chat with multiple AI models, generate and edit code, analyze uploaded images and documents, search the web for current information, and make live voice calls to the assistant.",
       "creator": {
         "@type": "Person",
         "name": "Nwodili Yaemerie Convenant"
@@ -83,6 +92,21 @@
       }
     }
     </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Tinu Tom",
+      "jobTitle": "Manager",
+      "description": "Tinu Tom is the manager of Ranen and handles its business administration.",
+      "url": "https://ranen.duckdns.org/about",
+      "worksFor": {
+        "@type": "Organization",
+        "name": "Ranen",
+        "url": "https://ranen.duckdns.org/"
+      }
+    }
+    </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -90,7 +114,7 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
         :root {
             --bg-main: #080a0f;
@@ -228,6 +252,7 @@
             padding: 12px 16px; 
             max-width: 90%; 
             font-size: 0.9rem; 
+            font-weight: 500;
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             word-wrap: break-word;
             user-select: text;
@@ -268,16 +293,19 @@
         .assistant-actions button { padding: 4px 8px; border-radius: 6px; background: transparent; transition: all 0.2s; }
         .assistant-actions button:hover { color: var(--text-main); background: var(--bg-card-hover); }
 
-        /* ChatGPT-style assistant text: bolder weight everywhere, extra-bold emphasis and headings.
+        /* GPT-style assistant text: a little bold everywhere (600), extra-bold emphasis and headings (800).
            In light mode the text is pure black. (Black on the dark theme would be invisible,
-           so dark mode keeps light text with the same bold weight.) */
-        .assistant-content { font-weight: 500; }
+           so dark mode keeps light text with the same bold weight.)
+           Want it bolder or lighter? Change the 600 below (500 = softer, 700 = heavier). */
+        .assistant-content { font-weight: 600; }
         .assistant-content strong,
         .assistant-content b,
         .assistant-content h1,
         .assistant-content h2,
         .assistant-content h3,
         .assistant-content h4 { font-weight: 800; }
+        .assistant-content code,
+        .assistant-content pre { font-weight: 500; }
 
         body.light-mode .assistant-content,
         body.light-mode .assistant-content p,
@@ -577,6 +605,10 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full relative min-w-0">
+        <!-- [NEW] Text for search engines and screen readers: who built and who manages Ranen -->
+        <h1 class="sr-only">Ranen, an AI assistant built by Nwodili Yaemerie Convenant and managed by Tinu Tom</h1>
+        <p class="sr-only">Ranen is created by Nwodili Yaemerie Convenant. Tinu Tom is the manager of Ranen. <a href="/about">About Ranen, Nwodili Yaemerie Convenant and Tinu Tom</a>.</p>
+
         <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-3 md:px-6 flex-shrink-0 relative">
             <div class="flex items-center z-10 gap-3">
                 <button onclick="toggleLeftSidebar()" class="text-xl p-1 text-gray-200 hover:text-white transition-colors">
@@ -586,9 +618,10 @@
             </div>
             
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="flex flex-col items-center pointer-events-auto">
+                <div class="flex flex-col items-center pointer-events-auto leading-tight">
                     <div class="ranen-shining select-none cursor-pointer" onclick="createNewSession()">Ranen</div>
                     <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors -mt-1">by Nwodili Yaemerie Convenant</a>
+                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors">Managed by Tinu Tom</a>
                 </div>
             </div>
             
@@ -676,7 +709,7 @@
             </form>
             
             <div class="text-center mt-2 md:mt-3">
-                <span class="text-[9px] md:text-[10px] text-gray-500">Ranen can make mistakes. Built by <a href="/about" class="hover:text-gray-300 underline transition-colors">Nwodili Yaemerie Convenant</a>.</span>
+                <span class="text-[9px] md:text-[10px] text-gray-500">Ranen can make mistakes. Built by <a href="/about" class="hover:text-gray-300 underline transition-colors">Nwodili Yaemerie Convenant</a>. Managed by <a href="/about" class="hover:text-gray-300 underline transition-colors">Tinu Tom</a>.</span>
             </div>
         </div>
     </main>
@@ -771,6 +804,9 @@
                 <div class="pt-2">
                     <p class="text-[13px] md:text-sm font-semibold mb-2">About & Legal</p>
                     <div class="space-y-2">
+                        <a href="/about" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
+                            <span>About Ranen — Nwodili Yaemerie Convenant &amp; Tinu Tom</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
                         <a href="/terms" target="_blank" class="w-full flex justify-between items-center p-3 rounded-xl border border-[var(--border-color)] text-xs hover:bg-[#2a2a2a] transition-colors">
                             <span>Terms of Service</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
@@ -942,7 +978,7 @@
             <p class="text-xs text-gray-400 mb-6">Your AI assistant, ready when you are.</p>
 
             <div class="w-full space-y-3">
-                <!-- [NEW] Firebase Google sign-in (popup) instead of the old /auth/login redirect -->
+                <!-- Firebase Google sign-in (popup) instead of the old /auth/login redirect -->
                 <button onclick="firebaseGoogleLogin()" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg">
                     <i class="fa-brands fa-google"></i> Continue with Google
                 </button>
@@ -1007,7 +1043,7 @@
     <script>
         mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
 
-        // [FIX] Escape helper lives at the top: every place that puts server/AI/user text
+        // Escape helper lives at the top: every place that puts server/AI/user text
         // into innerHTML goes through this so it can never run as HTML.
         function escapeHtml(str) {
             return String(str == null ? '' : str)
@@ -1027,7 +1063,7 @@
 
         marked.use({
             renderer: {
-                // [FIX] Raw HTML inside messages is shown as text instead of being executed.
+                // Raw HTML inside messages is shown as text instead of being executed.
                 html(token) {
                     return escapeHtml(token.text || token.raw || '');
                 },
@@ -1106,7 +1142,7 @@
             switchArtifactTab(tab);
         }
 
-        // [FIX] Local-time date key. toISOString() converts to UTC, which in Nigeria (UTC+1)
+        // Local-time date key. toISOString() converts to UTC, which in Nigeria (UTC+1)
         // shifted every event to the previous day.
         function dateKeyOf(d) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1322,7 +1358,7 @@
         }
 
         async function init() {
-            // [NEW] Light mode is the default (black assistant text needs a light background).
+            // Light mode is the default (black assistant text needs a light background).
             // Anyone who picked Dark in Settings keeps Dark.
             if (localStorage.getItem('ranen_theme') !== 'dark') setTheme('light');
             loadSavedBubbleColor();
@@ -1340,7 +1376,7 @@
                 loadSession(allSessions[0].id, allSessions[0].title);
             }
 
-            // [NEW] The old /auth/login link redirects here with ?login=1 -> open the login popup
+            // The old /auth/login link redirects here with ?login=1 -> open the login popup
             if (new URLSearchParams(location.search).get('login')) {
                 openAccountModal();
                 history.replaceState(null, '', '/');
@@ -1428,7 +1464,7 @@
                 container.innerHTML = `<div class="text-sm text-gray-500 text-center py-10">No news available right now.</div>`;
                 return;
             }
-            // [FIX] All news fields come from the web, so everything is escaped / URL-checked.
+            // All news fields come from the web, so everything is escaped / URL-checked.
             container.innerHTML = newsDigestCache.map(item => {
                 const imageBlock = item.image
                     ? `<img src="${safeUrl(item.image, false)}" alt="" loading="lazy"
@@ -1716,7 +1752,7 @@
                 alert("Couldn't parse that date/time. Try format: YYYY-MM-DD HH:MM");
                 return;
             }
-            // [FIX] `Notification` doesn't exist on iPhone Safari — the old check threw a ReferenceError.
+            // `Notification` doesn't exist on iPhone Safari — the old check threw a ReferenceError.
             if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
@@ -1919,7 +1955,7 @@ builtins.input = _input_override
                 const res = await fetch('/api/gems');
                 const gems = await res.json();
                 const container = document.getElementById('gems-list');
-                // [FIX] Gem fields go into data-attributes (escaped) instead of being spliced
+                // Gem fields go into data-attributes (escaped) instead of being spliced
                 // into an onclick string — a quote in a gem name used to break the button.
                 container.innerHTML = gems.map(g => `
                     <div data-prompt="${escapeHtml(g.system_prompt)}" data-name="${escapeHtml(g.name)}" data-desc="${escapeHtml(g.description || '')}" onclick="setGemFromEl(this)" class="p-3 border border-gray-700 bg-[#1e1e1e] hover:bg-[#2a2a2a] rounded-xl cursor-pointer flex items-center justify-between transition-colors">
@@ -2000,7 +2036,7 @@ builtins.input = _input_override
         function renderSessionList(sessions) {
             const list = document.getElementById('session-list');
             if (sessions.length > 0) {
-                // [FIX] Titles come from user text; they're escaped and read back via data-attributes.
+                // Titles come from user text; they're escaped and read back via data-attributes.
                 list.innerHTML = sessions.map(s => {
                     const safeTitle = s.title || 'New Chat';
                     const isActive = currentSessionId === s.id;
@@ -2078,7 +2114,7 @@ builtins.input = _input_override
                 list.innerHTML = `<div class="text-xs text-center py-4 text-gray-500">No messages found for "${escapeHtml(query)}".</div>`;
                 return;
             }
-            // [FIX] Escape the snippet first, then highlight the (escaped) query inside it.
+            // Escape the snippet first, then highlight the (escaped) query inside it.
             const re = new RegExp(`(${escapeRegex(escapeHtml(query))})`, 'ig');
             list.innerHTML = results.map(r => {
                 const title = r.chat_title || 'Untitled Chat';
@@ -2122,7 +2158,7 @@ builtins.input = _input_override
                 const match = text.slice(idx, idx + keyword.length);
                 const after = text.slice(idx + keyword.length);
                 const span = document.createElement('span');
-                // [FIX] Text nodes can contain "<" characters — escape before re-parsing as HTML.
+                // Text nodes can contain "<" characters — escape before re-parsing as HTML.
                 span.innerHTML = `${escapeHtml(before)}<mark class="search-highlight-box">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
                 textNode.replaceWith(...span.childNodes);
                 break;
@@ -2139,10 +2175,10 @@ builtins.input = _input_override
             ];
             container.innerHTML = `
                 <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center space-y-5 pt-16">
-                    <h1 class="text-3xl md:text-4xl welcome-3d mb-1">
+                    <h2 class="text-3xl md:text-4xl welcome-3d mb-1">
                         Hi ${escapeHtml(currentUserName)}, Where should we start?
-                    </h1>
-                    <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision.</p>
+                    </h2>
+                    <p class="text-[10px] md:text-xs text-gray-400 max-w-[250px] md:max-w-none mx-auto leading-relaxed">Engineered by Nwodili Yaemerie Convenant with maximum class and humanoid precision. Managed by Tinu Tom.</p>
                     <div class="flex flex-col gap-2 w-full max-w-sm mx-auto px-4">
                         ${suggestions.map(s => `
                             <button onclick="useSuggestedPrompt(this)" data-prompt="${s.text.replace(/"/g, '&quot;')}" class="w-full flex items-center gap-3 text-left text-xs md:text-sm px-4 py-3 rounded-2xl border border-[var(--border-color)] bg-[#1a1a1a] hover:bg-[#242424] transition-colors text-gray-200">
@@ -2609,7 +2645,7 @@ builtins.input = _input_override
                 `;
             }
 
-            // [FIX] insertAdjacentHTML instead of innerHTML += : the old way re-parsed the whole
+            // insertAdjacentHTML instead of innerHTML += : the old way re-parsed the whole
             // chat on every message (slow) and wiped any message still being typed out.
             container.insertAdjacentHTML('beforeend', msgHtml);
             if (shouldScroll) container.scrollTop = container.scrollHeight;
@@ -3085,7 +3121,7 @@ builtins.input = _input_override
 
             if (mermaidExtracted.trim()) {
                 const container = document.getElementById('mermaid-container');
-                // [FIX] textContent, not innerHTML — diagram source is untrusted AI output.
+                // textContent, not innerHTML — diagram source is untrusted AI output.
                 container.innerHTML = '';
                 const diagramEl = document.createElement('div');
                 diagramEl.className = 'mermaid';
@@ -3212,7 +3248,7 @@ builtins.input = _input_override
         document.addEventListener('DOMContentLoaded', init);
     </script>
 
-    <!-- [NEW] FIREBASE LOGIN
+    <!-- FIREBASE LOGIN
          Fill in the 4 values below from Firebase console -> Project settings -> General -> Your apps -> Web app.
          These values are public and safe to keep in this file (the secret service-account key lives only on Render). -->
     <script type="module">
