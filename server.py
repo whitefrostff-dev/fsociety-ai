@@ -516,6 +516,7 @@ async def serve_frontend(request: Request):
             content = f.read()
 
     response = HTMLResponse(content=content)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
         response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
