@@ -912,6 +912,27 @@ async def debug_providers(request: Request):
 async def login():
     return RedirectResponse(url="/?login=1")
 
+# [NEW] Firebase login helper pages, served through OUR domain.
+# Some networks block ranen-11fe1.firebaseapp.com. With authDomain set to ranen.duckdns.org
+# in index.html, the browser asks us for /__/auth/handler and we fetch it from Google for it.
+@app.api_route("/__/{kind}/{path:path}", methods=["GET", "POST"])
+async def firebase_auth_proxy(kind: str, path: str, request: Request):
+    if kind not in ("auth", "firebase"):
+        return Response(status_code=404)
+    url = f"https://ranen-11fe1.firebaseapp.com/__/{kind}/{path}"
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+            r = await client.request(
+                request.method, url,
+                params=dict(request.query_params),
+                content=await request.body(),
+            )
+    except Exception as e:
+        print(f"Firebase auth proxy failed: {e}")
+        return Response(content="Login helper is temporarily unavailable.", status_code=502)
+    return Response(content=r.content, status_code=r.status_code,
+                    media_type=r.headers.get("content-type"))
+
 @app.post("/auth/firebase")
 async def firebase_login(request: Request):
     if not firebase_ready:
