@@ -2704,6 +2704,7 @@ builtins.input = _input_override
                 if (!res.ok || data.error) {
                     throw new Error(data.error || `HTTP ${res.status}`);
                 }
+                lastAssistantRawContent = data.response;
                 extractCodeForArtifacts(data.response);
                 const newHtml = marked.parse(data.response);
                 proseEl.innerHTML = '';
@@ -3083,14 +3084,33 @@ builtins.input = _input_override
             }, 2000);
         }
 
+        let currentArtifactTab = 'code';
+
+        function isHtmlLikeCode(code) {
+            return /<\s*(!doctype|html|head|body|div|section|main|canvas|svg|style|script|button|form|table|h1|p|span|ul)\b/i.test(code || '');
+        }
+
+        // Several blocks in one answer (html + css + js) become ONE runnable page.
+        function buildArtifactCode(blocks) {
+            const lang = (blocks.find(b => b.lang) || {}).lang || '';
+            const htmlBlock = blocks.find(b => ['html', 'htm'].includes(b.lang)) || blocks.find(b => /<(!doctype|html)/i.test(b.content));
+            if (htmlBlock) {
+                let html = htmlBlock.content.trim();
+                const css = blocks.filter(b => b.lang === 'css').map(b => b.content.trim()).join('\n\n');
+                const js = blocks.filter(b => ['js', 'javascript'].includes(b.lang)).map(b => b.content.trim()).join('\n\n');
+                if (css) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, () => '<style>\n' + css + '\n</style>\n</head>') : '<style>\n' + css + '\n</style>\n' + html;
+                if (js) html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, () => '<script>\n' + js + '\n<\/script>\n</body>') : html + '\n<script>\n' + js + '\n<\/script>';
+                return { code: html, lang: 'html' };
+            }
+            return { code: blocks.map(b => b.content).join('\n\n').trim(), lang: lang };
+        }
+
         function extractCodeForArtifacts(markdownText) {
             const codeBlockRegex = /```([\w.-]*)[ \t]*\r?\n([\s\S]*?)```/g;
             let match;
-            let codeExtracted = "";
             let securityExtracted = "";
             let mermaidExtracted = "";
-
-            let detectedCodeLang = '';
+            const codeBlocks = [];
 
             while ((match = codeBlockRegex.exec(markdownText)) !== null) {
                 const lang = match[1].trim().toLowerCase();
@@ -3101,21 +3121,41 @@ builtins.input = _input_override
                 } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
                     securityExtracted += content + "\n\n";
                 } else {
-                    if (!detectedCodeLang && lang) detectedCodeLang = lang;
-                    codeExtracted += content + "\n\n";
+                    codeBlocks.push({ lang: lang, content: content });
                 }
             }
-            
-            if (codeExtracted.trim()) {
-                latestExtractedCode = codeExtracted.trim();
-                latestCodeLanguage = detectedCodeLang;
+
+            if (codeBlocks.length && codeBlocks.map(b => b.content).join('').trim()) {
+                const built = buildArtifactCode(codeBlocks);
+                latestExtractedCode = built.code;
+                latestCodeLanguage = built.lang;
+
+                // leave edit mode so old edited text can never overwrite the new code
+                if (isCodeEditing) {
+                    isCodeEditing = false;
+                    const cv = document.getElementById('artifact-code-view');
+                    cv.setAttribute('contenteditable', 'false');
+                    const eb = document.getElementById('edit-code-btn');
+                    eb.classList.remove('editing');
+                    eb.innerHTML = `<i class="fa-solid fa-pen"></i> Edit`;
+                }
+
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 document.getElementById('edit-code-btn').classList.remove('hidden');
                 if (isPythonCode()) {
                     document.getElementById('run-code-btn').classList.remove('hidden');
+                } else {
+                    document.getElementById('run-code-btn').classList.add('hidden');
                 }
-                if (latestExtractedCode.includes("<!DOCTYPE html>") || latestExtractedCode.includes("<html") || latestExtractedCode.includes("<div")) {
+                // ALWAYS refresh the preview with the newest code (it used to skip non-matching code and keep the old page)
+                if (!isPythonCode()) {
                     document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
+                }
+                closePythonOutput();
+                // if the panel is open on Code/Preview, redraw that tab right now
+                const panel = document.getElementById('artifact-sidebar');
+                if (panel && !panel.classList.contains('hidden') && (currentArtifactTab === 'code' || currentArtifactTab === 'preview')) {
+                    switchArtifactTab(currentArtifactTab);
                 }
             }
 
@@ -3162,6 +3202,7 @@ builtins.input = _input_override
         }
 
         function switchArtifactTab(tab) {
+            currentArtifactTab = tab;
             const tabs = ['code', 'preview', 'assets', 'architecture', 'security'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}-btn`);
@@ -3252,7 +3293,7 @@ builtins.input = _input_override
          These values are public and safe to keep in this file (the secret service-account key lives only on Render). -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2o2essdzuRGDk6h01qU2FbQ1UH20-UPo",
@@ -3267,23 +3308,36 @@ builtins.input = _input_override
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
+        async function finishLogin(user) {
+            const idToken = await user.getIdToken();
+            const res = await fetch('/auth/firebase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_token: idToken })
+            });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Login failed on the server: ' + (err.error || res.status));
+            }
+        }
+
+        // Picks up the result when the browser used the redirect flow (phones often do)
+        getRedirectResult(auth).then(r => { if (r && r.user) return finishLogin(r.user); })
+            .catch(e => { console.error(e); alert('Login error: ' + (e.code || e.message)); });
+
         window.firebaseGoogleLogin = async () => {
+            const provider = new GoogleAuthProvider();
             try {
-                const result = await signInWithPopup(auth, new GoogleAuthProvider());
-                const idToken = await result.user.getIdToken();
-                const res = await fetch('/auth/firebase', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_token: idToken })
-                });
-                if (res.ok) {
-                    window.location.reload();
-                } else {
-                    alert('Login failed. Please try again.');
-                }
+                const result = await signInWithPopup(auth, provider);
+                await finishLogin(result.user);
             } catch (e) {
                 console.error(e);
-                alert('Login was cancelled or blocked. If this keeps happening, make sure your domain is listed under Firebase → Authentication → Settings → Authorized domains.');
+                const switchToRedirect = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'];
+                if (switchToRedirect.includes(e.code)) { await signInWithRedirect(auth, provider); return; }
+                if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+                alert('Login failed: ' + (e.code || e.message));
             }
         };
     </script>
