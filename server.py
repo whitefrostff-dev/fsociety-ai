@@ -1376,13 +1376,17 @@ def _clean_tool_call(tc) -> dict:
 def _groq_text(message) -> str:
     return (getattr(message, "content", None) or "").strip()
 
+# Long code (full pages/apps) was getting cut off at 3072 tokens. Lower these on Render if Groq complains about limits.
+MAX_REPLY_TOKENS = int(os.getenv("MAX_REPLY_TOKENS", "6000"))
+MAX_COMPLEX_TOKENS = int(os.getenv("MAX_COMPLEX_TOKENS", "7000"))
+
 def _groq_kwargs(model: str, complex_mode: bool) -> dict:
     """[NEW] Per-model generation settings. The gpt-oss models are reasoning models:
     their 'thinking' counts against max_tokens, so the old 2048 limit could cut them off
     before they answered. They also accept reasoning_effort (low / medium / high)."""
     kw = {
         "temperature": 0.3 if complex_mode else 0.7,
-        "max_tokens": 4096 if complex_mode else 3072,
+        "max_tokens": MAX_COMPLEX_TOKENS if complex_mode else MAX_REPLY_TOKENS,
     }
     if "gpt-oss" in model:
         kw["reasoning_effort"] = "high" if complex_mode else "medium"
