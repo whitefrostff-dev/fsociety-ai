@@ -740,7 +740,7 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
-            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build c · waiting for code...</div>
+            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build d · waiting for code...</div>
             <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Ranen to write code or build an app to inspect it here.</div>
 
             <div id="python-output-panel" class="hidden mt-3 flex-shrink-0 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] overflow-hidden" style="max-height:40%;">
@@ -1819,9 +1819,18 @@
         function isPythonCode() {
             if (['python', 'py', 'python3'].includes(latestCodeLanguage)) return true;
             if (!latestCodeLanguage && latestExtractedCode) {
-                return /^\s*(import |from \w+ import|def |print\(|class |#!\/usr\/bin\/env python)/m.test(latestExtractedCode);
+                if (/<\s*(!doctype|html|body|div|script|style|svg|canvas)\b/i.test(latestExtractedCode)) return false;
+                return /^\s*(from\s+[\w.]+\s+import\s|import\s+[\w.,\s]+$|def\s+\w+\(.*\)\s*:|print\(|#!\/usr\/bin\/env python)/m.test(latestExtractedCode);
             }
             return false;
+        }
+
+        // A brand-new iframe every time, so nothing from the previous app (timers, listeners, state) can linger
+        function setPreviewDoc(html) {
+            const old = document.getElementById('artifact-preview-view');
+            const fresh = old.cloneNode(false);
+            fresh.srcdoc = html;
+            old.replaceWith(fresh);
         }
 
         function setPythonOutput(text, isError) {
@@ -3107,7 +3116,7 @@ builtins.input = _input_override
         }
 
         function extractCodeForArtifacts(markdownText) {
-            const codeBlockRegex = /```([\w.-]*)[ \t]*\r?\n([\s\S]*?)```/g;
+            const codeBlockRegex = /```([\w.-]*)[ \t]*\r?\n([\s\S]*?)(?:```|$)/g;
             let match;
             let securityExtracted = "";
             let mermaidExtracted = "";
@@ -3143,7 +3152,7 @@ builtins.input = _input_override
 
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 const _st = document.getElementById('artifact-status');
-                if (_st) _st.textContent = 'build c · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
+                if (_st) _st.textContent = 'build d · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
                 console.log('[Ranen] artifact updated', latestCodeLanguage, latestExtractedCode.length + ' chars');
                 document.getElementById('edit-code-btn').classList.remove('hidden');
                 if (isPythonCode()) {
@@ -3153,7 +3162,7 @@ builtins.input = _input_override
                 }
                 // ALWAYS refresh the preview with the newest code (it used to skip non-matching code and keep the old page)
                 if (!isPythonCode()) {
-                    document.getElementById('artifact-preview-view').srcdoc = latestExtractedCode;
+                    setPreviewDoc(latestExtractedCode);
                 }
                 closePythonOutput();
                 // if the panel is open on Code/Preview, redraw that tab right now
@@ -3252,7 +3261,7 @@ builtins.input = _input_override
                         </body></html>
                     `;
                 } else {
-                    activeView.srcdoc = latestExtractedCode;
+                    setPreviewDoc(latestExtractedCode);
                 }
             }
             if (tab === 'assets') fetchAssets();
