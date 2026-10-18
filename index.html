@@ -748,7 +748,7 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
-            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build e · waiting for code...</div>
+            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build f · waiting for code...</div>
             <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Ranen to write code or build an app to inspect it here.</div>
 
             <div id="python-output-panel" class="hidden mt-3 flex-shrink-0 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] overflow-hidden" style="max-height:40%;">
@@ -2685,7 +2685,9 @@ builtins.input = _input_override
         }
 
         function typewriterReveal(el, html, scrollContainer, speedMs = 8) {
-            const tokens = html.match(/<[^>]+>|[^<]+/g) || [html];
+            // tags are matched with quoted attributes kept whole (an <img onerror="...<span>..."> used to be cut in half)
+            const tokens = html.match(/<(?:[^>"']|"[^"]*"|'[^']*')*>|[^<]+/g) || [html];
+            const decodeEntities = (str) => { const t = document.createElement('textarea'); t.innerHTML = str; return t.value; };
             let i = 0;
             function step() {
                 if (i >= tokens.length) return;
@@ -2696,7 +2698,7 @@ builtins.input = _input_override
                     step();
                     return;
                 }
-                const words = token.split(/(\s+)/);
+                const words = decodeEntities(token).split(/(\s+)/);   // &#39; -> '
                 let wi = 0;
                 const textNode = document.createTextNode('');
                 el.appendChild(textNode);
@@ -3271,7 +3273,7 @@ builtins.input = _input_override
 
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 const _st = document.getElementById('artifact-status');
-                if (_st) _st.textContent = 'build e · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
+                if (_st) _st.textContent = 'build f · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
                 console.log('[Ranen] artifact updated', latestCodeLanguage, latestExtractedCode.length + ' chars');
                 document.getElementById('edit-code-btn').classList.remove('hidden');
                 if (isPythonCode()) {
