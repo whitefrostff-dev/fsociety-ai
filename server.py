@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Form, File, UploadFile, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional, List
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
+import html as html_lib
+import threading
 import uuid
 import os
 import re
@@ -123,6 +125,19 @@ DB_SCHEMA_SQL = """
         message_count INTEGER DEFAULT 0,
         PRIMARY KEY (identifier, usage_date)
     );
+    CREATE TABLE IF NOT EXISTS user_settings (
+        user_email TEXT PRIMARY KEY,
+        data JSONB,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS shared_chats (
+        share_id TEXT PRIMARY KEY,
+        owner TEXT,
+        chat_id TEXT,
+        title TEXT,
+        messages JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
 """
 
 def _ensure_tables(conn):
@@ -206,7 +221,24 @@ def save_local_chats(data):
 
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# [SECURITY] Uploaded files are served by this route, never as a raw static folder.
+# Only images/PDF open inline; everything else (html, svg, js...) is forced to DOWNLOAD,
+# so an uploaded page can never run scripts on your domain.
+_INLINE_UPLOAD_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                        ".gif": "image/gif", ".webp": "image/webp", ".pdf": "application/pdf"}
+
+@app.get("/uploads/{filename}")
+async def serve_upload(filename: str):
+    safe = os.path.basename(filename)
+    path = os.path.join(UPLOAD_DIR, safe)
+    if safe != filename or not os.path.isfile(path):
+        return Response(status_code=404)
+    ext = os.path.splitext(safe)[1].lower()
+    headers = {"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"}
+    if ext in _INLINE_UPLOAD_TYPES:
+        return FileResponse(path, media_type=_INLINE_UPLOAD_TYPES[ext], headers=headers)
+    return FileResponse(path, media_type="application/octet-stream", filename=safe, headers=headers)
 
 # --- FAVICON ---
 def _find_favicon_path():
@@ -253,8 +285,46 @@ async def ensure_guest_cookie(request: Request, call_next):
 
     response = await call_next(request)
     if new_guest_id:
-        response.set_cookie(key="guest_id", value=new_guest_id, max_age=31536000, httponly=True)
+        response.set_cookie(key="guest_id", value=new_guest_id, max_age=31536000, httponly=True, samesite="lax", secure=bool(os.getenv("RENDER")))
     return response
+
+# [SECURITY] Headers that stop clickjacking, MIME sniffing and referrer leaks
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
+
+# [SECURITY] Simple in-memory rate limiter (per IP). Resets when the server restarts.
+_rate_buckets = {}
+
+def rate_limited(key: str, limit: int, window: int) -> bool:
+    now = time.time()
+    if len(_rate_buckets) > 5000:  # keep memory small
+        for k in [k for k, q in _rate_buckets.items() if not q or q[-1] < now - 3600]:
+            _rate_buckets.pop(k, None)
+    q = _rate_buckets.setdefault(key, [])
+    while q and q[0] < now - window:
+        q.pop(0)
+    if len(q) >= limit:
+        return True
+    q.append(now)
+    return False
+
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+# Upload / message limits
+MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "8000"))
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "10")) * 1024 * 1024
+MAX_FILES_PER_MESSAGE = 5
+ALLOWED_UPLOAD_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".pdf", ".txt", ".md",
+                      ".py", ".js", ".html", ".css", ".json", ".csv"}
 
 # --- ENV ---
 # .strip() fixes the classic bug of a stray space/quote/newline pasted into the key
@@ -474,6 +544,505 @@ def get_chat_record(val: str, session_id: str):
     local = load_local_chats().get(val, {}).get(str(session_id), {})
     return local.get("messages", []), local.get("title", "New Chat")
 
+
+# =====================================================================
+# [NEW] SETTINGS (custom instructions, memory, pinned chats), SHARING,
+#       IMAGE GENERATION, EXPORT / DELETE ACCOUNT, STREAMING HELPERS
+# =====================================================================
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+SHARES_FILE = os.path.join(DATA_DIR, "shares.json")
+DEFAULT_SETTINGS = {"custom_instructions": "", "memory_enabled": True, "memories": [], "pinned": []}
+MAX_MEMORIES = 50
+
+def _load_json_file(path):
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_json_file(path, data):
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except Exception as e:
+        print(f"Error saving {path}: {e}")
+
+def get_user_settings(val: str) -> dict:
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT data FROM user_settings WHERE user_email = %s", (val,))
+                row = cur.fetchone()
+            conn.close()
+            data = (row or {}).get("data") or {}
+            if isinstance(data, str):
+                data = json.loads(data)
+            return {**DEFAULT_SETTINGS, **data}
+        except Exception as e:
+            print(f"SETTINGS READ ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return {**DEFAULT_SETTINGS, **_load_json_file(SETTINGS_FILE).get(val, {})}
+
+def save_user_settings(val: str, data: dict):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO user_settings (user_email, data, updated_at) VALUES (%s, %s, NOW())
+                    ON CONFLICT (user_email) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+                """, (val, psycopg2.extras.Json(data)))
+                conn.commit()
+            conn.close()
+            return
+        except Exception as e:
+            print(f"SETTINGS SAVE ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    all_settings = _load_json_file(SETTINGS_FILE)
+    all_settings[val] = data
+    _save_json_file(SETTINGS_FILE, all_settings)
+
+def add_memory(val: str, text: str) -> bool:
+    text = " ".join((text or "").split())[:300]
+    if len(text) < 3:
+        return False
+    st = get_user_settings(val)
+    if any(m.get("text", "").lower() == text.lower() for m in st["memories"]):
+        return True
+    st["memories"].append({"id": uuid.uuid4().hex[:8], "text": text})
+    st["memories"] = st["memories"][-MAX_MEMORIES:]
+    save_user_settings(val, st)
+    return True
+
+def build_user_context(st: dict) -> str:
+    parts = []
+    ci = (st.get("custom_instructions") or "").strip()
+    if ci:
+        parts.append("THE USER'S CUSTOM INSTRUCTIONS (follow them in every reply unless they are unsafe):\n" + ci[:1500])
+    if st.get("memory_enabled", True):
+        mems = [m.get("text", "") for m in st.get("memories", []) if m.get("text")][-MAX_MEMORIES:]
+        if mems:
+            parts.append("THINGS THE USER ASKED YOU TO REMEMBER ABOUT THEM (use them naturally when relevant):\n" + "\n".join("- " + t for t in mems))
+    return ("\n\n" + "\n\n".join(parts)) if parts else ""
+
+def _apply_pins(val: str, rows: list) -> list:
+    pins = set(get_user_settings(val).get("pinned", []))
+    for r in rows:
+        r["is_pinned"] = 1 if r.get("id") in pins else 0
+    rows.sort(key=lambda r: -r["is_pinned"])  # stable: pinned first, newest-first order kept inside each group
+    return rows
+
+def set_pinned(val: str, chat_id: str, pinned: bool):
+    st = get_user_settings(val)
+    pins = [c for c in st.get("pinned", []) if c != chat_id]
+    if pinned:
+        pins.insert(0, chat_id)
+    st["pinned"] = pins[:100]
+    save_user_settings(val, st)
+
+# ---------- shared chat links ----------
+def create_or_update_share(owner: str, chat_id: str, title: str, messages: list):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT share_id FROM shared_chats WHERE owner = %s AND chat_id = %s", (owner, chat_id))
+                row = cur.fetchone()
+                if row:
+                    share_id = row["share_id"]
+                    cur.execute("UPDATE shared_chats SET title = %s, messages = %s WHERE share_id = %s",
+                                (title, psycopg2.extras.Json(messages), share_id))
+                else:
+                    share_id = secrets.token_urlsafe(12)
+                    cur.execute("INSERT INTO shared_chats (share_id, owner, chat_id, title, messages) VALUES (%s, %s, %s, %s, %s)",
+                                (share_id, owner, chat_id, title, psycopg2.extras.Json(messages)))
+                conn.commit()
+            conn.close()
+            return share_id
+        except Exception as e:
+            print(f"SHARE SAVE ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    shares = _load_json_file(SHARES_FILE)
+    for sid, rec in shares.items():
+        if rec.get("owner") == owner and rec.get("chat_id") == chat_id:
+            rec["title"], rec["messages"] = title, messages
+            _save_json_file(SHARES_FILE, shares)
+            return sid
+    sid = secrets.token_urlsafe(12)
+    shares[sid] = {"owner": owner, "chat_id": chat_id, "title": title, "messages": messages}
+    _save_json_file(SHARES_FILE, shares)
+    return sid
+
+def get_share(share_id: str):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT title, messages FROM shared_chats WHERE share_id = %s", (share_id,))
+                row = cur.fetchone()
+            conn.close()
+            if row:
+                msgs = row.get("messages") or []
+                if isinstance(msgs, str):
+                    msgs = json.loads(msgs)
+                return {"title": row.get("title") or "Shared chat", "messages": msgs}
+        except Exception as e:
+            print(f"SHARE READ ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    rec = _load_json_file(SHARES_FILE).get(share_id)
+    if rec:
+        return {"title": rec.get("title") or "Shared chat", "messages": rec.get("messages", [])}
+    return None
+
+def delete_share_for_chat(owner: str, chat_id: str):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM shared_chats WHERE owner = %s AND chat_id = %s", (owner, str(chat_id)))
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"SHARE DELETE ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    shares = _load_json_file(SHARES_FILE)
+    gone = [sid for sid, rec in shares.items() if rec.get("owner") == owner and rec.get("chat_id") == str(chat_id)]
+    if gone:
+        for sid in gone:
+            shares.pop(sid, None)
+        _save_json_file(SHARES_FILE, shares)
+
+def _render_share_text(text: str) -> str:
+    parts = re.split(r"```[\w.+-]*\n?(.*?)```", text or "", flags=re.S)
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            out.append(f"<pre><code>{html_lib.escape(part)}</code></pre>")
+        elif part.strip():
+            esc = html_lib.escape(part.strip())
+            esc = re.sub(r"!\[([^\]]*)\]\((/uploads/[A-Za-z0-9_.\-]+)\)", r'<img src="\2" alt="\1">', esc)
+            out.append(f"<div class='t'>{esc}</div>")
+    return "".join(out)
+
+def _list_chat_rows(val: str) -> list:
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT chat_id, title FROM user_chats WHERE user_email = %s", (val,))
+                rows = cur.fetchall()
+            conn.close()
+            return [{"id": r["chat_id"], "title": r.get("title") or "Untitled Chat"} for r in rows]
+        except Exception as e:
+            print(f"LIST CHATS ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    rows = mongo_list_chats(val)
+    if rows:
+        return rows
+    return [{"id": cid, "title": info.get("title", "")} for cid, info in load_local_chats().get(val, {}).items()]
+
+# ---------- image generation ----------
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gemini-2.5-flash-image")
+DAILY_IMAGE_LIMIT = int(os.getenv("DAILY_IMAGE_LIMIT", "8"))
+
+_IMAGE_GEN_RE = re.compile(
+    r"\b(generate|create|make|draw|design|paint|imagine|render|produce)\b[^.\n]{0,40}\b(image|picture|photo|logo|illustration|artwork|wallpaper|poster|icon|portrait|drawing|painting|sketch)s?\b",
+    re.I)
+_NOT_IMAGE_RE = re.compile(
+    r"\b(html|css|website|web ?page|app|code|script|function|program|react|python|javascript|gallery|component|api|bot|game|caption|alt text|dataset|diagram|chart)\b",
+    re.I)
+
+def is_image_generation_request(message: str) -> bool:
+    m = (message or "").strip()
+    if not m:
+        return False
+    if re.match(r"^/(imagine|image)\b", m, re.I):
+        return True
+    if _NOT_IMAGE_RE.search(m):
+        return False
+    return bool(_IMAGE_GEN_RE.search(m) or re.match(r"^draw\b", m, re.I))
+
+async def generate_image(prompt: str):
+    """Returns (bytes, mime) or None. Tries Gemini first, then the free Pollinations service."""
+    if genai_client and IMAGE_MODEL:
+        try:
+            def _gemini():
+                resp = genai_client.models.generate_content(
+                    model=IMAGE_MODEL, contents=prompt,
+                    config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
+                )
+                for cand in (resp.candidates or []):
+                    for part in (cand.content.parts or []):
+                        inline = getattr(part, "inline_data", None)
+                        if inline and inline.data:
+                            return inline.data, (inline.mime_type or "image/png")
+                return None
+            result = await asyncio.to_thread(_gemini)
+            if result:
+                return result
+        except Exception as e:
+            print(f"[IMAGE] Gemini failed: {str(e)[:200]}")
+    try:
+        url = "https://image.pollinations.ai/prompt/" + quote(prompt) + "?width=1024&height=1024&nologo=true"
+        async with httpx.AsyncClient(timeout=70, follow_redirects=True) as client:
+            r = await client.get(url)
+        ctype = (r.headers.get("content-type") or "").split(";")[0].strip()
+        if r.status_code == 200 and ctype.startswith("image/") and len(r.content) > 2000:
+            return r.content, ctype
+    except Exception as e:
+        print(f"[IMAGE] Pollinations failed: {str(e)[:200]}")
+    return None
+
+def _record_asset(val: str, file_name: str, rel_path: str, mime: str):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO assets (user_email, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)",
+                            (val, file_name, rel_path, mime))
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error saving asset to DB: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+# =====================================================================
+# [NEW] API: settings / memory / pin / rename / feedback / branch / share / export / delete
+# =====================================================================
+@app.get("/api/settings")
+async def api_get_settings(request: Request):
+    col, val = get_identifier(request)
+    st = get_user_settings(val)
+    return {"custom_instructions": st["custom_instructions"], "memory_enabled": bool(st["memory_enabled"]), "memories": st["memories"]}
+
+@app.post("/api/settings")
+async def api_save_settings(request: Request):
+    col, val = get_identifier(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Bad request"}, status_code=400)
+    st = get_user_settings(val)
+    if "custom_instructions" in body:
+        st["custom_instructions"] = str(body["custom_instructions"])[:1500]
+    if "memory_enabled" in body:
+        st["memory_enabled"] = bool(body["memory_enabled"])
+    save_user_settings(val, st)
+    return {"status": "success"}
+
+@app.post("/api/memory")
+async def api_add_memory(request: Request):
+    col, val = get_identifier(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Bad request"}, status_code=400)
+    if not add_memory(val, str(body.get("text", ""))):
+        return JSONResponse({"error": "Write a little more than that."}, status_code=400)
+    return {"status": "success", "memories": get_user_settings(val)["memories"]}
+
+@app.delete("/api/memory/{memory_id}")
+async def api_delete_memory(request: Request, memory_id: str):
+    col, val = get_identifier(request)
+    st = get_user_settings(val)
+    st["memories"] = [m for m in st["memories"] if m.get("id") != memory_id]
+    save_user_settings(val, st)
+    return {"status": "success", "memories": st["memories"]}
+
+@app.delete("/api/memory")
+async def api_clear_memory(request: Request):
+    col, val = get_identifier(request)
+    st = get_user_settings(val)
+    st["memories"] = []
+    save_user_settings(val, st)
+    return {"status": "success", "memories": []}
+
+@app.post("/api/rename-session")
+async def api_rename_session(request: Request, session_id: str = Form(...), title: str = Form(...)):
+    col, val = get_identifier(request)
+    title = " ".join(title.split())[:60]
+    if not title:
+        return JSONResponse({"error": "Title can't be empty"}, status_code=400)
+    msgs, _old = get_chat_record(val, session_id)
+    save_chat_history(user_email=val, chat_id=str(session_id), title=title, messages=msgs)
+    return {"status": "success", "title": title}
+
+@app.post("/api/pin-session")
+async def api_pin_session(request: Request, session_id: str = Form(...), pinned: str = Form("1")):
+    col, val = get_identifier(request)
+    set_pinned(val, str(session_id), pinned == "1")
+    return {"status": "success"}
+
+@app.post("/api/feedback")
+async def api_feedback(request: Request, session_id: str = Form(...), message_index: int = Form(...), value: str = Form(...)):
+    col, val = get_identifier(request)
+    msgs, title = get_chat_record(val, session_id)
+    if message_index < 0 or message_index >= len(msgs) or msgs[message_index].get("role") != "assistant":
+        return JSONResponse({"error": "Message not found"}, status_code=400)
+    if value in ("up", "down"):
+        msgs[message_index]["feedback"] = value
+    else:
+        msgs[message_index].pop("feedback", None)
+    save_chat_history(user_email=val, chat_id=str(session_id), title=title, messages=msgs)
+    return {"status": "success"}
+
+@app.post("/api/branch-session")
+async def api_branch_session(request: Request, session_id: str = Form(...), upto_index: int = Form(...)):
+    """Edit-a-message: copy the chat up to (not including) that message into a NEW chat.
+    The original conversation is left untouched."""
+    col, val = get_identifier(request)
+    msgs, title = get_chat_record(val, session_id)
+    if upto_index < 0 or upto_index > len(msgs):
+        return JSONResponse({"error": "Message not found"}, status_code=400)
+    kept = [{k: v for k, v in m.items() if k != "feedback"} for m in msgs[:upto_index]]
+    new_id = str(uuid.uuid4())
+    new_title = ((title or "New Chat") + " (edited)")[:60]
+    save_chat_history(user_email=val, chat_id=new_id, title=new_title, messages=kept)
+    return {"session_id": new_id, "title": new_title}
+
+@app.post("/api/share-session")
+async def api_share_session(request: Request, session_id: str = Form(...)):
+    col, val = get_identifier(request)
+    if rate_limited(f"share:{client_ip(request)}", 20, 60):
+        return JSONResponse({"error": "Too many requests. Try again in a minute."}, status_code=429)
+    msgs, title = get_chat_record(val, session_id)
+    if not msgs:
+        return JSONResponse({"error": "Send a message first, then share the chat."}, status_code=400)
+    snapshot = [{"role": m.get("role"), "content": m.get("content", "")} for m in msgs]
+    share_id = create_or_update_share(val, str(session_id), title, snapshot)
+    return {"url": f"/s/{share_id}"}
+
+@app.post("/api/unshare-session")
+async def api_unshare_session(request: Request, session_id: str = Form(...)):
+    col, val = get_identifier(request)
+    delete_share_for_chat(val, str(session_id))
+    return {"status": "success"}
+
+@app.get("/s/{share_id}", response_class=HTMLResponse)
+async def view_shared_chat(share_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{6,40}", share_id):
+        return HTMLResponse("<h3>Link not found.</h3>", status_code=404)
+    data = get_share(share_id)
+    if not data:
+        return HTMLResponse("<h3>This shared chat doesn't exist or was removed.</h3>", status_code=404)
+    blocks = []
+    for m in data["messages"]:
+        role = "user" if m.get("role") == "user" else "assistant"
+        label = "You" if role == "user" else "Ranen"
+        blocks.append(f"<div class='msg {role}'><div class='who'>{label}</div>{_render_share_text(m.get('content', ''))}</div>")
+    title = html_lib.escape(data["title"])
+    return HTMLResponse(f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>{title} - Ranen</title>
+<style>
+body{{background:#000;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;line-height:1.65}}
+.wrap{{max-width:760px;margin:0 auto;padding:28px 18px 80px}}
+h1{{font-size:1.25rem;margin:0 0 4px}} .sub{{color:#9ca3af;font-size:.8rem;margin-bottom:22px}}
+.msg{{border:1px solid #232326;border-radius:18px;padding:14px 16px;margin-bottom:12px;background:#111113}}
+.msg.user{{background:#1c1c1f}} .who{{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:6px}}
+.t{{white-space:pre-wrap;word-wrap:break-word}} pre{{background:#0a0a0b;border:1px solid #232326;border-radius:12px;padding:12px;overflow:auto;font-size:.82rem}}
+img{{max-width:100%;border-radius:14px;margin-top:8px}} a{{color:#60a5fa}}
+.cta{{display:inline-block;margin-top:18px;padding:10px 18px;border-radius:999px;background:#fff;color:#000;text-decoration:none;font-weight:700}}
+</style></head><body><div class="wrap">
+<h1>{title}</h1><div class="sub">A shared conversation from Ranen (read-only)</div>
+{''.join(blocks)}
+<a class="cta" href="/">Try Ranen</a></div></body></html>""")
+
+@app.get("/api/export")
+async def api_export(request: Request):
+    col, val = get_identifier(request)
+    if rate_limited(f"export:{client_ip(request)}", 5, 60):
+        return JSONResponse({"error": "Too many requests"}, status_code=429)
+    chats = []
+    for row in _list_chat_rows(val):
+        msgs, title = get_chat_record(val, row["id"])
+        chats.append({"id": row["id"], "title": title, "messages": msgs})
+    st = get_user_settings(val)
+    payload = {
+        "exported_at": datetime.now().isoformat(),
+        "app": "Ranen",
+        "settings": {"custom_instructions": st["custom_instructions"], "memory_enabled": st["memory_enabled"], "memories": st["memories"]},
+        "chats": chats,
+    }
+    return JSONResponse(payload, headers={"Content-Disposition": 'attachment; filename="ranen-export.json"'})
+
+@app.post("/api/delete-account")
+async def api_delete_account(request: Request, confirm: str = Form("")):
+    col, val = get_identifier(request)
+    if confirm != "DELETE":
+        return JSONResponse({"error": "Type DELETE to confirm."}, status_code=400)
+    rows = _list_chat_rows(val)
+    for row in rows:
+        mongo_delete_chat(val, row["id"])
+    file_paths = []
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT file_path FROM assets WHERE user_email = %s", (val,))
+                file_paths = [r["file_path"] for r in cur.fetchall()]
+                for table in ("user_chats", "gems", "assets", "user_settings", "shared_chats"):
+                    owner_col = "owner" if table == "shared_chats" else "user_email"
+                    cur.execute(f"DELETE FROM {table} WHERE {owner_col} = %s", (val,))
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"DELETE ACCOUNT ERROR: {e}")
+            try:
+                conn.close()
+            except Exception:
+                pass
+    for fp in file_paths:
+        try:
+            path = os.path.join(UPLOAD_DIR, os.path.basename(fp or ""))
+            if os.path.isfile(path):
+                os.remove(path)
+        except Exception:
+            pass
+    local = load_local_chats()
+    if val in local:
+        del local[val]
+        save_local_chats(local)
+    all_settings = _load_json_file(SETTINGS_FILE)
+    if val in all_settings:
+        del all_settings[val]
+        _save_json_file(SETTINGS_FILE, all_settings)
+    shares = _load_json_file(SHARES_FILE)
+    gone = [sid for sid, rec in shares.items() if rec.get("owner") == val]
+    for sid in gone:
+        shares.pop(sid, None)
+    if gone:
+        _save_json_file(SHARES_FILE, shares)
+    request.session.clear()
+    return {"status": "deleted"}
+
 # --- ROUTES ---
 @app.get("/google0b211ab21a1539ad.html", response_class=HTMLResponse)
 async def google_verification():
@@ -499,6 +1068,7 @@ async def robots_txt():
         "Disallow: /admin\n"
         "Disallow: /api/\n"
         "Disallow: /auth/\n"
+        "Disallow: /s/\n"
         "\n"
         "Sitemap: https://ranen.duckdns.org/sitemap.xml\n"
     )
@@ -519,7 +1089,7 @@ async def serve_frontend(request: Request):
     response.headers["Cache-Control"] = "no-store, max-age=0"
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
-        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
+        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True, samesite="lax", secure=bool(os.getenv("RENDER")))
     return response
 
 LEGAL_PAGE_STYLE = """
@@ -634,7 +1204,7 @@ async def privacy_page():
     <ul>
         <li>You can delete individual chats at any time from the sidebar.</li>
         <li>You can use Ranen as a guest without creating an account.</li>
-        <li>You can request full deletion of your stored data by contacting us (see below).</li>
+        <li>You can export or permanently delete all your data yourself from Personalization inside Ranen, or contact us (see below).</li>
     </ul>
 
     <h2>7. Children's Privacy</h2>
@@ -936,6 +1506,8 @@ async def firebase_auth_proxy(kind: str, path: str, request: Request):
 
 @app.post("/auth/firebase")
 async def firebase_login(request: Request):
+    if rate_limited(f"login:{client_ip(request)}", 10, 60):
+        return JSONResponse({"error": "Too many login attempts. Wait a minute."}, status_code=429)
     if not firebase_ready:
         return JSONResponse({"error": "Firebase is not configured on the server"}, status_code=500)
     try:
@@ -989,7 +1561,7 @@ async def switch_to_guest_mode(request: Request):
     response = JSONResponse(content={"status": "success"})
     if not request.cookies.get("guest_id"):
         guest_id = str(uuid.uuid4())
-        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True)
+        response.set_cookie(key="guest_id", value=guest_id, max_age=31536000, httponly=True, samesite="lax", secure=bool(os.getenv("RENDER")))
     return response
 
 @app.get("/api/sessions")
@@ -1002,7 +1574,7 @@ async def get_user_sessions(request: Request):
                 cur.execute("SELECT chat_id, title FROM user_chats WHERE user_email = %s ORDER BY updated_at DESC NULLS LAST, created_at DESC", (val,))
                 rows = cur.fetchall()
             conn.close()
-            return [{"id": r["chat_id"], "title": r.get("title") or "Untitled Chat", "is_pinned": 0} for r in rows]
+            return _apply_pins(val, [{"id": r["chat_id"], "title": r.get("title") or "Untitled Chat", "is_pinned": 0} for r in rows])
         except Exception as e:
             print(f"DATABASE FETCH SESSIONS ERROR: {e}")
             try:
@@ -1013,11 +1585,11 @@ async def get_user_sessions(request: Request):
     # Neon unreachable -> try MongoDB Atlas, then the local file
     mongo_rows = mongo_list_chats(val)
     if mongo_rows:
-        return mongo_rows
+        return _apply_pins(val, mongo_rows)
 
     local_chats = load_local_chats()
     user_data = local_chats.get(val, {})
-    return [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()]
+    return _apply_pins(val, [{"id": cid, "title": info["title"], "is_pinned": 0} for cid, info in user_data.items()])
 
 def _make_search_snippet(content: str, query_lower: str, context_chars: int = 40) -> str:
     idx = content.lower().find(query_lower)
@@ -1127,6 +1699,11 @@ async def delete_session(request: Request, session_id: str):
 
     # remove the Atlas copy too
     mongo_delete_chat(val, session_id)
+    delete_share_for_chat(val, str(session_id))
+    try:
+        set_pinned(val, str(session_id), False)
+    except Exception:
+        pass
 
     conn = get_db_connection()
     if conn:
@@ -1644,6 +2221,64 @@ async def _generate_with_fallback(system_prompt, recent_history, effective_messa
 
     raise RuntimeError(" || ".join(errors))
 
+async def _stream_groq(model, messages_payload, complex_mode=False):
+    """Yields text pieces from Groq as they are produced."""
+    kw = _groq_kwargs(model, complex_mode)
+    loop = asyncio.get_running_loop()
+    q = asyncio.Queue()
+    stop = threading.Event()
+
+    def worker():
+        try:
+            stream = groq_client.chat.completions.create(model=model, messages=messages_payload, stream=True, **kw)
+            for chunk in stream:
+                if stop.is_set():
+                    break
+                if not chunk.choices:
+                    continue
+                piece = getattr(chunk.choices[0].delta, "content", None)
+                if piece:
+                    loop.call_soon_threadsafe(q.put_nowait, ("d", piece))
+            loop.call_soon_threadsafe(q.put_nowait, ("end", None))
+        except Exception as e:
+            loop.call_soon_threadsafe(q.put_nowait, ("err", e))
+
+    threading.Thread(target=worker, daemon=True).start()
+    try:
+        while True:
+            kind, value = await q.get()
+            if kind == "d":
+                yield value
+            elif kind == "end":
+                return
+            else:
+                raise value
+    finally:
+        stop.set()
+
+async def _stream_with_fallback(system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode=False):
+    """Streams from Groq (trying each model). Images / failures fall back to the normal non-streaming chain."""
+    if not is_image and groq_client:
+        payload = [{"role": "system", "content": system_prompt}]
+        for msg in recent_history[:-1]:
+            payload.append({"role": msg["role"], "content": msg["content"]})
+        payload.append({"role": "user", "content": effective_message})
+        for model in GROQ_MODELS:
+            got = False
+            try:
+                async for piece in _stream_groq(model, payload, complex_mode):
+                    got = True
+                    yield piece
+                if got:
+                    print(f"[SERVED BY] groq/{model} (stream, complex={complex_mode})")
+                    return
+            except Exception as e:
+                print(f"[GROQ STREAM ERROR on {model}]: {str(e)[:300]}")
+                if got:
+                    return  # keep the partial answer we already sent
+    text = await _generate_with_fallback(system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode)
+    yield text
+
 BUSY_MESSAGE = "Ranen is a bit overloaded right now. Please try again in a minute."
 
 @app.post("/api/chat")
@@ -1653,12 +2288,28 @@ async def chat_with_assistant(
     message: str = Form(""),
     files: List[UploadFile] = File(default=[]),
     model_choice: str = Form("groq:openai/gpt-oss-120b"),
-    gem_prompt: Optional[str] = Form(None)
+    gem_prompt: Optional[str] = Form(None),
+    stream: str = Form("")
 ):
     col, val = get_identifier(request)
 
+    if rate_limited(f"chat:{client_ip(request)}", 30, 60):
+        return {"response": "You're sending messages too fast. Please wait a minute and try again."}
+    if len(message) > MAX_MESSAGE_CHARS:
+        return {"response": f"That message is too long (limit {MAX_MESSAGE_CHARS} characters). Please shorten it or attach it as a file."}
+    if len([f for f in files if f and f.filename]) > MAX_FILES_PER_MESSAGE:
+        return {"response": f"You can attach up to {MAX_FILES_PER_MESSAGE} files per message."}
+
     if not under_daily_limit(val):
         return {"response": f"You've reached today's limit of {DAILY_MESSAGE_LIMIT} messages — it resets at midnight. Thanks for using Ranen!"}
+
+    # [NEW] user settings: custom instructions + memory ("remember that ..." saves automatically)
+    user_settings = get_user_settings(val)
+    if user_settings.get("memory_enabled", True):
+        _mem = re.match(r"^\s*(?:please\s+)?remember(?:\s+that)?[\s:,\-]+(.{3,300})$", message or "", re.I | re.S)
+        if _mem and add_memory(val, _mem.group(1)):
+            user_settings = get_user_settings(val)
+    user_context = build_user_context(user_settings)
 
     # Neon -> MongoDB Atlas -> local file (a failed read no longer wipes the chat)
     existing_messages, chat_title = get_chat_record(val, session_id)
@@ -1677,6 +2328,16 @@ async def chat_with_assistant(
         f_bytes = await f.read()
         f_mime = f.content_type or "application/octet-stream"
         f_is_image = f_mime.startswith("image/")
+
+        # [SECURITY] size + type checks before anything touches the disk
+        if len(f_bytes) > MAX_UPLOAD_BYTES:
+            return {"response": f"'{f.filename}' is too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)."}
+        _ext = os.path.splitext(f.filename)[1].lower()
+        _image_ok = f_is_image and f_mime in ("image/png", "image/jpeg", "image/gif", "image/webp", "image/heic")
+        if _ext not in ALLOWED_UPLOAD_EXT and not _image_ok:
+            return {"response": f"'{f.filename}' isn't a supported file type. Allowed: images, PDF, txt, md, py, js, html, css, json, csv."}
+        if _ext == ".svg" or f_mime == "image/svg+xml":
+            return {"response": "SVG files aren't accepted for security reasons. Please upload a PNG or JPG instead."}
 
         # Strip any path from the uploaded filename — "../../x" could previously
         # write outside the uploads folder (path traversal).
@@ -1726,6 +2387,32 @@ async def chat_with_assistant(
     recent_history = existing_messages[-12:]
     lower_prompt = message.lower()
 
+    # --- [NEW] Image GENERATION (checked before the old "find me a picture" web search) ---
+    if not attached_names and is_image_generation_request(message):
+        if rate_limited(f"img:{client_ip(request)}", 6, 60):
+            return {"response": "Easy there - wait a minute before making more images."}
+        if get_today_usage(f"img:{val}") >= DAILY_IMAGE_LIMIT:
+            ai_response = f"You've used today's {DAILY_IMAGE_LIMIT} image generations. They reset at midnight."
+        else:
+            prompt_text = re.sub(r"^\s*/(imagine|image)\s*", "", message, flags=re.I).strip()[:500]
+            result = await generate_image(prompt_text)
+            if result:
+                img_bytes, img_mime = result
+                ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}.get(img_mime, ".png")
+                img_name = f"gen_{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(UPLOAD_DIR, img_name), "wb") as fh:
+                    fh.write(img_bytes)
+                _record_asset(val, img_name, f"/uploads/{img_name}", img_mime)
+                increment_today_usage(f"img:{val}")
+                increment_today_usage(val)
+                alt = re.sub(r"[\[\]()]", "", prompt_text)[:80] or "Generated image"
+                ai_response = f"Here's your image:\n\n![{alt}](/uploads/{img_name})"
+            else:
+                ai_response = "I couldn't create that image right now. Try again in a minute or describe it differently."
+        existing_messages.append({"role": "assistant", "content": ai_response})
+        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
+        return {"response": ai_response, "message_index": len(existing_messages) - 1}
+
     # --- Image search interceptor (whole-word match so "image" inside other words doesn't trigger) ---
     image_trigger_words = ["pic", "pics", "picture", "pictures", "image", "images", "photo", "photos"]
     has_image_intent = any(re.search(r'\b' + w + r'\b', lower_prompt) for w in image_trigger_words)
@@ -1771,13 +2458,53 @@ async def chat_with_assistant(
 
         existing_messages.append({"role": "assistant", "content": ai_response})
         save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
-        return {"response": ai_response}
+        return {"response": ai_response, "message_index": len(existing_messages) - 1}
 
     # date + (live web results when the message needs them) + uploaded file text
     effective_message = await build_effective_message(message, file_text_content)
 
-    system_prompt = build_system_prompt(gem_prompt)
+    system_prompt = build_system_prompt(gem_prompt) + user_context
     complex_mode = is_complex_request(message)
+
+    # [NEW] Streaming: the answer is sent piece by piece (newline-delimited JSON)
+    if stream:
+        async def _event_stream():
+            full = ""
+            completed = False
+            try:
+                try:
+                    async for piece in _stream_with_fallback(
+                        system_prompt, recent_history, effective_message, is_image, file_bytes, mime_type, complex_mode
+                    ):
+                        full += piece
+                        yield json.dumps({"type": "delta", "text": piece}) + "\n"
+                    ok = bool(full.strip())
+                except Exception as e:
+                    print(f"ALL PROVIDERS FAILED (stream): {e}")
+                    ok = bool(full.strip())
+                if not ok:
+                    full = BUSY_MESSAGE
+                    yield json.dumps({"type": "delta", "text": BUSY_MESSAGE}) + "\n"
+                else:
+                    increment_today_usage(val)
+                title_now = chat_title
+                if is_first_message and ok:
+                    smart = await _generate_smart_title(message, full)
+                    if smart:
+                        title_now = smart
+                existing_messages.append({"role": "assistant", "content": full})
+                save_chat_history(user_email=val, chat_id=str(session_id), title=title_now, messages=existing_messages)
+                completed = True
+                yield json.dumps({"type": "done", "response": full, "message_index": len(existing_messages) - 1, "title": title_now}) + "\n"
+            finally:
+                if not completed and full.strip():
+                    try:
+                        existing_messages.append({"role": "assistant", "content": full})
+                        save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
+                    except Exception as e:
+                        print(f"STREAM SAVE ERROR: {e}")
+        return StreamingResponse(_event_stream(), media_type="application/x-ndjson",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     succeeded = True
     try:
@@ -1800,7 +2527,7 @@ async def chat_with_assistant(
 
     existing_messages.append({"role": "assistant", "content": ai_response})
     save_chat_history(user_email=val, chat_id=str(session_id), title=chat_title, messages=existing_messages)
-    return {"response": ai_response}
+    return {"response": ai_response, "message_index": len(existing_messages) - 1}
 
 @app.post("/api/regenerate")
 async def regenerate_response(
@@ -1832,7 +2559,7 @@ async def regenerate_response(
         return JSONResponse(status_code=400, content={"error": "No user message found to regenerate from."})
 
     recent_history = existing_messages[-12:]
-    system_prompt = build_system_prompt(gem_prompt)
+    system_prompt = build_system_prompt(gem_prompt) + build_user_context(get_user_settings(val))
 
     # regenerate also gets the date, live search and the complex-problem boost when needed
     effective_message = await build_effective_message(last_user_message)
@@ -1873,7 +2600,8 @@ async def live_call_websocket(websocket: WebSocket):
         await websocket.close()
         return
 
-    live_config = {"response_modalities": ["AUDIO"], "system_instruction": DEFAULT_SYSTEM_PROMPT}
+    live_config = {"response_modalities": ["AUDIO"],
+                   "system_instruction": DEFAULT_SYSTEM_PROMPT + build_user_context(get_user_settings(ws_identifier))}
 
     try:
         async with genai_client.aio.live.connect(model=LIVE_CALL_MODEL, config=live_config) as session:
