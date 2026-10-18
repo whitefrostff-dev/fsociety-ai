@@ -630,6 +630,10 @@
                     <i class="fa-solid fa-user-secret"></i>
                 </button>
 
+                <button onclick="shareCurrentChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Share this chat as a link">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
+
                 <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
                     <i class="fa-solid fa-download"></i>
                 </button>
@@ -683,6 +687,10 @@
                             <i class="fa-solid fa-paperclip"></i>
                         </label>
                         <input id="file-upload" type="file" multiple accept="image/*,.txt,.pdf,.py,.js,.html,.css,.json,.md,.csv" class="hidden" onchange="handleFileSelect(event)">
+
+                        <button type="button" onclick="startImagePrompt()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-pink-400" title="Create an image">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </button>
 
                         <button type="button" onclick="startCallMode()" class="p-1.5 md:p-2 hover:bg-green-900/30 rounded-full text-sm transition-colors text-green-400" title="Start a live voice call with Ranen">
                             <i class="fa-solid fa-phone"></i>
@@ -740,7 +748,7 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col p-3 md:p-4">
-            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build d · waiting for code...</div>
+            <div id="artifact-status" class="text-[10px] text-gray-500 mb-2 flex-shrink-0">build e · waiting for code...</div>
             <div id="artifact-code-view" class="flex-1 overflow-auto p-3 rounded-xl border border-[var(--border-color)] font-mono text-[11px] md:text-xs whitespace-pre-wrap">No code artifacts generated yet. Ask Ranen to write code or build an app to inspect it here.</div>
 
             <div id="python-output-panel" class="hidden mt-3 flex-shrink-0 rounded-xl border border-[var(--border-color)] bg-[#0a0a0a] overflow-hidden" style="max-height:40%;">
@@ -2054,11 +2062,9 @@ builtins.input = _input_override
                         ? 'active-session'
                         : 'text-gray-300 hover:bg-[#2a2a2a] hover:text-white';
                     return `
-                        <div data-id="${escapeHtml(s.id)}" data-title="${escapeHtml(safeTitle)}" class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors group ${activeClasses}" onclick="loadSession(this.dataset.id, this.dataset.title)">
-                            <span class="truncate pr-2">${escapeHtml(safeTitle)}</span>
-                            <button onclick="deleteSession(event, this.closest('[data-id]').dataset.id)" title="Delete chat" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-gray-400 transition-opacity">
-                                <i class="fa-solid fa-trash-can text-xs"></i>
-                            </button>
+                        <div data-id="${escapeHtml(s.id)}" data-title="${escapeHtml(safeTitle)}" data-pinned="${s.is_pinned ? 1 : 0}" class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-full cursor-pointer text-sm transition-colors group ${activeClasses}" onclick="loadSession(this.dataset.id, this.dataset.title)">
+                            <span class="truncate pr-2">${s.is_pinned ? '<i class="fa-solid fa-thumbtack text-[10px] mr-1 text-amber-400"></i>' : ''}${escapeHtml(safeTitle)}</span>
+                            <button onclick="openChatMenu(event, this.closest('[data-id]'))" title="Chat options" class="p-1.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"><i class="fa-solid fa-ellipsis"></i></button>
                         </div>
                     `;
                 }).join('');
@@ -2240,7 +2246,7 @@ builtins.input = _input_override
             if (messages.length === 0) {
                 renderEmptyState();
             } else {
-                messages.forEach((m, idx) => renderMessage(m.role, m.content, false, idx));
+                messages.forEach((m, idx) => renderMessage(m.role, m.content, false, idx, m.feedback));
                 container.scrollTop = container.scrollHeight;
             }
             fetchSessions();
@@ -2552,6 +2558,7 @@ builtins.input = _input_override
             formData.append('model_choice', activeModelValue);
             if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
             selectedFiles.forEach(f => formData.append('files', f));
+            formData.append('stream', '1');
 
             input.value = '';
             clearAttachment();
@@ -2564,9 +2571,17 @@ builtins.input = _input_override
             try {
                 const res = await fetch('/api/chat', { method: 'POST', body: formData, signal: currentAbortController.signal });
                 if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-                const data = await res.json();
-                hideThinkingIndicator();
-                renderMessage('assistant', data.response, true);
+                const ctype = res.headers.get('content-type') || '';
+                if (ctype.includes('ndjson')) {
+                    await readChatStream(res);
+                } else {
+                    const data = await res.json();
+                    hideThinkingIndicator();
+                    renderMessage('assistant', data.response, true);
+                    if (typeof data.message_index === 'number') {
+                        tagMessagePair(document.getElementById('messages-container').lastElementChild, data.message_index);
+                    }
+                }
                 await fetchSessions();
             } catch (error) {
                 hideThinkingIndicator();
@@ -2600,7 +2615,7 @@ builtins.input = _input_override
             }
         }
 
-        function renderMessage(role, content, shouldScroll = true, msgIndex = null) {
+        function renderMessage(role, content, shouldScroll = true, msgIndex = null, feedback = null) {
             const container = document.getElementById('messages-container');
             const welcomeScreen = document.getElementById('welcome-screen');
             if (welcomeScreen) welcomeScreen.remove();
@@ -2649,6 +2664,8 @@ builtins.input = _input_override
                                 <button onclick="copyToClipboard(this)" title="Copy text"><i class="fa-regular fa-copy"></i></button>
                                 <button onclick="speakMessage(this)" title="Read aloud"><i class="fa-solid fa-volume-high"></i></button>
                                 <button onclick="regenerateResponse(this)" title="Regenerate response"><i class="fa-solid fa-rotate-right"></i></button>
+                                <button class="fb-btn" onclick="sendFeedback(this, 'up')" title="Good response"><i class="fa-regular fa-thumbs-up"></i></button>
+                                <button class="fb-btn" onclick="sendFeedback(this, 'down')" title="Bad response"><i class="fa-regular fa-thumbs-down"></i></button>
                             </div>
                         </div>
                     </div>
@@ -2658,6 +2675,7 @@ builtins.input = _input_override
             // insertAdjacentHTML instead of innerHTML += : the old way re-parsed the whole
             // chat on every message (slow) and wiped any message still being typed out.
             container.insertAdjacentHTML('beforeend', msgHtml);
+            if (!isUser && feedback) applyFeedbackState(container.lastElementChild, feedback);
             if (shouldScroll) container.scrollTop = container.scrollHeight;
 
             if (shouldAnimate) {
@@ -2717,6 +2735,7 @@ builtins.input = _input_override
                 lastAssistantRawContent = data.response;
                 extractCodeForArtifacts(data.response);
                 const newHtml = marked.parse(data.response);
+                applyFeedbackState(assistantContent.closest('.assistant-msg-container'), null);
                 proseEl.innerHTML = '';
                 typewriterReveal(proseEl, newHtml, container);
                 await fetchSessions();
@@ -2728,10 +2747,110 @@ builtins.input = _input_override
             }
         }
 
-        function editUserMessage(btn) {
+        // ---- message index tagging (needed for thumbs and edit/branch) ----
+        function tagMessagePair(assistantEl, assistantIdx) {
+            if (!assistantEl || typeof assistantIdx !== 'number') return;
+            assistantEl.dataset.msgIndex = assistantIdx;
+            let prev = assistantEl.previousElementSibling;
+            while (prev && !prev.classList.contains('user-msg-container')) prev = prev.previousElementSibling;
+            if (prev) prev.dataset.msgIndex = assistantIdx - 1;
+        }
+
+        // ---- streaming: the reply appears word by word ----
+        async function readChatStream(res) {
+            hideThinkingIndicator();
+            const container = document.getElementById('messages-container');
+            renderMessage('assistant', '', true, null);
+            const msgEl = container.lastElementChild;
+            const proseEl = msgEl.querySelector('.prose');
+            proseEl.innerHTML = '';
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '', full = '', done = null, pending = false;
+            const paint = () => {
+                pending = false;
+                proseEl.innerHTML = marked.parse(full);
+                container.scrollTop = container.scrollHeight;
+            };
+            try {
+                while (true) {
+                    const { value, done: finished } = await reader.read();
+                    if (finished) break;
+                    buf += decoder.decode(value, { stream: true });
+                    let nl;
+                    while ((nl = buf.indexOf('\n')) >= 0) {
+                        const line = buf.slice(0, nl).trim();
+                        buf = buf.slice(nl + 1);
+                        if (!line) continue;
+                        let evt;
+                        try { evt = JSON.parse(line); } catch (e) { continue; }
+                        if (evt.type === 'delta') {
+                            full += evt.text;
+                            if (!pending) { pending = true; requestAnimationFrame(paint); }
+                        } else if (evt.type === 'done') {
+                            done = evt;
+                        }
+                    }
+                }
+            } catch (err) {
+                proseEl.innerHTML = marked.parse(full || '*...*');   // stopped or connection lost: keep what we have
+                throw err;
+            }
+            const finalText = done ? done.response : full;
+            proseEl.innerHTML = marked.parse(finalText);
+            lastAssistantRawContent = finalText;
+            extractCodeForArtifacts(finalText);
+            if (done && typeof done.message_index === 'number') tagMessagePair(msgEl, done.message_index);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ---- thumbs up / down ----
+        function applyFeedbackState(msgEl, value) {
+            if (!msgEl) return;
+            msgEl.dataset.feedback = value || '';
+            const btns = msgEl.querySelectorAll('.fb-btn');
+            if (btns.length < 2) return;
+            btns[0].innerHTML = value === 'up' ? '<i class="fa-solid fa-thumbs-up text-green-400"></i>' : '<i class="fa-regular fa-thumbs-up"></i>';
+            btns[1].innerHTML = value === 'down' ? '<i class="fa-solid fa-thumbs-down text-red-400"></i>' : '<i class="fa-regular fa-thumbs-down"></i>';
+        }
+
+        async function sendFeedback(btn, value) {
+            const msgEl = btn.closest('.assistant-msg-container');
+            const idx = msgEl ? msgEl.dataset.msgIndex : undefined;
+            if (!currentSessionId || idx === undefined || idx === '') {
+                if (window.RX) RX.toast('Reload the chat first, then rate this reply.');
+                return;
+            }
+            const next = (msgEl.dataset.feedback === value) ? 'none' : value;
+            applyFeedbackState(msgEl, next === 'none' ? null : next);
+            try {
+                const fd = new FormData();
+                fd.append('session_id', currentSessionId);
+                fd.append('message_index', idx);
+                fd.append('value', next);
+                await fetch('/api/feedback', { method: 'POST', body: fd });
+            } catch (e) { console.error(e); }
+        }
+
+        // ---- edit a message: copies the chat up to that point into a NEW chat, original stays safe ----
+        async function editUserMessage(btn) {
             const wrapper = btn.closest('.flex.flex-col');
-            const rawText = wrapper.querySelector('.raw-user-text').textContent;
+            const rawText = wrapper.querySelector('.raw-user-text').textContent.replace(/\s*\[Attached Files?: .*?\]\s*$/s, '');
             const input = document.getElementById('user-input');
+            const row = btn.closest('.user-msg-container');
+            const idx = row ? row.dataset.msgIndex : undefined;
+            if (currentSessionId && idx !== undefined && idx !== '') {
+                try {
+                    const fd = new FormData();
+                    fd.append('session_id', currentSessionId);
+                    fd.append('upto_index', idx);
+                    const res = await fetch('/api/branch-session', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+                    await loadSession(data.session_id, data.title);
+                    if (window.RX) RX.toast('Edit your message and send. Your original chat is unchanged.');
+                } catch (e) { console.error(e); }
+            }
             input.value = rawText;
             input.focus();
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3152,7 +3271,7 @@ builtins.input = _input_override
 
                 document.getElementById('artifact-code-view').innerText = latestExtractedCode;
                 const _st = document.getElementById('artifact-status');
-                if (_st) _st.textContent = 'build d · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
+                if (_st) _st.textContent = 'build e · updated ' + new Date().toLocaleTimeString() + ' · ' + latestExtractedCode.split('\n').length + ' lines · ' + (latestCodeLanguage || 'code');
                 console.log('[Ranen] artifact updated', latestCodeLanguage, latestExtractedCode.length + ' chars');
                 document.getElementById('edit-code-btn').classList.remove('hidden');
                 if (isPythonCode()) {
@@ -3873,9 +3992,176 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     const fn = ACTS[b.dataset.act]; if (fn) fn(b, e);
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeAllPages(); } });
+  window.RX = { sheet, closeSheet, toast, makePage, openPage, closePage, closeAllPages, ACTS };
 })();
 </script>
 <!-- ===== END RANEN UPGRADE ===== -->
+
+<!-- ===== RANEN UPGRADE 2: personalization, memory, sharing, chat menu, images, data controls ===== -->
+<style>
+.fb-btn i{font-size:12px}
+.rx-link{width:100%;background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;padding:12px 14px;color:var(--text-main);font-size:.85rem;margin-bottom:10px;outline:0}
+.rx-mem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border-color);border-radius:14px;margin-top:8px;font-size:.88rem}
+.rx-mem button{color:var(--text-muted);padding:4px 8px}
+</style>
+<script>
+(function () {
+  'use strict';
+  const RX = window.RX;
+  if (!RX) return;
+  const $ = id => document.getElementById(id);
+  const esc = s => escapeHtml(s);
+  const ACTS = RX.ACTS;
+
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    let d = null;
+    try { d = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+    return d;
+  }
+  function form(obj) { const fd = new FormData(); Object.keys(obj).forEach(k => fd.append(k, obj[k])); return fd; }
+  function copyText(t) { try { navigator.clipboard.writeText(t); } catch (e) {} }
+
+  /* ---------- Personalization page ---------- */
+  const page = RX.makePage('rx-personal', 'Personalization', '');
+  let S = { custom_instructions: '', memory_enabled: true, memories: [] };
+
+  function render() {
+    page.querySelector('.rx-body').innerHTML =
+      '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Custom instructions</div>' +
+      '<div class="rx-sub">Tell Ranen how you want it to answer. It is used in every new message.</div>' +
+      '<textarea id="rx-ci" class="rx-field" rows="5" maxlength="1500" style="margin-top:10px" placeholder="e.g. Call me Tom. Keep answers short. I am learning Python.">' + esc(S.custom_instructions) + '</textarea>' +
+      '<button class="rx-btn" data-act="u-save-ci">Save</button></div>' +
+
+      '<div class="rx-card" style="cursor:default"><div class="rx-row"><div><div class="rx-card-t">Memory</div>' +
+      '<div class="rx-sub">Ranen remembers what you tell it. Try: "Remember that I study cybersecurity".</div></div>' +
+      '<div class="rx-switch ' + (S.memory_enabled ? 'on' : '') + '" data-act="u-toggle-mem"></div></div>' +
+      (S.memories.length ? S.memories.map(m => '<div class="rx-mem"><span>' + esc(m.text) + '</span><button data-act="u-del-mem" data-id="' + esc(m.id) + '" aria-label="Forget"><i class="fa-solid fa-xmark"></i></button></div>').join('')
+        : '<div class="rx-sub" style="margin-top:10px">Nothing saved yet.</div>') +
+      '<div class="rx-bar" style="margin-top:12px"><input id="rx-mem-in" placeholder="Add something to remember" maxlength="300" autocomplete="off"><button data-act="u-add-mem" aria-label="Add"><i class="fa-solid fa-plus"></i></button></div>' +
+      (S.memories.length ? '<button class="rx-btn ghost danger" style="margin-top:12px" data-act="u-clear-mem">Clear all memory</button>' : '') + '</div>' +
+
+      '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Your data</div>' +
+      '<div class="rx-sub">Download everything Ranen has stored for you, or erase it all.</div>' +
+      '<div class="rx-actions" style="margin-top:12px"><button class="rx-btn ghost" data-act="u-export">Export my data</button>' +
+      '<button class="rx-btn ghost danger" data-act="u-delete-account">Delete my account and data</button></div></div>';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.target && e.target.id === 'rx-mem-in' && e.key === 'Enter') { e.preventDefault(); ACTS['u-add-mem'](); }
+  });
+
+  Object.assign(ACTS, {
+    async openPersonal() {
+      try { S = await api('/api/settings'); } catch (e) { RX.toast('Could not load settings: ' + e.message); }
+      render(); RX.openPage('rx-personal');
+    },
+    async 'u-save-ci'() {
+      try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ custom_instructions: $('rx-ci').value }) }); S.custom_instructions = $('rx-ci').value; RX.toast('Saved'); }
+      catch (e) { RX.toast('Could not save: ' + e.message); }
+    },
+    async 'u-toggle-mem'() {
+      S.memory_enabled = !S.memory_enabled;
+      try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memory_enabled: S.memory_enabled }) }); } catch (e) { RX.toast(e.message); }
+      render();
+    },
+    async 'u-add-mem'() {
+      const v = ($('rx-mem-in').value || '').trim(); if (!v) return;
+      try { const d = await api('/api/memory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: v }) }); S.memories = d.memories; render(); }
+      catch (e) { RX.toast(e.message); }
+    },
+    async 'u-del-mem'(b) {
+      try { const d = await api('/api/memory/' + encodeURIComponent(b.dataset.id), { method: 'DELETE' }); S.memories = d.memories; render(); } catch (e) { RX.toast(e.message); }
+    },
+    async 'u-clear-mem'() {
+      if (!confirm('Forget everything Ranen remembers about you?')) return;
+      try { await api('/api/memory', { method: 'DELETE' }); S.memories = []; render(); } catch (e) { RX.toast(e.message); }
+    },
+    async 'u-export'() {
+      try {
+        const r = await fetch('/api/export'); if (!r.ok) throw new Error('HTTP ' + r.status);
+        const blob = await r.blob(); const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'ranen-export.json';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+      } catch (e) { RX.toast('Export failed: ' + e.message); }
+    },
+    async 'u-delete-account'() {
+      const t = prompt('This permanently deletes ALL your chats, memory, shared links and uploaded files.\n\nType DELETE to confirm:');
+      if (t !== 'DELETE') return;
+      try {
+        await api('/api/delete-account', { method: 'POST', body: form({ confirm: 'DELETE' }) });
+        Object.keys(localStorage).filter(k => k.startsWith('ranen_') && k !== 'ranen_theme').forEach(k => localStorage.removeItem(k));
+        location.reload();
+      } catch (e) { RX.toast('Could not delete: ' + e.message); }
+    },
+
+    /* ---------- chat options menu ---------- */
+    'c-rename'(b) {
+      RX.closeSheet();
+      const t = prompt('Rename chat', b.dataset.title || ''); if (!t || !t.trim()) return;
+      api('/api/rename-session', { method: 'POST', body: form({ session_id: b.dataset.id, title: t.trim() }) })
+        .then(d => { if (currentSessionId === b.dataset.id) { const el = $('current-chat-title'); if (el) el.innerText = d.title; } fetchSessions(); })
+        .catch(e => RX.toast(e.message));
+    },
+    'c-pin'(b) {
+      RX.closeSheet();
+      api('/api/pin-session', { method: 'POST', body: form({ session_id: b.dataset.id, pinned: b.dataset.pinned === '1' ? '0' : '1' }) })
+        .then(() => fetchSessions()).catch(e => RX.toast(e.message));
+    },
+    'c-delete'(b) { RX.closeSheet(); deleteSession({ stopPropagation() {} }, b.dataset.id); },
+    async 'c-share'(b) {
+      RX.closeSheet();
+      try {
+        const d = await api('/api/share-session', { method: 'POST', body: form({ session_id: b.dataset.id }) });
+        const url = location.origin + d.url;
+        const card = RX.sheet('<div class="rx-sheet-t">Share link</div>' +
+          '<div class="rx-sub" style="margin-bottom:10px">Anyone with this link can read this chat (a snapshot, read-only). Share again to update it.</div>' +
+          '<input class="rx-link" readonly value="' + esc(url) + '" onclick="this.select()">' +
+          '<div class="rx-actions"><button class="rx-btn" data-act="s-copy" data-url="' + esc(url) + '">Copy link</button>' +
+          (navigator.share ? '<button class="rx-btn ghost" data-act="s-native" data-url="' + esc(url) + '">Share...</button>' : '') +
+          '<button class="rx-btn ghost danger" data-act="s-stop" data-id="' + esc(b.dataset.id) + '">Stop sharing</button></div>');
+        copyText(url);
+      } catch (e) { RX.toast(e.message); }
+    },
+    's-copy'(b) { copyText(b.dataset.url); RX.toast('Link copied'); },
+    's-native'(b) { navigator.share({ title: 'Ranen chat', url: b.dataset.url }).catch(() => {}); },
+    async 's-stop'(b) {
+      try { await api('/api/unshare-session', { method: 'POST', body: form({ session_id: b.dataset.id }) }); RX.closeSheet(); RX.toast('Link removed'); }
+      catch (e) { RX.toast(e.message); }
+    }
+  });
+
+  window.openChatMenu = function (ev, rowEl) {
+    ev.stopPropagation();
+    const id = rowEl.dataset.id, title = rowEl.dataset.title || '', pinned = rowEl.dataset.pinned === '1';
+    const btn = (act, label, extra) => '<button class="rx-btn ghost ' + (extra || '') + '" style="width:100%;margin-bottom:8px;text-align:left" data-act="' + act + '" data-id="' + esc(id) + '" data-title="' + esc(title) + '" data-pinned="' + (pinned ? 1 : 0) + '">' + label + '</button>';
+    RX.sheet('<div class="rx-sheet-t">' + esc(title) + '</div>' +
+      btn('c-rename', '✏️ Rename') + btn('c-pin', pinned ? '📌 Unpin' : '📌 Pin to top') + btn('c-share', '🔗 Share link') + btn('c-delete', '🗑 Delete', 'danger'));
+  };
+
+  window.shareCurrentChat = function () {
+    if (typeof currentSessionId === 'undefined' || !currentSessionId) { RX.toast('Start a chat first'); return; }
+    ACTS['c-share']({ dataset: { id: currentSessionId } });
+  };
+
+  window.startImagePrompt = function () {
+    const i = $('user-input'); i.value = 'Generate an image of '; i.focus();
+    i.setSelectionRange(i.value.length, i.value.length);
+  };
+
+  /* ---------- sidebar button ---------- */
+  const side = document.querySelector('#left-sidebar .space-y-1.mb-6');
+  if (side) {
+    const b = document.createElement('button');
+    b.className = 'w-full text-sm py-2.5 px-3 rounded-xl flex items-center justify-between hover:bg-[#2a2a2a] text-gray-200 transition-colors';
+    b.innerHTML = '<span class="font-medium text-[15px]">Personalization</span><i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>';
+    b.onclick = () => ACTS.openPersonal();
+    side.appendChild(b);
+  }
+})();
+</script>
+<!-- ===== END RANEN UPGRADE 2 ===== -->
 
 </body>
 </html>
