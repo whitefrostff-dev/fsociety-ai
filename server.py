@@ -16,6 +16,8 @@ import json
 import time
 import asyncio
 import secrets
+import hmac
+import hashlib
 from datetime import datetime
 from pydantic import BaseModel
 from groq import Groq
@@ -265,10 +267,17 @@ async def favicon_ico():
 # The old default secret was public on GitHub, which would let anyone forge
 # an admin cookie. Set SESSION_SECRET on your host. If it's missing we generate a
 # random one at startup (safe, but everyone gets logged out on each restart).
-SESSION_SECRET = os.getenv("SESSION_SECRET")
+SESSION_SECRET = (os.getenv("SESSION_SECRET") or "").strip()
 if not SESSION_SECRET:
-    print("[WARNING] SESSION_SECRET is not set — using a random one. Set it in your host's env vars so logins survive restarts.")
-    SESSION_SECRET = secrets.token_urlsafe(48)
+    # A random secret changes on every restart/deploy, which logs everyone out.
+    # So if SESSION_SECRET is missing, derive a STABLE one from another private value on the server.
+    _seed = os.getenv("FIREBASE_SERVICE_ACCOUNT") or os.getenv("DATABASE_URL") or os.getenv("GROQ_API_KEY") or ""
+    if _seed:
+        SESSION_SECRET = hmac.new(b"ranen-session-v1", _seed.encode("utf-8"), hashlib.sha256).hexdigest()
+        print("[INFO] SESSION_SECRET not set - derived a stable one from your other secrets. Setting SESSION_SECRET yourself is still recommended.")
+    else:
+        print("[WARNING] SESSION_SECRET is not set - using a random one. Set it in your host's env vars so logins survive restarts.")
+        SESSION_SECRET = secrets.token_urlsafe(48)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 # Secure cookies when running on Render (HTTPS); stays off for local http testing.
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=bool(os.getenv("RENDER")), same_site="lax")
