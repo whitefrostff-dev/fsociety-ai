@@ -28,6 +28,7 @@
       "@context": "https://schema.org",
       "@type": "Person",
       "name": "Nwodili Yaemerie Convenant",
+      "image": "https://ranen.duckdns.org/nwodili-yaemerie-convenant.jpg",
       "alternateName": ["Ranen", "whitefrostff-dev"],
       "nationality": {
         "@type": "Country",
@@ -46,14 +47,21 @@
         "Cybersecurity",
         "Ethical Hacking",
         "Vulnerability Scanning",
+        "Web Application Security",
+        "Secure Coding",
+        "Linux System Administration",
         "Python",
         "FastAPI",
         "Node.js",
         "JavaScript",
         "Web Development",
-        "Linux System Administration"
+        "PostgreSQL",
+        "MongoDB",
+        "REST APIs",
+        "WebSockets",
+        "Progressive Web Apps"
       ],
-      "description": "Nwodili Yaemerie Convenant is an 18-year-old cybersecurity student and web developer from Anambra State, Nigeria, currently studying at Abia State University. He built Ranen, an AI assistant platform, and practices Judaism.",
+      "description": "Nwodili Yaemerie Convenant is an 18-year-old cybersecurity student and full-stack web developer from Anambra State, Nigeria, studying at Abia State University. He specializes in ethical hacking, vulnerability scanning and secure web development, and built Ranen, an AI assistant platform. He practices Judaism.",
       "sameAs": [
         "https://github.com/whitefrostff-dev"
       ]
@@ -66,7 +74,7 @@
       "name": "Ranen",
       "applicationCategory": "AI Assistant",
       "operatingSystem": "Web",
-      "description": "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant and managed by Tinu Tom. It lets users chat with multiple AI models, generate and edit code, analyze uploaded images and documents, search the web for current information, and make live voice calls to the assistant.",
+      "description": "Ranen is an AI assistant platform built by Nwodili Yaemerie Convenant and managed by Tinu Tom. It lets users chat with multiple AI models, generate and edit code, analyze uploaded images and documents, search the web for current information, schedule recurring tasks, and make live voice calls to the assistant.",
       "creator": {
         "@type": "Person",
         "name": "Nwodili Yaemerie Convenant"
@@ -112,6 +120,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -605,9 +614,9 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full relative min-w-0">
-        <!-- [NEW] Text for search engines and screen readers: who built and who manages Ranen -->
+        <!-- Text for search engines and screen readers: who built and who manages Ranen -->
         <h1 class="sr-only">Ranen, an AI assistant built by Nwodili Yaemerie Convenant and managed by Tinu Tom</h1>
-        <p class="sr-only">Ranen is created by Nwodili Yaemerie Convenant. Tinu Tom is the manager of Ranen. <a href="/about">About Ranen, Nwodili Yaemerie Convenant and Tinu Tom</a>.</p>
+        <p class="sr-only">Ranen is created by Nwodili Yaemerie Convenant, a cybersecurity student and web developer. Tinu Tom is the manager of Ranen. <a href="/about">About Ranen, Nwodili Yaemerie Convenant and Tinu Tom</a>.</p>
 
         <header class="h-16 border-b border-[var(--border-color)] flex items-center justify-between px-3 md:px-6 flex-shrink-0 relative">
             <div class="flex items-center z-10 gap-3">
@@ -620,8 +629,8 @@
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div class="flex flex-col items-center pointer-events-auto leading-tight">
                     <div class="ranen-shining select-none cursor-pointer" onclick="createNewSession()">Ranen</div>
-                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors -mt-1">by Nwodili Yaemerie Convenant</a>
-                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors">Managed by Tinu Tom</a>
+                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors -mt-1 hidden sm:block">by Nwodili Yaemerie Convenant</a>
+                    <a href="/about" class="text-[9px] text-gray-500 hover:text-gray-300 transition-colors hidden sm:block">Managed by Tinu Tom</a>
                 </div>
             </div>
             
@@ -630,11 +639,11 @@
                     <i class="fa-solid fa-user-secret"></i>
                 </button>
 
-                <button onclick="shareCurrentChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Share this chat as a link">
+                <button onclick="shareCurrentChat()" class="hidden sm:inline-flex items-center p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Share this chat as a link">
                     <i class="fa-solid fa-share-nodes"></i>
                 </button>
 
-                <button onclick="exportChat()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
+                <button onclick="exportChat()" class="hidden sm:inline-flex items-center p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Export this chat as Markdown">
                     <i class="fa-solid fa-download"></i>
                 </button>
 
@@ -656,7 +665,7 @@
 
         <div id="messages-container" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 max-w-4xl mx-auto w-full"></div>
 
-        <div class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
+        <div id="composer" class="p-3 md:p-6 max-w-4xl mx-auto w-full flex-shrink-0 relative">
             
             <div id="attachment-preview-container" class="hidden mb-2 flex items-center gap-2 flex-wrap"></div>
 
@@ -665,9 +674,9 @@
                     <span class="text-xs font-semibold text-blue-300"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Drop files to attach</span>
                 </div>
                 
-                <textarea id="user-input" rows="1" placeholder="Ask Ranen..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
+                <textarea id="user-input" rows="1" enterkeyhint="send" placeholder="Ask Ranen..." class="bg-transparent focus:outline-none resize-none w-full text-sm px-2 pt-1 max-h-32 text-white placeholder-gray-500"></textarea>
                 
-                <div class="flex items-center justify-between pt-1 px-1">
+                <div id="tool-bar" class="flex items-center justify-between gap-2 pt-1 px-1">
                     <div class="flex items-center gap-1 md:gap-2">
                         <button type="button" onclick="triggerNativeCamera()" class="p-1.5 md:p-2 hover:bg-[#2a2a2a] rounded-full text-sm transition-colors text-gray-400" title="Take Photo">
                             <i class="fa-solid fa-camera"></i>
@@ -696,8 +705,9 @@
                             <i class="fa-solid fa-phone"></i>
                         </button>
                         
+                        <button type="button" id="deep-btn" onclick="toggleDeep()" class="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-[var(--border-color)] text-gray-300 transition-colors" title="Deep research: searches several angles, reads pages and writes a cited report (uses 3 messages)"><i class="fa-solid fa-microscope"></i><span>Deep</span></button>
                         <button type="button" onclick="openModelModal()" class="flex items-center gap-1 text-[10px] md:text-[11px] px-2 py-1 md:py-1.5 rounded-xl border border-[var(--border-color)] transition-colors hover:bg-gray-800 text-gray-300 bg-[#111] max-w-[120px] sm:max-w-[140px] md:max-w-none">
-                            <span id="current-model-label" class="truncate font-medium">Frost Llama 3.1 (Groq)</span>
+                            <span id="current-model-label" class="truncate font-medium">Frost Reason (GPT-OSS 120B)</span>
                             <i class="fa-solid fa-chevron-down text-[9px] text-gray-500"></i>
                         </button>
                     </div>
@@ -918,7 +928,7 @@
                         </div>
                         <button onclick="addScheduledPrompt()" class="text-[9px] md:text-[10px] px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold transition-colors">+ Add</button>
                     </div>
-                    <p class="text-[9px] text-gray-500 leading-relaxed">Heads up: this only fires while Ranen is open in a browser tab — closing the tab or app pauses it. True always-on scheduling (like ChatGPT's) needs a background server process running independently, which isn't set up yet.</p>
+                    <p class="text-[9px] text-gray-500 leading-relaxed">Heads up: this quick scheduler only fires while Ranen is open in a browser tab. For tasks that run even when the app is closed, use <b>Tasks</b> in the sidebar.</p>
                     <div id="scheduled-list" class="space-y-1 text-xs max-h-28 overflow-y-auto"></div>
                 </div>
             </div>
@@ -954,10 +964,20 @@
                 <div class="w-8"></div>
             </div>
             <div class="space-y-1 overflow-y-auto pr-1">
-                <div onclick="selectModel('groq:llama-3.1-70b-versatile', 'Frost Llama 3.1 (Groq)')" class="model-card p-4 flex items-center justify-between" id="m-groq-llama">
+                <div onclick="selectModel('groq:openai/gpt-oss-120b', 'Frost Reason (GPT-OSS 120B)')" class="model-card p-4 flex items-center justify-between" id="m-groq-oss">
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="model-card-name font-semibold text-[15px]">Frost Llama 3.1</span>
+                            <span class="model-card-name font-semibold text-[15px]">Frost Reason</span>
+                            <span class="badge-tag">Smart</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-0.5">Best for hard problems, math and code</p>
+                    </div>
+                    <i class="fa-solid fa-check text-sm hidden check-icon" style="color: var(--accent);"></i>
+                </div>
+                <div onclick="selectModel('groq:llama-3.3-70b-versatile', 'Frost Llama 3.3 (Groq)')" class="model-card p-4 flex items-center justify-between" id="m-groq-llama">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="model-card-name font-semibold text-[15px]">Frost Llama 3.3</span>
                             <span class="badge-tag">Fast</span>
                         </div>
                         <p class="text-xs text-gray-400 mt-0.5">Great for quick answers and everyday tasks</p>
@@ -1070,6 +1090,11 @@
             return '#';
         }
 
+        // Chart card: the chart itself is drawn later (see "CHARTS IN CHAT" at the bottom of the page)
+        function chartCardHtml(raw) {
+            return `<div class="chart-card" data-chart="${escapeHtml(raw)}"><div class="chart-title">Building chart...</div><canvas></canvas><div class="chart-actions"><button type="button" onclick="downloadChart(this)">&#11015; Download PNG</button></div></div>`;
+        }
+
         marked.use({
             renderer: {
                 // Raw HTML inside messages is shown as text instead of being executed.
@@ -1091,6 +1116,7 @@
                     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline hover:text-blue-300 transition-colors">${linkText}</a>`;
                 },
                 code(token) {
+                    if ((token.lang || '').trim().toLowerCase() === 'chart') return chartCardHtml(token.text || '');
                     const codeText = token.text || '';
                     const lang = token.lang || '';
                     const meta = codeCardMeta(lang);
@@ -1113,7 +1139,7 @@
         let currentChatIsEmpty = true;
         let isTemporaryChat = false;
         let selectedFiles = [];
-        let activeModelValue = "groq:llama-3.1-70b-versatile";
+        let activeModelValue = "groq:openai/gpt-oss-120b";
         let activeGemPrompt = null;
         let latestExtractedCode = "";
         let lastAssistantRawContent = "";
@@ -1958,7 +1984,8 @@ builtins.input = _input_override
                 card.querySelector('.check-icon')?.classList.add('hidden');
             });
             const cardMap = {
-                'groq:llama-3.1-70b-versatile': 'm-groq-llama',
+                'groq:openai/gpt-oss-120b': 'm-groq-oss',
+                'groq:llama-3.3-70b-versatile': 'm-groq-llama',
                 'google:gemini-3.5-flash': 'm-google-flash'
             };
             const activeCard = document.getElementById(cardMap[activeModelValue]);
@@ -2499,7 +2526,16 @@ builtins.input = _input_override
             if (el) el.remove();
         }
 
+        let sendingNow = false;
         async function sendMessage(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (sendingNow) return;
+            sendingNow = true;
+            setTimeout(() => { if (window.RXgrow) window.RXgrow(); }, 60);
+            try { await _sendMessageInner(e); }
+            finally { sendingNow = false; if (window.RXgrow) window.RXgrow(); }
+        }
+        async function _sendMessageInner(e) {
             e.preventDefault();
             const input = document.getElementById('user-input');
             const text = input.value.trim();
@@ -2559,6 +2595,7 @@ builtins.input = _input_override
             if (activeGemPrompt) formData.append('gem_prompt', activeGemPrompt);
             selectedFiles.forEach(f => formData.append('files', f));
             formData.append('stream', '1');
+            if (window.RXDeep && window.RXDeep.on) formData.append('deep', '1');
 
             input.value = '';
             clearAttachment();
@@ -2685,29 +2722,29 @@ builtins.input = _input_override
         }
 
         function typewriterReveal(el, html, scrollContainer, speedMs = 8) {
-            // tags are matched with quoted attributes kept whole (an <img onerror="...<span>..."> used to be cut in half)
-            const tokens = html.match(/<(?:[^>"']|"[^"]*"|'[^']*')*>|[^<]+/g) || [html];
-            const decodeEntities = (str) => { const t = document.createElement('textarea'); t.innerHTML = str; return t.value; };
+            // Build the real HTML first (so lists, tables, code cards and charts keep their structure),
+            // then reveal the text inside it word by word.
+            el.innerHTML = html;
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            const nodes = [];
+            let n;
+            while ((n = walker.nextNode())) { if (n.textContent.length) nodes.push([n, n.textContent]); }
+            let totalWords = 0;
+            nodes.forEach(([node, full]) => { totalWords += full.split(/\s+/).length; node.textContent = ''; });
+            const perTick = Math.max(1, Math.ceil(totalWords / 250));   // long answers reveal faster
             let i = 0;
             function step() {
-                if (i >= tokens.length) return;
-                const token = tokens[i];
-                if (token[0] === '<') {
-                    el.insertAdjacentHTML('beforeend', token);
-                    i++;
-                    step();
-                    return;
-                }
-                const words = decodeEntities(token).split(/(\s+)/);   // &#39; -> '
-                let wi = 0;
-                const textNode = document.createTextNode('');
-                el.appendChild(textNode);
-                (function stepWord() {
-                    if (wi >= words.length) { i++; step(); return; }
-                    textNode.textContent += words[wi];
-                    wi++;
+                if (i >= nodes.length) return;
+                const [node, full] = nodes[i];
+                const parts = full.split(/(\s+)/);
+                let pi = 0;
+                (function tick() {
+                    if (pi >= parts.length) { i++; step(); return; }
+                    let chunk = '';
+                    for (let k = 0; k < perTick * 2 && pi < parts.length; k++) chunk += parts[pi++];
+                    node.textContent += chunk;
                     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
-                    setTimeout(stepWord, speedMs);
+                    setTimeout(tick, speedMs);
                 })();
             }
             step();
@@ -2932,6 +2969,8 @@ builtins.input = _input_override
                         } else if (msg.type === 'interrupted') {
                             stopLivePlayback();
                             setCallStatus('listening', 'Listening...');
+                        } else if (msg.type === 'transcript') {
+                            showCallCaption(msg);
                         } else if (msg.type === 'turn_complete') {
                             setCallStatus('listening', 'Listening...');
                         }
@@ -3043,7 +3082,26 @@ builtins.input = _input_override
             }
         }
 
+        function showCallCaption(msg) {
+            const el = document.getElementById('call-transcript');
+            if (!el) return;
+            const t = String(msg.text || '').trim();
+            el.innerText = (msg.role === 'user' ? 'You: ' : 'Ranen: ') + (t.length > 180 ? '...' + t.slice(-180) : t);
+        }
+
         function endCallMode() {
+            const wasActive = callActive;
+            const before = allSessions.length;
+            _endCallModeInner();
+            if (wasActive) {
+                setTimeout(async () => {
+                    await fetchSessions();
+                    if (allSessions.length > before && window.RX) RX.toast('Call saved to your chats');
+                }, 2500);
+            }
+        }
+
+        function _endCallModeInner() {
             callActive = false;
             callMuted = false;
 
@@ -3251,6 +3309,8 @@ builtins.input = _input_override
                     mermaidExtracted += content + "\n\n";
                 } else if (lang === 'security' || lang === 'bash' || lang === 'nmap' || lang === 'sh') {
                     securityExtracted += content + "\n\n";
+                } else if (lang === 'chart') {
+                    // charts are drawn inside the chat, not in the code panel
                 } else {
                     codeBlocks.push({ lang: lang, content: content });
                 }
@@ -3476,7 +3536,7 @@ builtins.input = _input_override
         };
     </script>
 
-<!-- ===== RANEN UPGRADE: paste this WHOLE block in index.html, right before </body> ===== -->
+<!-- ===== RANEN UPGRADE: shiny black theme, topics, Tasks (server-side), Projects, Library ===== -->
 <style>
 /* ---------- shiny black theme (dark mode only) ---------- */
 body:not(.light-mode){
@@ -3642,7 +3702,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     }
   };
 
-  /* ---------- TASKS ---------- */
+  /* ---------- TASKS (now run on the SERVER, even when the app is closed) ---------- */
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const TEMPLATES = [
     { e: '📰', name: 'News updates', prompt: 'Send me a daily roundup of news on topics I care about.', freq: 'daily', time: '08:00' },
@@ -3653,7 +3713,50 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     { e: '🔎', name: 'Find new research', prompt: 'Find new research on topics I care about and summarize it.', freq: 'weekly', dow: 1, time: '09:00' }
   ];
   let tasks = lsGet('ranen_tasks_v1', []);
-  const saveTasks = () => lsSet('ranen_tasks_v1', tasks);
+
+  // The server owns the schedule. Every change is sent to it, and it sends back the real "next run" times.
+  const saveTasks = () => { lsSet('ranen_tasks_v1', tasks); pushTasksToServer(); };
+  async function pushTasksToServer() {
+    try {
+      const r = await fetch('/api/tasks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: tasks, tz_min: new Date().getTimezoneOffset() })
+      });
+      const d = await r.json();
+      if (Array.isArray(d.tasks)) {
+        tasks = d.tasks; lsSet('ranen_tasks_v1', tasks);
+        if (taskPage.classList.contains('open')) renderTasks();
+      }
+    } catch (e) { console.error(e); }
+  }
+  async function loadTasksFromServer() {
+    try {
+      const d = await (await fetch('/api/tasks')).json();
+      if (Array.isArray(d.tasks)) {
+        if (!d.tasks.length && tasks.length) { pushTasksToServer(); }   // first time: move old local tasks to the server
+        else { tasks = d.tasks; lsSet('ranen_tasks_v1', tasks); }
+      }
+    } catch (e) { console.error(e); }
+  }
+  function b64ToU8(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+  // Push notifications: so you get told when a task finishes, even with the app closed
+  async function enablePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return;
+      if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted') return;
+      const k = await (await fetch('/api/push/key')).json();
+      if (!k.key) return;
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(k.key) });
+      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+    } catch (e) { console.error(e); }
+  }
+
   const taskPage = makePage('rx-tasks', 'Tasks',
     '<form class="rx-bar" id="rx-task-form"><input id="rx-task-in" placeholder="Create a task" autocomplete="off"><button type="submit" aria-label="Create"><i class="fa-solid fa-arrow-up"></i></button></form>');
   taskPage.querySelector('#rx-task-form').addEventListener('submit', e => {
@@ -3693,7 +3796,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     }
     h += '<div class="rx-sec">Ideas</div>' + TEMPLATES.map((t, i) =>
       '<div class="rx-card dashed" data-act="t-tpl" data-i="' + i + '"><div class="rx-row"><div class="rx-card-t">' + t.e + ' ' + esc(t.name) + '</div><i class="fa-solid fa-plus"></i></div><div class="rx-sub">' + esc(t.prompt) + '</div></div>').join('');
-    h += '<p class="rx-note">Tasks run while Ranen is open in your browser or installed app. When one finishes you get a notification and the result is saved as a new chat. Closing the app pauses them; they catch up the next time you open it.</p>';
+    h += '<p class="rx-note">Tasks run on the Ranen server, even when the app is closed. When one finishes you get a notification (if you allowed it) and the result appears as a new chat.</p>';
     taskPage.querySelector('.rx-body').innerHTML = h;
   }
   function openTaskForm(t) {
@@ -3731,9 +3834,9 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     if (t.freq === 'once' && t.next <= Date.now()) { toast('Pick a time in the future'); return; }
     if (old) tasks[tasks.indexOf(old)] = t; else tasks.unshift(t);
     saveTasks();
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
-    closeSheet(); renderTasks(); toast('Task saved');
+    closeSheet(); renderTasks(); toast('Task saved'); enablePush();
   }
+  // "Run now" still runs in the browser so you see the result right away
   async function runTask(t) {
     try {
       const r = await fetch('/api/new-session', { method: 'POST' }); const d = await r.json();
@@ -3741,31 +3844,13 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
       fd.append('session_id', d.session_id); fd.append('message', t.prompt); fd.append('model_choice', activeModelValue);
       const res = await fetch('/api/chat', { method: 'POST', body: fd }); await res.json();
       await fetchSessions();
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        try { new Notification('Ranen — ' + t.name, { body: 'Your task finished. Open Ranen to read it.' }); } catch (e) {}
-      }
       toast('✅ ' + t.name + ' is ready — tap to open', () => { loadSession(d.session_id, t.name); });
     } catch (e) { toast('Task failed: ' + e.message); }
   }
-  let taskRunning = false;
-  async function runDueTasks() {
-    if (taskRunning) return; taskRunning = true;
-    try {
-      const now = Date.now();
-      const due = tasks.filter(t => t.on && t.next && t.next <= now);
-      if (!due.length) return;
-      due.forEach(t => { t.last = now; if (t.freq === 'once') { t.on = false; t.next = 0; } else t.next = nextRun(t, now); });
-      saveTasks(); if (taskPage.classList.contains('open')) renderTasks();
-      for (const t of due) await runTask(t);
-    } finally { taskRunning = false; }
-  }
-  setInterval(runDueTasks, 30000);
-  setTimeout(runDueTasks, 4000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) runDueTasks(); });
 
   /* ---------- PROJECTS ---------- */
   let projects = lsGet('ranen_projects_v1', []);
-  const saveProjects = () => lsSet('ranen_projects_v1', projects);
+  const saveProjects = () => { lsSet('ranen_projects_v1', projects); syncPush('projects', projects); };
   let pView = null, projectPromptOn = false;
   const projPage = makePage('rx-projects', 'Projects',
     '<div class="rx-bar" id="rx-p-bar"><i class="fa-solid fa-magnifying-glass s"></i><input id="rx-p-q" placeholder="Search" autocomplete="off"></div>');
@@ -3827,6 +3912,27 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
   /* ---------- LIBRARY ---------- */
   let assets = [], libTab = 'suggested', libFolder = null, libQ = '';
   let favs = lsGet('ranen_lib_fav', []), folders = lsGet('ranen_lib_folders', {});
+  // Projects, favorites and folders now follow your account (they used to live only in this browser)
+  function syncPush(key, value) {
+    fetch('/api/sync/' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: value }) }).catch(() => {});
+  }
+  const saveFavs = () => { lsSet('ranen_lib_fav', favs); syncPush('lib_favs', favs); };
+  const saveFolders = () => { lsSet('ranen_lib_folders', folders); syncPush('lib_folders', folders); };
+  async function pullSync() {
+    try {
+      const get = k => fetch('/api/sync/' + k).then(r => r.json()).catch(() => null);
+      const [p, f, fo] = await Promise.all([get('projects'), get('lib_favs'), get('lib_folders')]);
+      if (p && Array.isArray(p.value)) {
+        if (p.value.length || !projects.length) { projects = p.value; lsSet('ranen_projects_v1', projects); } else syncPush('projects', projects);
+      }
+      if (f && Array.isArray(f.value)) {
+        if (f.value.length || !favs.length) { favs = f.value; lsSet('ranen_lib_fav', favs); } else syncPush('lib_favs', favs);
+      }
+      if (fo && fo.value && typeof fo.value === 'object' && !Array.isArray(fo.value)) {
+        if (Object.keys(fo.value).length || !Object.keys(folders).length) { folders = fo.value; lsSet('ranen_lib_folders', folders); } else syncPush('lib_folders', folders);
+      }
+    } catch (e) { console.error(e); }
+  }
   const libPage = makePage('rx-library', 'Library',
     '<div style="display:flex;gap:10px"><div class="rx-bar" style="flex:1"><i class="fa-solid fa-magnifying-glass s"></i><input id="rx-lib-q" placeholder="Search library" autocomplete="off"></div><button class="rx-round" data-act="l-upload" aria-label="Add file"><i class="fa-solid fa-plus"></i></button></div>');
   libPage.querySelector('.rx-right').innerHTML = '<button class="rx-round" data-act="l-menu" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>';
@@ -3877,9 +3983,9 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
 
   /* ---------- one click handler for everything ---------- */
   const ACTS = {
-    openTasks() { renderTasks(); openPage('rx-tasks'); },
-    openProjects() { pView = null; renderProjects(); openPage('rx-projects'); },
-    async openLibrary() { libTab = 'suggested'; libFolder = null; libQ = ''; $('rx-lib-q').value = ''; openPage('rx-library'); libPage.querySelector('.rx-body').innerHTML = '<p class="rx-sub" style="margin:20px">Loading...</p>'; await loadAssets(); renderLibrary(); },
+    async openTasks() { await loadTasksFromServer(); renderTasks(); openPage('rx-tasks'); },
+    async openProjects() { pView = null; await pullSync(); renderProjects(); openPage('rx-projects'); },
+    async openLibrary() { await pullSync(); libTab = 'suggested'; libFolder = null; libQ = ''; $('rx-lib-q').value = ''; openPage('rx-library'); libPage.querySelector('.rx-body').innerHTML = '<p class="rx-sub" style="margin:20px">Loading...</p>'; await loadAssets(); renderLibrary(); },
     's-close': closeSheet,
     topic(b) { sendPrompt(b.dataset.prompt); },
     // tasks
@@ -3936,7 +4042,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     'l-tab'(b) { libTab = b.dataset.t; libFolder = null; renderLibrary(); },
     'l-newfolder'() {
       const n = prompt('Folder name?'); if (!n || !n.trim()) return;
-      folders[n.trim()] = folders[n.trim()] || []; lsSet('ranen_lib_folders', folders); renderLibrary();
+      folders[n.trim()] = folders[n.trim()] || []; saveFolders(); renderLibrary();
     },
     'l-folderopen'(b) { libFolder = b.dataset.f; renderLibrary(); },
     'l-open'(b) {
@@ -3951,7 +4057,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     },
     'l-fav'(b) {
       const id = b.dataset.id; favs = favs.includes(id) ? favs.filter(x => x !== id) : favs.concat(id);
-      lsSet('ranen_lib_fav', favs); closeSheet(); renderLibrary();
+      saveFavs(); closeSheet(); renderLibrary();
     },
     'l-folder'(b) {
       const names = Object.keys(folders);
@@ -3962,12 +4068,12 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
     'l-tofolder'(b) {
       const f = b.dataset.f; folders[f] = folders[f] || [];
       if (!folders[f].includes(b.dataset.id)) folders[f].push(b.dataset.id);
-      lsSet('ranen_lib_folders', folders); closeSheet(); toast('Added to ' + f);
+      saveFolders(); closeSheet(); toast('Added to ' + f);
     },
     'l-newfor'(b) {
       const n = prompt('Folder name?'); if (!n || !n.trim()) return;
       const f = n.trim(); folders[f] = folders[f] || []; if (!folders[f].includes(b.dataset.id)) folders[f].push(b.dataset.id);
-      lsSet('ranen_lib_folders', folders); closeSheet(); renderLibrary(); toast('Added to ' + f);
+      saveFolders(); closeSheet(); renderLibrary(); toast('Added to ' + f);
     },
     async 'l-use'(b) {
       const a = assets.find(x => aid(x) === b.dataset.id); if (!a) return;
@@ -3995,6 +4101,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeAllPages(); } });
   window.RX = { sheet, closeSheet, toast, makePage, openPage, closePage, closeAllPages, ACTS };
+  setTimeout(pullSync, 1200);
 })();
 </script>
 <!-- ===== END RANEN UPGRADE ===== -->
@@ -4037,7 +4144,7 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
       '<button class="rx-btn" data-act="u-save-ci">Save</button></div>' +
 
       '<div class="rx-card" style="cursor:default"><div class="rx-row"><div><div class="rx-card-t">Memory</div>' +
-      '<div class="rx-sub">Ranen remembers what you tell it. Try: "Remember that I study cybersecurity".</div></div>' +
+      '<div class="rx-sub">Ranen remembers what you tell it, and picks up lasting facts you share about yourself. Try: "Remember that I study cybersecurity".</div></div>' +
       '<div class="rx-switch ' + (S.memory_enabled ? 'on' : '') + '" data-act="u-toggle-mem"></div></div>' +
       (S.memories.length ? S.memories.map(m => '<div class="rx-mem"><span>' + esc(m.text) + '</span><button data-act="u-del-mem" data-id="' + esc(m.id) + '" aria-label="Forget"><i class="fa-solid fa-xmark"></i></button></div>').join('')
         : '<div class="rx-sub" style="margin-top:10px">Nothing saved yet.</div>') +
@@ -4164,6 +4271,405 @@ body:not(.light-mode) .rx-field{color-scheme:dark}
 })();
 </script>
 <!-- ===== END RANEN UPGRADE 2 ===== -->
+
+
+<!-- ===== RANEN UPGRADE 3: BOLD interface, glitch fixes, Graphics Studio, Security Lab, charts, Deep research ===== -->
+<style>
+/* ================= GLITCH FIXES ================= */
+.no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}
+.no-scrollbar::-webkit-scrollbar{display:none}
+
+/* The send button used to be pushed OUTSIDE the box on phones: the tool buttons now scroll sideways
+   inside their own row, and the bell + send button can never shrink or leave the box. */
+#tool-bar{gap:10px;align-items:center;min-width:0}
+#tool-bar > div:first-child{flex:1 1 auto;min-width:0;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#tool-bar > div:first-child::-webkit-scrollbar{display:none}
+#tool-bar > div:first-child > *{flex-shrink:0}
+#tool-bar > div:last-child{flex-shrink:0}
+#chat-form{max-width:100%;min-width:0}
+#composer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+#user-input{line-height:1.5;min-height:28px;max-height:160px;overflow-y:auto}
+#messages-container{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* iPhones zoom the whole page when a field's text is smaller than 16px */
+@media (max-width:768px){ #user-input,#chat-search,.rx-field,.rx-bar input,input,textarea{font-size:16px !important} }
+
+/* ================= BOLD INTERFACE ================= */
+:root{
+  --bold-a:#7c5cff; --bold-b:#00e5ff; --bold-c:#ff3d9a;
+  --bold-grad:linear-gradient(135deg,#7c5cff 0%,#00e5ff 55%,#ff3d9a 100%);
+}
+body{font-weight:600;letter-spacing:-.01em}
+body header{border-bottom:2px solid var(--border-color) !important;min-height:64px}
+body .ranen-shining{font-size:1.7rem !important;font-weight:900 !important;letter-spacing:-1px !important}
+
+/* sidebar */
+body .sidebar button span.font-medium, body .sidebar h3{font-weight:900 !important}
+body .sidebar button{border-radius:16px}
+body .active-session, body.light-mode .active-session{background:var(--bold-grad) !important;color:#fff !important;font-weight:900 !important;box-shadow:0 8px 24px rgba(124,92,255,.4)}
+
+/* the message box */
+body .input-box{border:2px solid var(--border-glow) !important;border-radius:28px !important}
+body .input-box:focus-within{border-color:var(--bold-b) !important;box-shadow:0 0 0 4px rgba(0,229,255,.16),0 12px 44px rgba(124,92,255,.28) !important}
+#user-input{font-size:1.02rem !important;font-weight:700 !important}
+body #send-btn{width:46px !important;height:46px !important;background:var(--bold-grad) !important;color:#fff !important;border:0 !important;box-shadow:0 6px 22px rgba(124,92,255,.55) !important;animation:none !important;flex-shrink:0}
+body #send-btn:hover{transform:translateY(-2px) scale(1.04)}
+body #send-btn:active{transform:scale(.92)}
+#tool-bar button, #tool-bar label{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem}
+#tool-bar #current-model-label{font-weight:800}
+#deep-btn.deep-on{background:var(--bold-grad) !important;color:#fff !important;border-color:transparent !important;box-shadow:0 4px 16px rgba(124,92,255,.5)}
+
+/* messages */
+html:not([style*="--user-bubble-bg"]) body .user-msg, html:not([style*="--user-bubble-bg"]) body.light-mode .user-msg{
+  background:var(--bold-grad) !important;color:#fff !important;border:0 !important;font-weight:800 !important;font-size:1rem !important;box-shadow:0 10px 30px rgba(124,92,255,.38) !important}
+html:not([style*="--user-bubble-bg"]) body .user-msg *{color:#fff !important}
+body .assistant-content{font-size:1rem !important;font-weight:700}
+body .assistant-content h1, body .assistant-content h2, body .assistant-content h3{font-weight:900 !important}
+body .assistant-avatar{border:2px solid var(--bold-b) !important;box-shadow:0 0 18px rgba(0,229,255,.35) !important}
+body .code-card{border:2px solid var(--border-glow);font-weight:800}
+body .code-card:hover{border-color:var(--bold-b)}
+body .model-card{border:2px solid transparent !important}
+body .model-card.active{border-color:var(--bold-b) !important}
+
+/* welcome screen + pages */
+.rx-welcome h2{font-weight:900 !important;font-size:clamp(2rem,8vw,3.1rem) !important;line-height:1.05;background:var(--bold-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.rx-topic{font-weight:800;border:2px solid var(--border-color);margin-bottom:8px;border-radius:18px;padding:16px 14px}
+.rx-topic:hover{border-color:var(--bold-b)}
+.rx-title{font-weight:900;font-size:1.3rem}
+.rx-card{border-width:2px}
+.rx-btn{font-weight:900}
+.rx-btn:not(.ghost){background:var(--bold-grad);color:#fff}
+.rx-chip.on{background:var(--bold-grad);color:#fff}
+.rx-chip{font-weight:800}
+.rx-round{border-width:2px}
+
+/* charts */
+.chart-card{border:2px solid var(--border-color);border-radius:20px;padding:14px;margin:12px 0;background:var(--bg-card);max-width:600px}
+.chart-card canvas{max-height:320px;width:100% !important}
+.chart-title{font-weight:900;font-size:.95rem;margin-bottom:8px;color:var(--text-main)}
+.chart-actions{display:flex;gap:8px;margin-top:10px}
+.chart-actions button{font-size:.78rem;font-weight:800;padding:7px 14px;border-radius:999px;border:2px solid var(--border-color);color:var(--text-main)}
+.chart-actions button:hover{border-color:var(--bold-b)}
+
+/* security lab bits */
+.sec-bar{height:10px;border-radius:999px;background:var(--bg-card-hover);overflow:hidden;margin:10px 0}
+.sec-bar i{display:block;height:100%;border-radius:999px;transition:width .25s,background .25s}
+.sec-pill{font-size:.72rem;font-weight:900;padding:4px 10px;border-radius:999px;color:#fff}
+.sec-row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:.88rem}
+.sec-row:last-child{border-bottom:0}
+.sec-ico{font-size:1.1rem;flex-shrink:0;width:22px;text-align:center}
+.sec-adv{color:var(--text-muted);font-size:.8rem;margin-top:2px;word-break:break-word}
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const RX = window.RX;
+  if (!RX) return;
+  const $ = id => document.getElementById(id);
+  const esc = s => escapeHtml(s);
+  const ACTS = RX.ACTS;
+  const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  function sendPrompt(t) { RX.closeAllPages(); $('user-input').value = t; sendMessage(new Event('submit')); }
+
+  /* ================= COMPOSER: auto-grow + Enter to send ================= */
+  const ta = $('user-input');
+  window.RXgrow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; };
+  ta.addEventListener('input', window.RXgrow);
+  ta.addEventListener('focus', window.RXgrow);
+  ta.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    if (!window.matchMedia('(pointer:fine)').matches) return;   // phones: Enter = new line, the button sends
+    if (e.ctrlKey || e.metaKey) return;                          // Ctrl/Cmd+Enter is the global shortcut
+    e.preventDefault();
+    sendMessage(new Event('submit'));
+  });
+
+  /* ================= DEEP RESEARCH TOGGLE ================= */
+  window.RXDeep = { on: false };
+  window.toggleDeep = function () {
+    RXDeep.on = !RXDeep.on;
+    const b = $('deep-btn'); if (b) b.classList.toggle('deep-on', RXDeep.on);
+    RX.toast(RXDeep.on ? 'Deep research ON: searches several angles and reads pages. Slower, uses 3 messages.' : 'Deep research off');
+  };
+
+  /* ================= CHARTS IN CHAT ================= */
+  (function () {
+    const PALETTE = ['#7c5cff', '#00e5ff', '#ff3d9a', '#ffb020', '#2ee6a6', '#ff6b4a', '#4d8bff', '#c06bff'];
+    const TYPES = ['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'];
+    const firstSeen = new WeakMap();
+    function setText(el, msg) { if (el && el.textContent !== msg) el.textContent = msg; }   // only when changed, so the observer can't loop
+    function build(card) {
+      if (card.dataset.ready) return;
+      const titleEl = card.querySelector('.chart-title');
+      let cfg;
+      try { cfg = JSON.parse(card.dataset.chart); }
+      catch (e) {
+        const t0 = firstSeen.get(card) || Date.now(); firstSeen.set(card, t0);
+        setText(titleEl, Date.now() - t0 > 6000 ? 'Chart data was incomplete.' : 'Building chart...');
+        return;
+      }
+      if (typeof Chart === 'undefined') { setText(titleEl, 'The chart library failed to load.'); return; }
+      const type = TYPES.includes(cfg.type) ? cfg.type : 'bar';
+      const labels = (Array.isArray(cfg.labels) ? cfg.labels : []).slice(0, 200).map(String);
+      const sets = (Array.isArray(cfg.datasets) ? cfg.datasets : []).slice(0, 8).map((d, i) => ({
+        label: String((d && d.label) || ('Series ' + (i + 1))),
+        data: (Array.isArray(d && d.data) ? d.data : []).slice(0, 200).map(Number)
+      }));
+      if (!labels.length || !sets.length) { setText(titleEl, 'Chart data was incomplete.'); return; }
+      const multi = ['pie', 'doughnut', 'polarArea'].includes(type);
+      sets.forEach((s, i) => {
+        if (multi) { s.backgroundColor = labels.map((_, k) => PALETTE[k % PALETTE.length]); s.borderWidth = 2; }
+        else if (type === 'line' || type === 'radar') { s.borderColor = PALETTE[i % PALETTE.length]; s.backgroundColor = PALETTE[i % PALETTE.length] + '33'; s.borderWidth = 3; s.tension = 0.35; s.pointRadius = 4; s.fill = type === 'radar'; }
+        else { s.backgroundColor = PALETTE[i % PALETTE.length]; s.borderRadius = 8; }
+      });
+      const txt = (getComputedStyle(document.body).getPropertyValue('--text-main') || '#999').trim() || '#999';
+      const grid = 'rgba(128,128,128,.25)';
+      card.dataset.ready = '1';
+      setText(titleEl, String(cfg.title || ''));
+      new Chart(card.querySelector('canvas'), {
+        type: type,
+        data: { labels: labels, datasets: sets },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: { legend: { labels: { color: txt, font: { weight: 'bold' } } } },
+          scales: (multi || type === 'radar') ? undefined : {
+            x: { ticks: { color: txt }, grid: { color: grid } },
+            y: { ticks: { color: txt }, grid: { color: grid }, beginAtZero: true }
+          }
+        }
+      });
+    }
+    function scan() { document.querySelectorAll('.chart-card:not([data-ready])').forEach(build); }
+    new MutationObserver(scan).observe($('messages-container'), { childList: true, subtree: true });
+    window.downloadChart = function (btn) {
+      const card = btn.closest('.chart-card'); const c = card && card.querySelector('canvas'); if (!c) return;
+      const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
+      const x = out.getContext('2d');
+      x.fillStyle = document.body.classList.contains('light-mode') ? '#ffffff' : '#0b0b0c';
+      x.fillRect(0, 0, out.width, out.height); x.drawImage(c, 0, 0);
+      const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = 'ranen-chart.png';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+  })();
+
+  /* ================= GRAPHICS STUDIO ================= */
+  const STYLES = [['none', '✨ None'], ['realistic', '📷 Realistic'], ['anime', '🌸 Anime'], ['logo', '🏷️ Logo'], ['3d', '🧊 3D'], ['sketch', '✏️ Sketch'], ['neon', '🌃 Neon']];
+  const SIZES = [['square', '⬛ Square'], ['portrait', '📱 Portrait'], ['landscape', '🖥️ Landscape']];
+  let stStyle = 'none', stSize = 'square', stLast = null, stPromptVal = '';
+  const stPage = RX.makePage('rx-studio', 'Graphics Studio', '');
+
+  function stBuild() {
+    if ($('st-prompt')) stPromptVal = $('st-prompt').value;
+    const chips = (list, cur, act) => '<div class="rx-tabs">' + list.map(x => '<button class="rx-chip ' + (cur === x[0] ? 'on' : '') + '" data-act="' + act + '" data-v="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>';
+    stPage.querySelector('.rx-body').innerHTML =
+      '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Describe your image</div>' +
+      '<textarea id="st-prompt" class="rx-field" rows="3" maxlength="500" style="margin-top:10px" placeholder="e.g. A glowing lion made of galaxies, cinematic lighting">' + esc(stPromptVal) + '</textarea>' +
+      '<div class="rx-label">Style</div>' + chips(STYLES, stStyle, 'st-style') +
+      '<div class="rx-label">Size</div>' + chips(SIZES, stSize, 'st-size') +
+      '<button class="rx-btn" id="st-go" data-act="st-gen" style="width:100%;margin-top:6px">⚡ Generate</button></div>' +
+      '<div id="st-result"></div><div class="rx-sec">Your creations</div><div id="st-gallery"><p class="rx-sub">Loading...</p></div>';
+    if (stLast) stShowResult(stLast);
+    stGallery();
+  }
+  function stShowResult(d) {
+    const r = $('st-result'); if (!r) return;
+    r.innerHTML = '<div class="rx-view"><img src="' + safeUrl(d.url, false) + '" alt=""></div><div class="rx-actions" style="margin-bottom:14px">' +
+      '<a class="rx-btn" href="' + safeUrl(d.url, false) + '" download="' + esc(d.name) + '">⬇ Download</a>' +
+      '<button class="rx-btn ghost" data-act="st-regen" data-name="' + esc(d.name) + '">🔄 Regenerate</button>' +
+      '<button class="rx-btn ghost" data-act="st-use" data-url="' + esc(d.url) + '" data-name="' + esc(d.name) + '">📎 Use in chat</button></div>';
+  }
+  async function stGallery() {
+    const g = $('st-gallery'); if (!g) return;
+    try {
+      const list = await (await fetch('/api/assets')).json();
+      const mine = (Array.isArray(list) ? list : []).filter(a => String(a.file_name || '').startsWith('gen_'));
+      g.innerHTML = mine.length ? '<div class="rx-grid">' + mine.map(a =>
+        '<div class="rx-tile" data-act="st-open" data-name="' + esc(a.file_name) + '" data-url="' + esc(a.file_path) + '"><img src="' + safeUrl(a.file_path, false) + '" loading="lazy" alt=""></div>').join('') + '</div>'
+        : '<p class="rx-sub">Nothing yet. Your generated images will show up here.</p>';
+    } catch (e) { g.innerHTML = '<p class="rx-sub">Could not load your creations.</p>'; }
+  }
+  async function stGen() {
+    const prompt = (($('st-prompt') || {}).value || '').trim(); stPromptVal = prompt;
+    if (!prompt) { RX.toast('Describe the image first'); return; }
+    let btn = $('st-go'); if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+    $('st-result').innerHTML = '<div class="rx-card" style="cursor:default"><div class="rx-sub" style="margin:0">🎨 Creating your image... this can take up to a minute.</div></div>';
+    try {
+      const fd = new FormData(); fd.append('prompt', prompt); fd.append('style', stStyle); fd.append('size', stSize);
+      const r = await fetch('/api/studio/generate', { method: 'POST', body: fd });
+      let d = {}; try { d = await r.json(); } catch (e) {}
+      if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+      const pm = lsGet('ranen_studio_prompts', {}); pm[d.name] = { prompt: prompt, style: stStyle, size: stSize }; lsSet('ranen_studio_prompts', pm);
+      stLast = d; stShowResult(d); stGallery();
+    } catch (e) { const rs = $('st-result'); if (rs) rs.innerHTML = ''; RX.toast(e.message); }
+    finally { btn = $('st-go'); if (btn) { btn.disabled = false; btn.textContent = '⚡ Generate'; } }
+  }
+
+  /* ================= SECURITY LAB ================= */
+  let secTab = 'cve';
+  const secPage = RX.makePage('rx-sec', 'Security Lab', '');
+  const SEC_TABS = [['cve', '🔎 CVE lookup'], ['headers', '🛡️ Headers'], ['pw', '🔑 Password'], ['hash', '#️⃣ Hash ID']];
+  function secBuild() {
+    let h = '<div class="rx-tabs">' + SEC_TABS.map(t => '<button class="rx-chip ' + (secTab === t[0] ? 'on' : '') + '" data-act="sec-tab" data-t="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
+    if (secTab === 'cve') {
+      h += '<div class="rx-card" style="cursor:default"><div class="rx-card-t">CVE lookup</div><div class="rx-sub">Search the US National Vulnerability Database by CVE ID (like CVE-2024-3094) or a keyword (like "openssh").</div>' +
+        '<div class="rx-bar" style="margin-top:12px"><input id="sec-cve-in" placeholder="CVE-2024-3094 or keyword" autocomplete="off"><button data-act="sec-cve" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button></div></div><div id="sec-out"></div>';
+    } else if (secTab === 'headers') {
+      h += '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Security headers checker</div><div class="rx-sub">Checks how well a website protects its visitors (HTTPS, HSTS, CSP, cookies and more). <b>Only scan websites you own or have permission to test.</b></div>' +
+        '<div class="rx-bar" style="margin-top:12px"><input id="sec-hdr-in" placeholder="https://your-site.com" autocomplete="off" inputmode="url"><button data-act="sec-hdr" aria-label="Scan"><i class="fa-solid fa-shield-halved"></i></button></div></div><div id="sec-out"></div>';
+    } else if (secTab === 'pw') {
+      h += '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Password strength</div><div class="rx-sub">Checked inside your browser only. The password is never sent anywhere.</div>' +
+        '<input id="sec-pw-in" class="rx-field" style="margin-top:12px" placeholder="Type a password to test" autocomplete="off" spellcheck="false"><div id="sec-pw-out"></div></div>';
+    } else {
+      h += '<div class="rx-card" style="cursor:default"><div class="rx-card-t">Hash identifier</div><div class="rx-sub">Paste a hash to see which algorithm it most likely is. This is a best guess from its format, and it runs in your browser.</div>' +
+        '<textarea id="sec-hash-in" class="rx-field" rows="3" style="margin-top:12px" placeholder="e.g. 5f4dcc3b5aa765d61d8327deb882cf99" spellcheck="false"></textarea><div id="sec-hash-out"></div></div>';
+    }
+    secPage.querySelector('.rx-body').innerHTML = h;
+  }
+  const sevColor = s => ({ CRITICAL: '#dc2626', HIGH: '#ea580c', MEDIUM: '#d97706', LOW: '#16a34a' }[String(s || '').toUpperCase()] || '#64748b');
+  async function secCve() {
+    const q = ($('sec-cve-in').value || '').trim(); if (!q) return;
+    const out = $('sec-out'); out.innerHTML = '<p class="rx-sub" style="margin:14px 4px">Searching...</p>';
+    try {
+      const r = await fetch('/api/sec/cve?q=' + encodeURIComponent(q)); const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+      if (!d.items.length) { out.innerHTML = '<p class="rx-sub" style="margin:14px 4px">No results found.</p>'; return; }
+      out.innerHTML = d.items.map(it =>
+        '<div class="rx-card" style="cursor:default"><div class="rx-row"><div class="rx-card-t">' + esc(it.id) + '</div>' +
+        (it.score != null ? '<span class="sec-pill" style="background:' + sevColor(it.severity) + '">' + esc(String(it.score)) + ' ' + esc(it.severity || '') + '</span>' : '') + '</div>' +
+        '<div class="rx-sub">' + esc(it.summary || 'No description.') + '</div><div class="rx-sub">Published: ' + esc(it.published || 'unknown') + '</div>' +
+        (it.refs || []).map(u => '<div class="rx-sub"><a href="' + safeUrl(u, false) + '" target="_blank" rel="noopener noreferrer" style="color:#60a5fa">' + esc(u.slice(0, 70)) + '</a></div>').join('') +
+        '<div class="rx-mini"><button data-act="sec-explain" data-id="' + esc(it.id) + '">🧠 Explain &amp; how to fix</button></div></div>').join('');
+    } catch (e) { out.innerHTML = '<p class="rx-sub" style="margin:14px 4px">' + esc(e.message) + '</p>'; }
+  }
+  async function secHdr() {
+    const u = ($('sec-hdr-in').value || '').trim(); if (!u) return;
+    const out = $('sec-out'); out.innerHTML = '<p class="rx-sub" style="margin:14px 4px">Scanning...</p>';
+    try {
+      const r = await fetch('/api/sec/headers?url=' + encodeURIComponent(u)); const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+      const col = d.score >= 75 ? '#16a34a' : d.score >= 50 ? '#d97706' : '#dc2626';
+      out.innerHTML = '<div class="rx-card" style="cursor:default"><div class="rx-row"><div><div class="rx-card-t">' + esc(d.url) + '</div><div class="rx-sub" style="margin-top:2px">HTTP ' + esc(String(d.status)) + '</div></div>' +
+        '<div style="text-align:center"><div style="font-size:2rem;font-weight:900;color:' + col + '">' + esc(d.grade) + '</div><div class="rx-sub" style="margin:0">' + esc(String(d.score)) + '/100</div></div></div>' +
+        '<div class="sec-bar"><i style="width:' + Number(d.score) + '%;background:' + col + '"></i></div>' +
+        d.checks.map(c => '<div class="sec-row"><div class="sec-ico">' + (c.ok ? '✅' : '❌') + '</div><div><b>' + esc(c.name) + '</b>' +
+          (c.value ? '<div class="sec-adv">' + esc(c.value) + '</div>' : '') + (!c.ok && c.advice ? '<div class="sec-adv">Fix: ' + esc(c.advice) + '</div>' : '') + '</div></div>').join('') +
+        '<div class="rx-mini"><button data-act="sec-explainhdr" data-url="' + esc(d.url) + '" data-score="' + esc(String(d.score)) + '">🧠 Help me fix these</button></div></div>';
+      secPage._lastHdr = d;
+    } catch (e) { out.innerHTML = '<p class="rx-sub" style="margin:14px 4px">' + esc(e.message) + '</p>'; }
+  }
+  function pwAnalyze(p) {
+    let pool = 0;
+    if (/[a-z]/.test(p)) pool += 26; if (/[A-Z]/.test(p)) pool += 26; if (/\d/.test(p)) pool += 10; if (/[^A-Za-z0-9]/.test(p)) pool += 33;
+    let bits = p.length * Math.log2(pool || 1); const tips = [];
+    const common = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'monkey', 'dragon', 'abc123', '111111', 'login', 'master', 'football', 'princess'];
+    if (common.some(c => p.toLowerCase().includes(c))) { bits *= 0.4; tips.push('Contains a very common word or pattern.'); }
+    if (/(.)\1{2,}/.test(p)) { bits *= 0.8; tips.push('Avoid repeated characters.'); }
+    if (/(0123|1234|2345|3456|4567|5678|6789|abcd|bcde|cdef|qwer|asdf|zxcv)/i.test(p)) { bits *= 0.7; tips.push('Avoid keyboard or number sequences.'); }
+    if (p.length < 12) tips.push('Use at least 12 characters. Longer is better.');
+    if (!(/[a-z]/.test(p) && /[A-Z]/.test(p))) tips.push('Mix upper and lower case.');
+    if (!/\d/.test(p)) tips.push('Add numbers.');
+    if (!/[^A-Za-z0-9]/.test(p)) tips.push('Add symbols.');
+    const secs = Math.pow(2, bits) / 2 / 1e10;   // offline attack on a fast hash, 10 billion guesses a second
+    const T = s => s < 1 ? 'instantly' : s < 60 ? Math.round(s) + ' seconds' : s < 3600 ? Math.round(s / 60) + ' minutes' : s < 86400 ? Math.round(s / 3600) + ' hours' : s < 31536000 ? Math.round(s / 86400) + ' days' : s < 3.15e10 ? Math.round(s / 31536000) + ' years' : 'centuries or more';
+    const lvl = bits < 28 ? ['Very weak', '#dc2626', 12] : bits < 36 ? ['Weak', '#ea580c', 30] : bits < 60 ? ['Fair', '#d97706', 55] : bits < 80 ? ['Strong', '#16a34a', 80] : ['Very strong', '#059669', 100];
+    return { label: lvl[0], color: lvl[1], pct: lvl[2], bits: Math.round(bits), time: T(secs), tips: tips };
+  }
+  function hashGuess(h) {
+    h = (h || '').trim(); if (!h) return null;
+    const out = [], hex = /^[a-f0-9]+$/i.test(h), L = h.length;
+    if (/^\$2[abxy]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(h)) out.push('bcrypt (good for storing passwords)');
+    else if (/^\$argon2(id|i|d)\$/.test(h)) out.push('Argon2 (excellent for storing passwords)');
+    else if (/^\$6\$/.test(h)) out.push('SHA-512 crypt (Linux /etc/shadow)');
+    else if (/^\$5\$/.test(h)) out.push('SHA-256 crypt');
+    else if (/^\$1\$/.test(h)) out.push('MD5 crypt (old and weak)');
+    else if (/^\$apr1\$/.test(h)) out.push('Apache MD5 (apr1)');
+    else if (/^\$[PH]\$/.test(h)) out.push('phpass (WordPress / phpBB)');
+    else if (/^pbkdf2/i.test(h)) out.push('PBKDF2');
+    else if (hex) {
+      const map = { 8: 'CRC32', 16: 'MySQL 3.x or half of an MD5', 32: 'MD5, MD4 or NTLM', 40: 'SHA-1 (or MySQL 5.x)', 56: 'SHA-224', 64: 'SHA-256 (or SHA3-256, BLAKE2s)', 96: 'SHA-384', 128: 'SHA-512 (or SHA3-512, Whirlpool)' };
+      if (map[L]) out.push(map[L] + ' (' + L + ' hex characters)');
+    } else if (/^\{SHA\}[A-Za-z0-9+/=]+$/.test(h)) out.push('Base64 SHA-1 (LDAP style)');
+    return out;
+  }
+
+  /* ================= sidebar buttons ================= */
+  const side = document.querySelector('#left-sidebar .space-y-1.mb-6');
+  if (side) {
+    [['Graphics Studio', 'openStudio'], ['Security Lab', 'openSec']].forEach(x => {
+      const b = document.createElement('button');
+      b.className = 'w-full text-sm py-2.5 px-3 rounded-xl flex items-center justify-between hover:bg-[#2a2a2a] text-gray-200 transition-colors';
+      b.innerHTML = '<span class="font-medium text-[15px]">' + x[0] + '</span><i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>';
+      b.onclick = () => ACTS[x[1]]();
+      side.appendChild(b);
+    });
+  }
+
+  /* ================= actions ================= */
+  secPage.addEventListener('input', e => {
+    if (e.target.id === 'sec-pw-in') {
+      const o = $('sec-pw-out'), v = e.target.value;
+      if (!v) { o.innerHTML = ''; return; }
+      const a = pwAnalyze(v);
+      o.innerHTML = '<div class="rx-row" style="margin-top:12px"><b style="color:' + a.color + ';font-size:1.1rem">' + a.label + '</b><span class="rx-sub" style="margin:0">~' + a.bits + ' bits</span></div>' +
+        '<div class="sec-bar"><i style="width:' + a.pct + '%;background:' + a.color + '"></i></div>' +
+        '<div class="rx-sub">A fast offline attack could crack this in about <b>' + a.time + '</b>.</div>' +
+        (a.tips.length ? '<div class="rx-sub">' + a.tips.map(t => '• ' + esc(t)).join('<br>') + '</div>' : '<div class="rx-sub">Looks solid. A passphrase of 4+ random words is easy to remember and very strong.</div>');
+    } else if (e.target.id === 'sec-hash-in') {
+      const o = $('sec-hash-out'), g = hashGuess(e.target.value);
+      if (g === null) { o.innerHTML = ''; return; }
+      o.innerHTML = g.length ? '<div class="rx-sub" style="margin-top:12px"><b>Most likely:</b><br>' + g.map(x => '• ' + esc(x)).join('<br>') + '</div><div class="rx-sub">Tip: never store passwords with MD5, SHA-1 or plain SHA-256. Use bcrypt or Argon2.</div>'
+        : '<div class="rx-sub" style="margin-top:12px">Could not recognise that format.</div>';
+    }
+  });
+  secPage.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (e.target.id === 'sec-cve-in') { e.preventDefault(); secCve(); }
+    if (e.target.id === 'sec-hdr-in') { e.preventDefault(); secHdr(); }
+  });
+
+  Object.assign(ACTS, {
+    openStudio() { stBuild(); RX.openPage('rx-studio'); },
+    openSec() { secBuild(); RX.openPage('rx-sec'); },
+    'st-style'(b) { stStyle = b.dataset.v; stBuild(); },
+    'st-size'(b) { stSize = b.dataset.v; stBuild(); },
+    'st-gen'() { stGen(); },
+    'st-regen'(b) {
+      RX.closeSheet();
+      const m = lsGet('ranen_studio_prompts', {})[b.dataset.name];
+      if (m) { stStyle = m.style || 'none'; stSize = m.size || 'square'; stPromptVal = m.prompt; stLast = null; stBuild(); stGen(); }
+      else stGen();
+    },
+    async 'st-use'(b) {
+      try {
+        const blob = await (await fetch(b.dataset.url)).blob();
+        addFilesToSelection([new File([blob], b.dataset.name, { type: blob.type })]);
+        RX.closeSheet(); RX.closeAllPages(); RX.toast('Attached. Write a message and send.');
+      } catch (e) { RX.toast('Could not attach that image'); }
+    },
+    'st-open'(b) {
+      const m = lsGet('ranen_studio_prompts', {})[b.dataset.name];
+      RX.sheet('<div class="rx-view"><img src="' + safeUrl(b.dataset.url, false) + '" alt=""></div>' +
+        (m ? '<div class="rx-sub" style="margin:0 0 12px">' + esc(m.prompt) + '</div>' : '') +
+        '<div class="rx-actions"><a class="rx-btn" href="' + safeUrl(b.dataset.url, false) + '" download="' + esc(b.dataset.name) + '">⬇ Download</a>' +
+        '<button class="rx-btn ghost" data-act="st-regen" data-name="' + esc(b.dataset.name) + '">🔄 Regenerate</button>' +
+        '<button class="rx-btn ghost" data-act="st-use" data-url="' + esc(b.dataset.url) + '" data-name="' + esc(b.dataset.name) + '">📎 Use in chat</button></div>');
+    },
+    'sec-tab'(b) { secTab = b.dataset.t; secBuild(); },
+    'sec-cve'() { secCve(); },
+    'sec-hdr'() { secHdr(); },
+    'sec-explain'(b) {
+      sendPrompt('Explain ' + b.dataset.id + ' in simple words: what it affects, how attackers abuse it at a high level, and exactly how to patch or mitigate it. Defensive focus only.');
+    },
+    'sec-explainhdr'(b) {
+      const d = secPage._lastHdr; const failed = d ? d.checks.filter(c => !c.ok).map(c => c.name).join(', ') : '';
+      sendPrompt('I scanned my own website ' + b.dataset.url + ' and got ' + b.dataset.score + '/100 for security headers. These checks failed: ' + (failed || 'none') + '. Show me exactly how to fix each one (give example config for Nginx and for FastAPI).');
+    }
+  });
+})();
+</script>
+<!-- ===== END RANEN UPGRADE 3 ===== -->
+
 
 </body>
 </html>
