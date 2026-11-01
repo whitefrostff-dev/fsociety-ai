@@ -1338,7 +1338,7 @@ async def about_page():
     photo_url = "https://ranen.duckdns.org/nwodili-yaemerie-convenant.jpg"
     has_photo = bool(_find_creator_photo())
     if has_photo:
-        creator_photo_html = ('<img class="profile-photo" src="/nwodili-yaemerie-convenant.jpg" width="96" height="96" '
+        creator_photo_html = ('<img class="profile-photo profile-photo-half" src="/nwodili-yaemerie-convenant.jpg" width="120" height="150" '
                               'alt="Nwodili Yaemerie Convenant, cybersecurity student and web developer from Nigeria, creator of Ranen" '
                               'fetchpriority="high">')
         photo_meta = f'<meta property="og:image" content="{photo_url}">\n    <meta name="twitter:card" content="summary">'
@@ -1450,7 +1450,8 @@ async def about_page():
     {profile_jsonld}
     {LEGAL_PAGE_STYLE}
     <style>
-        .profile-photo {{ width:96px; height:96px; border-radius:20px; object-fit:cover; flex-shrink:0; border:2px solid #334155; }}
+        .profile-photo {{ width:96px; height:96px; border-radius:20px; object-fit:cover; object-position:center 25%; flex-shrink:0; border:2px solid #334155; }}
+        .profile-photo-half {{ width:120px; height:150px; border-radius:22px; object-position:center top; }}
         .profile-header {{ display:flex; align-items:center; gap:16px; margin-bottom:24px; }}
         .profile-avatar {{ width:64px; height:64px; border-radius:16px; background:linear-gradient(135deg,#0f172a,#334155); display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:800; color:#fff; flex-shrink:0; }}
         .fact-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:20px 0; }}
